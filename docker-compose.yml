@@ -44,11 +44,24 @@ services:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://sentinel:sentinel@postgres:5432/sentinelai
       - REDIS_URL=redis://redis:6379
+      - OLLAMA_URL=http://ollama:11434
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  # Self-hosted inference. Reuses the model data downloaded for the former MaaS stack.
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - /opt/maas-gateway/ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   ingestion-worker:
     build:

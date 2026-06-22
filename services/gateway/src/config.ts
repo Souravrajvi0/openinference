@@ -21,9 +21,12 @@ const schema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
 
-  DEFAULT_PROVIDER: z.enum(['openai', 'anthropic', 'groq', 'mistral', 'cerebras', 'gemini']).default('groq'),
+  // Self-hosted inference (Ollama, OpenAI-compatible). No API key needed.
+  OLLAMA_URL: z.string().url().optional(),
+
+  DEFAULT_PROVIDER: z.enum(['openai', 'anthropic', 'groq', 'mistral', 'cerebras', 'gemini', 'ollama']).default('groq'),
   DEFAULT_MODEL: z.string().default('llama-3.3-70b-versatile'),
-  FALLBACK_PROVIDER: z.enum(['openai', 'anthropic', 'groq', 'mistral', 'cerebras', 'gemini']).optional(),
+  FALLBACK_PROVIDER: z.enum(['openai', 'anthropic', 'groq', 'mistral', 'cerebras', 'gemini', 'ollama']).optional(),
   FALLBACK_MODEL: z.string().optional(),
 
   MISTRAL_EMBEDDING_MODEL: z.string().default('mistral-embed'),

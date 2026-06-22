@@ -1,0 +1,1 @@
+{"root":["./src/main.tsx","./src/router.tsx","./src/components/nav.tsx","./src/components/pixelflame.tsx","./src/components/ui/overlay.tsx","./src/components/ui/primitives.tsx","./src/lib/api.ts","./src/lib/theme.ts","./src/lib/utils.ts","./src/routes/admin.tsx","./src/routes/overview.tsx","./src/routes/playground.tsx","./vite.config.ts"],"version":"5.9.3"}

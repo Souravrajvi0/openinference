@@ -9,6 +9,7 @@ interface ApiKeyRow {
   scopes: string[];
   rate_limit_rpm: number;
   rate_limit_tpm: number;
+  plan: string;
 }
 
 declare module 'fastify' {
@@ -17,6 +18,8 @@ declare module 'fastify' {
     apiKeyId: string;
     scopes: string[];
     rateLimitRpm: number;
+    rateLimitTpm: number;
+    plan: string;
   }
   interface FastifyInstance {
     verifyApiKey: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
@@ -34,8 +37,9 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
     const keyHash = createHash('sha256').update(header).digest('hex');
 
     const result = await query<ApiKeyRow>(
-      `SELECT k.id, k.tenant_id, k.scopes, k.rate_limit_rpm, k.rate_limit_tpm
+      `SELECT k.id, k.tenant_id, k.scopes, k.rate_limit_rpm, k.rate_limit_tpm, t.plan
        FROM api_keys k
+       JOIN tenants t ON t.id = k.tenant_id
        WHERE k.key_hash = $1
          AND k.is_active = TRUE
          AND (k.expires_at IS NULL OR k.expires_at > NOW())`,
@@ -52,6 +56,8 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
     request.apiKeyId = key.id;
     request.scopes = key.scopes;
     request.rateLimitRpm = key.rate_limit_rpm;
+    request.rateLimitTpm = key.rate_limit_tpm;
+    request.plan = key.plan;
 
     query('UPDATE api_keys SET last_used_at = NOW() WHERE id = $1', [key.id]).catch(() => {});
   });

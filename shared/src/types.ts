@@ -1,6 +1,6 @@
 // ─── LLM Providers ───────────────────────────────────────────────────────────
 
-export type Provider = 'openai' | 'anthropic' | 'groq' | 'mistral' | 'cerebras' | 'gemini';
+export type Provider = 'openai' | 'anthropic' | 'groq' | 'mistral' | 'cerebras' | 'gemini' | 'ollama';
 
 export type RequestMode = 'chat' | 'rag' | 'agent';
 

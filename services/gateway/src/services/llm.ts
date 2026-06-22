@@ -23,6 +23,10 @@ function openaiCompatClient(provider: ExtendedProvider): OpenAI {
     case 'gemini':
       if (!config.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not set');
       return new OpenAI({ apiKey: config.GEMINI_API_KEY, baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/' });
+    case 'ollama':
+      // Self-hosted, OpenAI-compatible. Ollama ignores the API key but the SDK requires a non-empty string.
+      if (!config.OLLAMA_URL) throw new Error('OLLAMA_URL not set');
+      return new OpenAI({ apiKey: 'ollama', baseURL: `${config.OLLAMA_URL.replace(/\/$/, '')}/v1` });
     default:
       throw new Error(`Unknown provider: ${provider}`);
   }
@@ -125,6 +129,10 @@ const COST_TABLE: Record<string, [number, number]> = {
   'gemini-2.0-flash':           [0.10, 0.40],
   'gemini-1.5-flash':           [0.075, 0.30],
   'gemini-1.5-pro':             [1.25, 5.00],
+  // Self-hosted via Ollama — no per-token cloud cost (plan-based billing handled separately)
+  'gemma3:1b':                  [0, 0],
+  'gemma3:4b':                  [0, 0],
+  'qwen2.5:0.5b':               [0, 0],
 };
 
 export function estimateCost(model: string, promptTokens: number, completionTokens: number): number {

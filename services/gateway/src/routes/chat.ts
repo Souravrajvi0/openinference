@@ -7,6 +7,7 @@ import { requireScope } from '../plugins/auth';
 import { checkGuardrails } from '../services/guardrails';
 import { routeRequest, getAbRoute, getFallbackRoute, estimateTokens } from '../services/router';
 import { callLLM, estimateCost } from '../services/llm';
+import { planAllowsModel, tierForModel } from '../services/plans';
 import { startSpan, endSpan, flushSpans } from '../services/tracer';
 import { query, pool } from '../db/client';
 import { checkSemanticCache, storeInSemanticCache } from '../services/semanticCache';
@@ -23,7 +24,7 @@ import {
   guardrailsTriggeredTotal,
 } from '../services/metricsRegistry';
 
-const PROVIDERS = ['openai', 'anthropic', 'groq', 'mistral', 'cerebras', 'gemini'] as const;
+const PROVIDERS = ['openai', 'anthropic', 'groq', 'mistral', 'cerebras', 'gemini', 'ollama'] as const;
 
 const bodySchema = z.object({
   messages: z.array(z.object({
@@ -125,6 +126,16 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
 
     endSpan(routeSpan, 'ok');
     spans.push(routeSpan);
+
+    // ── 2a. Plan tier gating ──────────────────────────────────────────────
+    // The tenant's plan governs which model tiers its keys may reach.
+    if (!planAllowsModel(request.plan, routeDecision.model)) {
+      flushSpans(spans, request.tenantId, requestId);
+      return reply.status(403).send({
+        error: `Your plan (${request.plan}) cannot access model ${routeDecision.model} (tier: ${tierForModel(routeDecision.model)})`,
+        trace_id: traceId,
+      });
+    }
 
     // ── 2b. Session memory + context guard ────────────────────────────────
     let sessionData: Awaited<ReturnType<typeof loadSession>> | null = null;

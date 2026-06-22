@@ -1,5 +1,8 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import Fastify, { FastifyInstance } from 'fastify';
 import fastifyRateLimit from '@fastify/rate-limit';
+import fastifyStatic from '@fastify/static';
 import fastifySwagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
 import Redis from 'ioredis';
@@ -70,6 +73,19 @@ export async function buildApp(): Promise<FastifyInstance> {
     },
     { prefix: '/v1' }
   );
+
+  // Serve the built SPA (web/dist copied to ./web in the image) when present.
+  // Hash-routed, so only "/" and static assets are requested from the server.
+  const webDir = path.join(process.cwd(), 'web');
+  if (fs.existsSync(path.join(webDir, 'index.html'))) {
+    await app.register(fastifyStatic, { root: webDir, prefix: '/' });
+    app.setNotFoundHandler((req, reply) => {
+      if (req.method === 'GET' && (req.headers.accept ?? '').includes('text/html')) {
+        return reply.sendFile('index.html');
+      }
+      return reply.status(404).send({ error: 'Not found' });
+    });
+  }
 
   return app;
 }

@@ -1,0 +1,134 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * MaaS Gateway — "Lumen" design language.
+ * Brutalist-editorial: monospace, cream/ink, hairline grid, warm flame palette.
+ * All colors in oklch. Light values in :root, dark overrides in .dark.
+ */
+
+@theme inline {
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-sans: var(--font-mono);
+  --radius: 0px;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-cream: var(--cream);
+  --color-ink: var(--ink);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-good: var(--good);
+  --color-bad: var(--bad);
+
+  --color-flame-orange: var(--flame-orange);
+  --color-flame-red: var(--flame-red);
+  --color-flame-deep: var(--flame-deep);
+  --color-flame-bright: var(--flame-bright);
+  --color-flame-amber: var(--flame-amber);
+}
+
+:root {
+  --background: oklch(0.985 0.005 85);
+  --foreground: oklch(0.15 0 0);
+  --cream: oklch(0.985 0.005 85);
+  --ink: oklch(0.15 0 0);
+  --surface: oklch(1 0 0);
+  --muted: oklch(0.955 0.006 85);
+  --muted-foreground: oklch(0.5 0.01 60);
+  --border: oklch(0.88 0.01 80);
+  --border-strong: oklch(0.78 0.015 75);
+  --good: oklch(0.62 0.16 150);
+  --bad: oklch(0.577 0.245 27.325);
+
+  --flame-orange: oklch(0.72 0.2 45);
+  --flame-red: oklch(0.58 0.22 30);
+  --flame-deep: oklch(0.48 0.2 28);
+  --flame-bright: oklch(0.78 0.19 55);
+  --flame-amber: oklch(0.82 0.17 70);
+}
+
+.dark {
+  --background: oklch(0.16 0.004 60);
+  --foreground: oklch(0.92 0.01 85);
+  --cream: oklch(0.16 0.004 60);
+  --ink: oklch(0.92 0.01 85);
+  --surface: oklch(0.21 0.005 60);
+  --muted: oklch(0.24 0.006 60);
+  --muted-foreground: oklch(0.62 0.01 70);
+  --border: oklch(1 0 0 / 12%);
+  --border-strong: oklch(1 0 0 / 20%);
+  --good: oklch(0.7 0.16 150);
+  --bad: oklch(0.7 0.19 22);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    margin: 0;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-mono);
+  }
+  ::selection {
+    background: var(--flame-orange);
+    color: oklch(1 0 0);
+  }
+  /* native range slider in flame */
+  input[type="range"] {
+    accent-color: var(--flame-red);
+  }
+}
+
+/* shimmer for skeletons */
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, var(--muted) 25%, var(--surface) 50%, var(--muted) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+/* fade-in for streamed content / view changes */
+@keyframes fadein {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.fadein { animation: fadein 0.25s ease both; }
+
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0.3; }
+  40% { opacity: 1; }
+}
+
+/* markdown rendering inside assistant messages */
+.md > * { margin: 0; }
+.md > * + * { margin-top: 0.5rem; }
+.md pre {
+  background: var(--muted);
+  border: 1px solid var(--border);
+  padding: 0.75rem;
+  overflow-x: auto;
+  font-size: 12px;
+}
+.md code {
+  background: var(--muted);
+  padding: 1px 5px;
+  font-size: 0.92em;
+}
+.md pre code { background: none; padding: 0; }
+.md ul, .md ol { padding-left: 1.25rem; }
+.md h1, .md h2, .md h3 { font-weight: 600; font-size: 1em; }
+.md a { text-decoration: underline; }
