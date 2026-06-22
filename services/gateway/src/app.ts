@@ -2,12 +2,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Fastify, { FastifyInstance } from 'fastify';
 import fastifyRateLimit from '@fastify/rate-limit';
+import fastifyJwt from '@fastify/jwt';
 import fastifyStatic from '@fastify/static';
 import fastifySwagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
 import Redis from 'ioredis';
 import { config } from './config';
 import authPlugin from './plugins/auth';
+import authRoute from './routes/auth';
 import healthRoute from './routes/health';
 import chatRoute from './routes/chat';
 import retrieveRoute from './routes/retrieve';
@@ -52,11 +54,13 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   await app.register(fastifySwaggerUi, { routePrefix: '/docs' });
+  await app.register(fastifyJwt, { secret: config.JWT_SECRET });
   await app.register(authPlugin);
 
   // Public routes (no auth)
   await app.register(healthRoute);
   await app.register(promMetricsRoute);
+  await app.register(authRoute, { prefix: '/v1/auth' });
 
   // Authenticated routes under /v1
   await app.register(

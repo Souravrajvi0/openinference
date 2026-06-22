@@ -15,7 +15,7 @@ interface ApiKeyRow {
 declare module 'fastify' {
   interface FastifyRequest {
     tenantId: string;
-    apiKeyId: string;
+    apiKeyId: string | null;
     scopes: string[];
     rateLimitRpm: number;
     rateLimitTpm: number;
@@ -28,9 +28,28 @@ declare module 'fastify' {
 
 const authPlugin: FastifyPluginAsync = async (fastify) => {
   fastify.decorate('verifyApiKey', async (request: FastifyRequest, reply: FastifyReply) => {
+    // Web session: accept a JWT (Authorization: Bearer) issued by /v1/auth.
+    const authz = request.headers['authorization'];
+    if (authz && authz.startsWith('Bearer ')) {
+      try {
+        const payload = await request.jwtVerify<{ tenantId: string; scopes?: string[] }>();
+        const t = await query<{ plan: string }>('SELECT plan FROM tenants WHERE id = $1', [payload.tenantId]);
+        request.tenantId = payload.tenantId;
+        request.apiKeyId = null;
+        request.scopes = payload.scopes ?? [];
+        request.rateLimitRpm = 60;
+        request.rateLimitTpm = 100000;
+        request.plan = t.rows[0]?.plan ?? 'free';
+        return;
+      } catch {
+        reply.status(401).send({ error: 'Invalid or expired session' });
+        return;
+      }
+    }
+
     const header = request.headers['x-api-key'] as string | undefined;
     if (!header) {
-      reply.status(401).send({ error: 'Missing X-Api-Key header' });
+      reply.status(401).send({ error: 'Missing X-Api-Key header or Bearer token' });
       return;
     }
 

@@ -1,11 +1,8 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Lock, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import {
   api,
-  getKey,
-  setKey,
-  MODEL_CATALOG,
   type AuditRow,
   type BudgetStatus,
   type CacheStats,
@@ -14,70 +11,26 @@ import {
   type MetricsResponse,
   type RequestRow,
 } from "@/lib/api";
+import { logout, useAuth } from "@/lib/auth";
 import { fmtDate, fmtNum, fmtTime } from "@/lib/utils";
-import { Badge, Button, Card, Input, Kicker, Label, Select } from "@/components/ui/primitives";
+import { Badge, Button, Card, Input, Label, Select } from "@/components/ui/primitives";
 import { Modal } from "@/components/ui/overlay";
+import { AuthScreen } from "@/components/AuthScreen";
 
 const usd = (v: unknown) => "$" + Number(v || 0).toFixed(4);
 const TABS = ["Metrics", "Keys", "Budget", "Experiments", "Cache", "Requests", "Audit"] as const;
 type Tab = (typeof TABS)[number];
 
 export function Admin() {
-  const [authed, setAuthed] = useState<boolean | null>(null);
-  const [keyInput, setKeyInput] = useState("");
+  const { user, loading, setUser } = useAuth();
   const [tab, setTab] = useState<Tab>("Metrics");
 
-  useEffect(() => {
-    if (!getKey()) { setAuthed(false); return; }
-    api("/v1/admin/keys")
-      .then(() => setAuthed(true))
-      .catch(() => setAuthed(false));
-  }, []);
-
-  async function login() {
-    if (!keyInput.trim()) return toast.error("Enter an admin API key");
-    try {
-      await api("/v1/admin/keys", { key: keyInput.trim() });
-      setKey(keyInput.trim());
-      setKeyInput("");
-      setAuthed(true);
-      toast.success("Signed in");
-    } catch (e: any) {
-      toast.error(e.message || "Invalid admin key");
-    }
-  }
-
-  if (authed === null) {
+  if (loading) {
     return <div className="px-6 py-20 text-center text-sm text-muted-foreground">Checking session…</div>;
   }
 
-  if (!authed) {
-    return (
-      <div className="flex min-h-[calc(100vh-57px)] items-center justify-center px-6 py-16">
-        <Card className="w-full max-w-sm">
-          <div className="flex flex-col items-center gap-3 border-b border-border bg-ink px-8 py-8 text-cream">
-            <Lock className="h-6 w-6" />
-            <div className="text-xs uppercase tracking-[0.2em]">OpenInference — Admin</div>
-          </div>
-          <div className="p-8">
-            <h2 className="text-lg font-medium tracking-tight">Admin Console</h2>
-            <p className="mb-6 mt-1 text-xs text-muted-foreground">
-              Enter an API key with the <code className="mono">admin</code> scope.
-            </p>
-            <Label>Admin API key</Label>
-            <Input
-              type="password"
-              value={keyInput}
-              onChange={(e) => setKeyInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && login()}
-              placeholder="X-Api-Key…"
-              autoComplete="off"
-            />
-            <Button className="mt-5 w-full" onClick={login}>Sign in →</Button>
-          </div>
-        </Card>
-      </div>
-    );
+  if (!user) {
+    return <AuthScreen onAuthed={(u) => setUser(u)} />;
   }
 
   return (
@@ -90,9 +43,9 @@ export function Admin() {
         </div>
         <div>
           <div className="text-sm font-medium">Admin Console</div>
-          <div className="text-[11px] text-muted-foreground">Keys · budgets · experiments · cache · traces</div>
+          <div className="text-[11px] text-muted-foreground">{user.email}</div>
         </div>
-        <Button variant="outline" className="ml-auto" onClick={() => { setKey(""); setAuthed(false); }}>Sign out</Button>
+        <Button variant="outline" className="ml-auto" onClick={() => { logout(); setUser(null); }}>Sign out</Button>
       </div>
 
       <div className="mx-auto max-w-6xl px-6 py-6">

@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Copy, Square } from "lucide-react";
-import { getKey, setKey, MODEL_CATALOG, type ChatResponse } from "@/lib/api";
+import { getKey, setKey, getToken, authHeaders, MODEL_CATALOG, type ChatResponse } from "@/lib/api";
 import { fmtTime, mdToHtml } from "@/lib/utils";
 import { Button, Card, Input, Kicker, Label, Select, Textarea } from "@/components/ui/primitives";
 
@@ -54,7 +54,7 @@ export function Playground() {
 
   async function send() {
     const text = prompt.trim();
-    if (!apiKey.trim()) return toast.error("Enter your API key first");
+    if (!apiKey.trim() && !getToken()) return toast.error("Sign in (Admin) or enter an API key first");
     if (!text) return;
 
     const history = [...messages, { role: "user" as const, content: text, ts: Date.now() }];
@@ -76,7 +76,7 @@ export function Playground() {
     try {
       const res = await fetch("/v1/chat", {
         method: "POST",
-        headers: { "x-api-key": apiKey.trim(), "content-type": "application/json" },
+        headers: { ...authHeaders(apiKey.trim()), "content-type": "application/json" },
         signal: ctl.signal,
         body: JSON.stringify(body),
       });

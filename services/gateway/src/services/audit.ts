@@ -5,12 +5,13 @@ export type AuditAction =
   | 'key.created' | 'key.revoked'
   | 'doc.indexed' | 'doc.deleted'
   | 'cache.hit' | 'budget.alert' | 'budget.exceeded'
-  | 'experiment.created' | 'experiment.stopped';
+  | 'experiment.created' | 'experiment.stopped'
+  | 'user.signup';
 
 export interface AuditEntry {
   tenant_id: string;
   actor_type: 'api_key' | 'system' | 'admin';
-  actor_id?: string;
+  actor_id?: string | null;
   action: AuditAction;
   resource_type?: string;
   resource_id?: string;

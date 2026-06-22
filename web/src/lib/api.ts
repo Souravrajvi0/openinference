@@ -2,9 +2,21 @@
 // Same-origin in prod; Vite proxies to :3000 in dev.
 
 const LS_KEY = "sentinel_key";
+const LS_TOKEN = "oi_token";
 
 export const getKey = () => localStorage.getItem(LS_KEY) || "";
 export const setKey = (k: string) => localStorage.setItem(LS_KEY, k.trim());
+export const getToken = () => localStorage.getItem(LS_TOKEN) || "";
+export const setToken = (t: string) => localStorage.setItem(LS_TOKEN, t);
+export const clearToken = () => localStorage.removeItem(LS_TOKEN);
+
+// Prefer a web-session JWT; fall back to a manually entered API key.
+export function authHeaders(explicitKey?: string): Record<string, string> {
+  const token = getToken();
+  if (token) return { authorization: "Bearer " + token };
+  const key = explicitKey ?? getKey();
+  return key ? { "x-api-key": key } : {};
+}
 
 export async function api<T = any>(
   path: string,
@@ -14,7 +26,7 @@ export async function api<T = any>(
   const res = await fetch(path, {
     ...rest,
     headers: {
-      "x-api-key": key ?? getKey(),
+      ...authHeaders(key),
       ...(rest.body ? { "content-type": "application/json" } : {}),
       ...(headers || {}),
     },
