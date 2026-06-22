@@ -7,14 +7,17 @@ import { cn } from "@/lib/utils";
 
 function Logo() {
   return (
-    <Link to="/" className="flex h-8 w-8 items-center justify-center bg-ink text-cream">
-      <svg viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor" aria-label="MaaS">
-        <rect x="1" y="3" width="2" height="10" />
-        <rect x="4" y="6" width="2" height="7" />
-        <rect x="7" y="3" width="2" height="10" />
-        <rect x="10" y="6" width="2" height="7" />
-        <rect x="13" y="3" width="2" height="10" />
-      </svg>
+    <Link to="/" className="flex items-center gap-2.5">
+      <span className="flex h-8 w-8 items-center justify-center bg-ink text-cream">
+        <svg viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor" aria-label="OpenInference">
+          <rect x="1" y="3" width="2" height="10" />
+          <rect x="4" y="6" width="2" height="7" />
+          <rect x="7" y="3" width="2" height="10" />
+          <rect x="10" y="6" width="2" height="7" />
+          <rect x="13" y="3" width="2" height="10" />
+        </svg>
+      </span>
+      <span className="text-sm font-semibold tracking-tight">OpenInference</span>
     </Link>
   );
 }

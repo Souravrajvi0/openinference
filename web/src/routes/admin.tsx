@@ -57,7 +57,7 @@ export function Admin() {
         <Card className="w-full max-w-sm">
           <div className="flex flex-col items-center gap-3 border-b border-border bg-ink px-8 py-8 text-cream">
             <Lock className="h-6 w-6" />
-            <div className="text-xs uppercase tracking-[0.2em]">SentinelAI — Admin</div>
+            <div className="text-xs uppercase tracking-[0.2em]">OpenInference — Admin</div>
           </div>
           <div className="p-8">
             <h2 className="text-lg font-medium tracking-tight">Admin Console</h2>

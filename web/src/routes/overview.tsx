@@ -44,7 +44,7 @@ export function Overview() {
         <aside className="flex flex-col justify-between border-t border-border bg-cream lg:border-l lg:border-t-0">
           <div className="p-8">
             <p className="text-xl leading-snug">
-              SentinelAI routes requests to any LLM, enforces security and budgets, retrieves your
+              OpenInference routes requests to any LLM, enforces security and budgets, retrieves your
               documents, runs agents, and records full traces — one deployable stack.
             </p>
             <div className="mt-8 flex flex-wrap gap-2">
@@ -162,7 +162,7 @@ export function Overview() {
       {/* Footer */}
       <footer className="border-t border-border px-6 py-10">
         <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
-          <div className="text-xs uppercase tracking-[0.2em]">SentinelAI</div>
+          <div className="text-xs uppercase tracking-[0.2em]">OpenInference</div>
           <div className="text-[10px] uppercase tracking-[0.2em] opacity-60">
             Fastify · pgvector · Redis · BullMQ · Prometheus · Ollama
           </div>
