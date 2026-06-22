@@ -130,7 +130,9 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
     // ── 2a. Plan tier gating ──────────────────────────────────────────────
     // The tenant's plan governs which model tiers its keys may reach.
     if (!planAllowsModel(request.plan, routeDecision.model)) {
-      flushSpans(spans, request.tenantId, requestId);
+      // No llm_requests row exists for a gated request, so omit requestId
+      // (spans record with a null request_id rather than violating the FK).
+      flushSpans(spans, request.tenantId);
       return reply.status(403).send({
         error: `Your plan (${request.plan}) cannot access model ${routeDecision.model} (tier: ${tierForModel(routeDecision.model)})`,
         trace_id: traceId,
