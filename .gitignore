@@ -8,3 +8,4 @@ Thumbs.db
 coverage/
 .nyc_output/
 /package-lock.json
+infra/nginx/certs/
