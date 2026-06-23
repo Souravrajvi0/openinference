@@ -11,6 +11,7 @@ import { Overview } from "@/routes/overview";
 import { Playground } from "@/routes/playground";
 import { Admin } from "@/routes/admin";
 import { Inference } from "@/routes/inference";
+import { Models } from "@/routes/models";
 
 function RootLayout() {
   return (
@@ -37,8 +38,9 @@ const overviewRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", 
 const playgroundRoute = createRoute({ getParentRoute: () => rootRoute, path: "/playground", component: Playground });
 const adminRoute = createRoute({ getParentRoute: () => rootRoute, path: "/admin", component: Admin });
 const inferenceRoute = createRoute({ getParentRoute: () => rootRoute, path: "/inference", component: Inference });
+const modelsRoute    = createRoute({ getParentRoute: () => rootRoute, path: "/models",    component: Models });
 
-const routeTree = rootRoute.addChildren([overviewRoute, playgroundRoute, adminRoute, inferenceRoute]);
+const routeTree = rootRoute.addChildren([overviewRoute, playgroundRoute, adminRoute, inferenceRoute, modelsRoute]);
 
 // Hash history keeps client routes (/playground, /admin) out of the server's
 // path space — the API owns /admin and /v1, so the browser only ever requests "/".

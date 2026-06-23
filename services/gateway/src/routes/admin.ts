@@ -227,6 +227,57 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
     return reply.send({ data: result.rows });
   });
 
+  // POST /v1/admin/inference/pull — stream Ollama model pull progress
+  fastify.post<{ Body: { model: string } }>('/admin/inference/pull', async (request, reply) => {
+    requireScope(request, 'admin');
+
+    const { model } = request.body as { model: string };
+    if (!model?.trim()) return reply.status(400).send({ error: 'model is required' });
+
+    const ollamaUrl = process.env.OLLAMA_URL || 'http://ollama:11434';
+
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    });
+
+    try {
+      const res = await fetch(`${ollamaUrl}/api/pull`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: model.trim(), stream: true }),
+      });
+
+      if (!res.ok || !res.body) {
+        reply.raw.write(`data: ${JSON.stringify({ error: `Ollama returned ${res.status}` })}\n\n`);
+        reply.raw.end();
+        return;
+      }
+
+      const reader = (res.body as any).getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          reply.raw.write(`data: ${line}\n\n`);
+        }
+      }
+    } catch (err) {
+      reply.raw.write(`data: ${JSON.stringify({ error: (err as Error).message })}\n\n`);
+    }
+
+    reply.raw.write('data: [DONE]\n\n');
+    reply.raw.end();
+  });
+
   // POST /v1/admin/inference/benchmark — stream live benchmark results
   fastify.post<{ Body: { model: string; provider: string; runs?: number } }>(
     '/admin/inference/benchmark',
