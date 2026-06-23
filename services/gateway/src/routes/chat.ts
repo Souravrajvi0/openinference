@@ -2,11 +2,10 @@ import { randomUUID } from 'crypto';
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { Queue } from 'bullmq';
-import OpenAI from 'openai';
 import { requireScope } from '../plugins/auth';
 import { checkGuardrails } from '../services/guardrails';
 import { routeRequest, getAbRoute, getFallbackRoute, estimateTokens } from '../services/router';
-import { callLLM, estimateCost } from '../services/llm';
+import { callLLM, streamLLM, estimateCost } from '../services/llm';
 import { planAllowsModel, tierForModel } from '../services/plans';
 import { startSpan, endSpan, flushSpans } from '../services/tracer';
 import { query, pool } from '../db/client';
@@ -219,11 +218,6 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
 
     // ── 3a. Streaming path ────────────────────────────────────────────────
     if (stream) {
-      const groq = new OpenAI({
-        apiKey: config.GROQ_API_KEY,
-        baseURL: 'https://api.groq.com/openai/v1',
-      });
-
       reply.raw.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
@@ -236,21 +230,13 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
       let promptTokens = 0;
       let completionTokens = 0;
 
-      const streamRes = await groq.chat.completions.create({
-        model: routeDecision.model,
-        messages: contextMessages.map((m) => ({ role: m.role, content: m.content })),
-        stream: true,
-      });
-
-      for await (const chunk of streamRes) {
-        const delta = chunk.choices[0]?.delta?.content ?? '';
-        if (delta) {
-          fullContent += delta;
-          reply.raw.write(`data: ${JSON.stringify({ content: delta, trace_id: traceId })}\n\n`);
-        }
-        if (chunk.usage) {
-          promptTokens = chunk.usage.prompt_tokens ?? 0;
-          completionTokens = chunk.usage.completion_tokens ?? 0;
+      for await (const event of streamLLM(routeDecision.provider, routeDecision.model, contextMessages)) {
+        if (event.type === 'delta') {
+          fullContent += event.content;
+          reply.raw.write(`data: ${JSON.stringify({ content: event.content, trace_id: traceId })}\n\n`);
+        } else {
+          promptTokens = event.prompt_tokens;
+          completionTokens = event.completion_tokens;
         }
       }
 

@@ -135,6 +135,67 @@ const COST_TABLE: Record<string, [number, number]> = {
   'qwen2.5:0.5b':               [0, 0],
 };
 
+export type StreamEvent =
+  | { type: 'delta'; content: string }
+  | { type: 'done'; prompt_tokens: number; completion_tokens: number };
+
+export async function* streamLLM(
+  provider: ExtendedProvider,
+  model: string,
+  messages: Message[],
+): AsyncGenerator<StreamEvent> {
+  if (provider === 'anthropic') {
+    const client = anthropicClient();
+    const anthropicMessages = messages
+      .filter((m) => m.role !== 'system')
+      .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+    const systemMsg = messages.find((m) => m.role === 'system')?.content;
+
+    const stream = client.messages.stream({
+      model,
+      max_tokens: 4096,
+      ...(systemMsg ? { system: systemMsg } : {}),
+      messages: anthropicMessages,
+    });
+
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+        yield { type: 'delta', content: event.delta.text };
+      }
+    }
+    const msg = await stream.finalMessage();
+    yield { type: 'done', prompt_tokens: msg.usage.input_tokens, completion_tokens: msg.usage.output_tokens };
+    return;
+  }
+
+  const client = openaiCompatClient(provider);
+  const allMessages: OpenAI.ChatCompletionMessageParam[] = messages.map((m) => ({
+    role: m.role,
+    content: m.content,
+  }));
+
+  const streamRes = await client.chat.completions.create({
+    model,
+    messages: allMessages,
+    stream: true,
+    stream_options: { include_usage: true },
+  });
+
+  let promptTokens = 0;
+  let completionTokens = 0;
+
+  for await (const chunk of streamRes) {
+    const delta = chunk.choices[0]?.delta?.content ?? '';
+    if (delta) yield { type: 'delta', content: delta };
+    if (chunk.usage) {
+      promptTokens = chunk.usage.prompt_tokens ?? 0;
+      completionTokens = chunk.usage.completion_tokens ?? 0;
+    }
+  }
+
+  yield { type: 'done', prompt_tokens: promptTokens, completion_tokens: completionTokens };
+}
+
 export function estimateCost(model: string, promptTokens: number, completionTokens: number): number {
   const entry = COST_TABLE[model];
   if (!entry) return 0;
