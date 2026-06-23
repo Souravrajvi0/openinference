@@ -2,20 +2,24 @@ import { Link } from "@tanstack/react-router";
 import { PixelFlame } from "@/components/PixelFlame";
 
 const FEATURES = [
-  { tag: "Routing", title: "Multi-provider + self-hosted.", copy: "OpenAI, Anthropic, Groq, Mistral, Gemini and self-hosted Ollama through one API, with retry and fallback.", accent: "var(--flame-orange)" },
-  { tag: "Guardrails", title: "Injection & PII defense.", copy: "Prompt-injection detection and PII redaction run before the model ever sees a request.", accent: "var(--flame-red)" },
-  { tag: "Semantic cache", title: "pgvector, 24h TTL.", copy: "Near-duplicate prompts served from cache at cosine ≥ 0.95 — latency and cost collapse.", accent: "var(--flame-deep)" },
-  { tag: "RAG", title: "Hybrid retrieval.", copy: "Vector + keyword search with RRF reranking over your indexed documents.", accent: "var(--flame-bright)" },
-  { tag: "Governance", title: "Plans, budgets & keys.", copy: "Plan-tiered model access, monthly spend budgets, scoped API keys and an append-only audit trail.", accent: "var(--flame-amber)" },
-  { tag: "Observability", title: "Traces, evals & metrics.", copy: "OTel-style spans, async faithfulness/relevance evals, and Prometheus + Grafana dashboards.", accent: "var(--flame-red)" },
+  { tag: "Routing",          title: "Every LLM through one API.",       copy: "OpenAI, Anthropic, Groq, Mistral, Gemini and self-hosted Ollama — unified endpoint with automatic retry and fallback.",                              accent: "var(--flame-orange)" },
+  { tag: "Agents",           title: "Multi-step agent runtime.",         copy: "Tool-calling agents with RAG retrieval, calculator, and any MCP server. Steps streamed in real time, full trace recorded.",                         accent: "var(--flame-red)" },
+  { tag: "MCP Governance",   title: "Model Context Protocol proxy.",     copy: "Route agent tool calls through governed MCP servers. Block or allow by tool pattern, rate-limit calls, log every invocation.",                      accent: "var(--flame-deep)" },
+  { tag: "Human Approvals",  title: "Pause agents for human review.",    copy: "Define approval policies per tool pattern. Agents pause mid-run, surface the pending action in the inbox, and resume only after sign-off.",         accent: "var(--flame-bright)" },
+  { tag: "Guardrails",       title: "Injection & PII defense.",          copy: "Prompt-injection detection and PII redaction run before the model ever sees a request. Configurable per-tenant policies.",                          accent: "var(--flame-amber)" },
+  { tag: "RAG",              title: "Hybrid vector + keyword search.",   copy: "Upload documents once. pgvector cosine search fused with full-text via RRF reranking — automatically wired into every agent call.",                  accent: "var(--flame-red)" },
+  { tag: "Regression tests", title: "Test suites with assertions.",      copy: "Define prompt / expected-output pairs. Run against any model. Four assertion types: contains, not_contains, regex, LLM-judge.",                    accent: "var(--flame-orange)" },
+  { tag: "Budgets",          title: "Per-key spend limits.",             copy: "Set monthly USD caps on any API key. Hard-stop on breach, configurable alert threshold, real-time spend dashboard.",                               accent: "var(--flame-deep)" },
+  { tag: "Observability",    title: "Traces, evals & metrics.",          copy: "OTel-style spans per request, async faithfulness and relevance evals, Prometheus metrics. The full audit trail is append-only.",                     accent: "var(--flame-bright)" },
 ];
 
 const COMPARE: [string, string][] = [
-  ["Separate gateway, RAG, eval tools", "One deployable stack"],
-  ["Cloud-only model access", "Cloud + self-hosted (Ollama)"],
-  ["Bolt-on observability", "Built-in traces, metrics & evals"],
-  ["Per-vendor SDKs", "One API, retry + fallback"],
-  ["Manual cost tracking", "Budgets, metering & audit"],
+  ["Separate gateway, agent, eval tools", "One deployable stack"],
+  ["Cloud-only model access",             "Cloud + self-hosted Ollama ($0/token)"],
+  ["No agent oversight",                  "Human approval steps + append-only audit"],
+  ["Manual regression testing",           "Built-in test suites with 4 assertion types"],
+  ["Per-vendor SDKs",                     "One API — retry, fallback, semantic cache"],
+  ["Manual cost tracking",                "Per-key budgets + spend alerts"],
 ];
 
 export function Overview() {
@@ -30,12 +34,12 @@ export function Overview() {
           <div className="absolute inset-x-0 top-0 h-[44%] bg-gradient-to-b from-cream via-cream/95 to-transparent" />
           <div className="relative flex h-full min-h-[74vh] flex-col justify-between px-6 py-10 md:px-10">
             <h1 className="max-w-[16ch] text-[clamp(2.6rem,9vw,8.5rem)] font-medium leading-[0.9] tracking-[-0.03em]">
-              The AI gateway,
+              AI infrastructure,
               <br />
               fully governed.
             </h1>
             <div className="flex items-end justify-between text-[10px] uppercase tracking-[0.25em] text-ink/80">
-              <span className="bg-cream px-2 py-1">Route · guard · cache · trace</span>
+              <span className="bg-cream px-2 py-1">Route · Agent · Guard · Trace</span>
               <span className="bg-cream px-2 py-1">Self-hosted</span>
             </div>
           </div>
@@ -44,25 +48,26 @@ export function Overview() {
         <aside className="flex flex-col justify-between border-t border-border bg-cream lg:border-l lg:border-t-0">
           <div className="p-8">
             <p className="text-xl leading-snug">
-              OpenInference routes requests to any LLM, enforces security and budgets, retrieves your
-              documents, runs agents, and records full traces — one deployable stack.
+              OpenInference routes requests to any LLM, runs governed agents with MCP tool access,
+              enforces human approval steps, retrieves your documents, and records full traces —
+              one deployable stack.
             </p>
             <div className="mt-8 flex flex-wrap gap-2">
               <Link to="/playground" className="inline-flex items-center gap-2 bg-ink px-4 py-3 text-xs uppercase tracking-[0.2em] text-cream hover:opacity-90">
-                Open the playground →
+                Try the playground →
               </Link>
-              <Link to="/admin" className="inline-flex items-center gap-2 border border-ink/20 px-4 py-3 text-xs uppercase tracking-[0.2em] hover:bg-ink/5">
-                Admin console
+              <Link to="/inference" className="inline-flex items-center gap-2 border border-ink/20 px-4 py-3 text-xs uppercase tracking-[0.2em] hover:bg-ink/5">
+                Run benchmarks
               </Link>
             </div>
           </div>
           <div className="border-t border-border p-8">
-            <div className="mb-4 text-[10px] uppercase tracking-[0.25em] text-ink/60">Plans</div>
+            <div className="mb-4 text-[10px] uppercase tracking-[0.25em] text-ink/60">What's inside</div>
             <ul className="flex flex-col gap-3">
               {[
-                { tag: "Free", title: "Small-tier models · self-hosted", accent: "var(--flame-amber)" },
-                { tag: "Pro", title: "+ Standard models · budgets", accent: "var(--flame-orange)" },
-                { tag: "Enterprise", title: "+ Frontier models · all features", accent: "var(--flame-red)" },
+                { tag: "Gateway",  title: "Routing · cache · guardrails",      accent: "var(--flame-amber)" },
+                { tag: "Agents",   title: "Runtime · MCP · human approvals",   accent: "var(--flame-orange)" },
+                { tag: "Govern",   title: "Budgets · regression · audit trail", accent: "var(--flame-red)" },
               ].map((n) => (
                 <li key={n.tag}>
                   <div className="group flex items-stretch gap-3 border border-border bg-cream">
@@ -127,7 +132,7 @@ export function Overview() {
           <div className="p-10 md:p-16">
             <div className="mb-6 text-[10px] uppercase tracking-[0.2em] text-ink/60">Why one stack</div>
             <p className="text-3xl font-medium leading-snug tracking-tight md:text-5xl">
-              The whole control plane — gateway, retrieval, evals and observability — in one deploy.
+              Gateway, agents, retrieval, governance and observability — one deploy, zero glue code.
             </p>
             <div className="mt-10 border border-border">
               {COMPARE.map(([a, b], i) => (
@@ -154,7 +159,7 @@ export function Overview() {
             Open the playground →
           </Link>
           <Link to="/admin" className="border border-ink/20 px-5 py-3 text-xs uppercase tracking-[0.2em] hover:bg-ink/5">
-            Admin console
+            Sign in
           </Link>
         </div>
       </section>
