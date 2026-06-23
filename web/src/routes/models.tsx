@@ -317,11 +317,24 @@ function PickerSection() {
   );
 }
 
+// Approximate sizes in bytes for the static catalog fallback
+const OLLAMA_SIZE_BYTES: Record<string, number> = {
+  "smollm2:135m": 270e6,   "smollm2:360m": 725e6,  "qwen2.5:0.5b": 397e6,
+  "qwen2.5:1.5b": 986e6,   "gemma3:1b": 815e6,     "deepseek-r1:1.5b": 1.1e9,
+  "llama3.2:1b": 1.3e9,    "gemma2:2b": 1.6e9,     "smollm2:1.7b": 1.8e9,
+  "qwen2.5:3b": 1.9e9,     "llama3.2:3b": 2.0e9,   "phi3.5:latest": 2.2e9,
+  "gemma3:4b": 3.3e9,
+};
+
+const STATIC_OLLAMA: OllamaModel[] = MODEL_CATALOG
+  .filter((m) => m.provider === "ollama")
+  .map((m) => ({ name: m.model, size: OLLAMA_SIZE_BYTES[m.model] ?? 0 }));
+
 // ── Self-hosted ───────────────────────────────────────────────────────────────
 
 function SelfHostedSection() {
   const [running, setRunning] = useState<OllamaModel[]>([]);
-  const [available, setAvailable] = useState<OllamaModel[]>([]);
+  const [available, setAvailable] = useState<OllamaModel[]>(STATIC_OLLAMA);
   const [stats, setStats] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
