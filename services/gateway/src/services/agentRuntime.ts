@@ -88,6 +88,78 @@ function executeCalculate(args: { expression: string }): string {
   }
 }
 
+// ── MCP server type ───────────────────────────────────────────────────────────
+
+type McpServer = {
+  id: string;
+  name: string;
+  url: string;
+  auth_type: string;
+  auth_header: string | null;
+  auth_value: string | null;
+};
+
+type McpPolicy = { tool_pattern: string; action: string; rate_limit: number | null };
+
+function mcpToolName(serverName: string): string {
+  return `mcp__${serverName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+}
+
+async function executeMcpTool(
+  server: McpServer,
+  toolName: string,
+  toolInput: Record<string, unknown>,
+  pool: import('pg').Pool,
+  tenantId: string,
+  agentId: string | undefined,
+): Promise<string> {
+  const start = Date.now();
+  let output: string | null = null;
+  let callStatus = 'success';
+  let errorMsg: string | null = null;
+
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (server.auth_type === 'bearer' && server.auth_value) {
+      headers['Authorization'] = `Bearer ${server.auth_value}`;
+    } else if (server.auth_type === 'api_key' && server.auth_header && server.auth_value) {
+      headers[server.auth_header] = server.auth_value;
+    }
+
+    const res = await fetch(server.url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'tools/call',
+        params: { name: toolName, arguments: toolInput },
+        id: 1,
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+
+    const json = await res.json() as { result?: { content?: { text?: string }[] }; error?: { message?: string } };
+    if (json.error) {
+      callStatus = 'error';
+      errorMsg = json.error.message ?? 'MCP server error';
+    } else {
+      output = json.result?.content?.map((c) => c.text ?? '').join('\n') ?? JSON.stringify(json.result);
+    }
+  } catch (err) {
+    callStatus = 'error';
+    errorMsg = (err as Error).message;
+  }
+
+  pool.query(
+    `INSERT INTO mcp_call_logs (tenant_id, server_id, agent_id, tool_name, input, output, status, latency_ms, error)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+    [tenantId, server.id, agentId ?? null, toolName, JSON.stringify(toolInput), output, callStatus, Date.now() - start, errorMsg]
+  ).catch(() => {});
+
+  if (callStatus === 'error') throw new Error(errorMsg ?? 'MCP call failed');
+  return output ?? '';
+}
+
 // ── Approval helpers ──────────────────────────────────────────────────────────
 
 type ApprovalPolicy = { tool_pattern: string; require_approval: boolean };
@@ -134,9 +206,46 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
   let totalPromptTokens = 0;
   let totalCompletionTokens = 0;
 
-  const activeTools = opts.allowedTools && opts.allowedTools.length > 0
+  const baseTools = opts.allowedTools && opts.allowedTools.length > 0
     ? TOOLS.filter((t) => opts.allowedTools!.includes(t.function.name))
     : TOOLS;
+
+  // Load active MCP servers and build tool definitions for each (fail open)
+  const mcpServers: McpServer[] = [];
+  const mcpPoliciesByServer = new Map<string, McpPolicy[]>();
+  try {
+    const serverResult = await opts.pool.query<McpServer>(
+      `SELECT id, name, url, auth_type, auth_header, auth_value
+       FROM mcp_servers WHERE tenant_id = $1 AND is_active = TRUE`,
+      [opts.tenantId]
+    );
+    for (const srv of serverResult.rows) {
+      mcpServers.push(srv);
+      const polResult = await opts.pool.query<McpPolicy>(
+        `SELECT tool_pattern, action, rate_limit FROM mcp_policies WHERE server_id = $1 AND tenant_id = $2`,
+        [srv.id, opts.tenantId]
+      );
+      mcpPoliciesByServer.set(srv.id, polResult.rows);
+    }
+  } catch { /* no MCP servers */ }
+
+  const mcpTools: OpenAI.ChatCompletionTool[] = mcpServers.map((srv) => ({
+    type: 'function' as const,
+    function: {
+      name: mcpToolName(srv.name),
+      description: `Call a tool on the "${srv.name}" MCP server. Provide the tool_name and its arguments.`,
+      parameters: {
+        type: 'object',
+        properties: {
+          tool_name: { type: 'string', description: 'The tool to invoke on this MCP server' },
+          arguments:  { type: 'object', description: 'Input arguments for the tool', additionalProperties: true },
+        },
+        required: ['tool_name'],
+      },
+    },
+  }));
+
+  const activeTools = [...baseTools, ...mcpTools];
 
   // Load approval policies once before the loop (fail open on DB error)
   let approvalPolicies: ApprovalPolicy[] = [];
@@ -233,6 +342,37 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
           toolResult = await executeRetrieve(args, opts.tenantId, opts.pool);
         } else if (call.function.name === 'calculate') {
           toolResult = executeCalculate(args);
+        } else if (call.function.name.startsWith('mcp__')) {
+          const srv = mcpServers.find((s) => mcpToolName(s.name) === call.function.name);
+          if (!srv) {
+            toolResult = `MCP server not found for tool: ${call.function.name}`;
+          } else {
+            // Evaluate policies for this server (last matching rule wins)
+            const policies = mcpPoliciesByServer.get(srv.id) ?? [];
+            const toolNameArg = String(args.tool_name ?? '');
+            let allowed = true;
+            for (const pol of policies) {
+              if (matchesPattern(toolNameArg, pol.tool_pattern)) {
+                allowed = pol.action !== 'block';
+              }
+            }
+            if (!allowed) {
+              toolResult = `Tool "${toolNameArg}" is blocked by MCP policy on server "${srv.name}".`;
+            } else {
+              try {
+                toolResult = await executeMcpTool(
+                  srv,
+                  toolNameArg,
+                  (args.arguments as Record<string, unknown>) ?? {},
+                  opts.pool,
+                  opts.tenantId,
+                  opts.agentId,
+                );
+              } catch (err) {
+                toolResult = `MCP call failed: ${(err as Error).message}`;
+              }
+            }
+          }
         } else {
           toolResult = `Unknown tool: ${call.function.name}`;
         }

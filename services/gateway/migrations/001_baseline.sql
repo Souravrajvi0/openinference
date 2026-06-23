@@ -1,0 +1,3 @@
+-- Baseline migration: marks the initial schema as applied.
+-- All tables already exist from infra/postgres/init.sql run at DB creation.
+-- Future schema changes go in 002_*.sql, 003_*.sql, etc.
