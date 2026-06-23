@@ -45,7 +45,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   await app.register(fastifySwagger, {
     openapi: {
-      info: { title: 'SentinelAI API', version: '1.0.0' },
+      info: { title: 'OpenInference API', version: '1.0.0' },
       components: {
         securitySchemes: { ApiKey: { type: 'apiKey', in: 'header', name: 'X-Api-Key' } },
       },

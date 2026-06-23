@@ -5,14 +5,14 @@ services:
     environment:
       POSTGRES_USER: sentinel
       POSTGRES_PASSWORD: sentinel
-      POSTGRES_DB: sentinelai
+      POSTGRES_DB: openinference
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sentinel -d sentinelai"]
+      test: ["CMD-SHELL", "pg_isready -U sentinel -d openinference"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -40,7 +40,7 @@ services:
     env_file: .env
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://sentinel:sentinel@postgres:5432/sentinelai
+      - DATABASE_URL=postgresql://sentinel:sentinel@postgres:5432/openinference
       - REDIS_URL=redis://redis:6379
       - OLLAMA_URL=http://ollama:11434
     depends_on:
@@ -69,7 +69,7 @@ services:
     env_file: .env
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://sentinel:sentinel@postgres:5432/sentinelai
+      - DATABASE_URL=postgresql://sentinel:sentinel@postgres:5432/openinference
       - REDIS_URL=redis://redis:6379
     depends_on:
       postgres:
@@ -85,7 +85,7 @@ services:
     env_file: .env
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://sentinel:sentinel@postgres:5432/sentinelai
+      - DATABASE_URL=postgresql://sentinel:sentinel@postgres:5432/openinference
       - REDIS_URL=redis://redis:6379
     depends_on:
       postgres:
