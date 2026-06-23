@@ -25,6 +25,7 @@ function Logo() {
 const TABS = [
   { to: "/", label: "Overview" },
   { to: "/playground", label: "Playground" },
+  { to: "/inference", label: "Inference" },
   { to: "/admin", label: "Admin" },
 ] as const;
 

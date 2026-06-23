@@ -180,6 +180,119 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
     return reply.send(result.rows[0]);
   });
 
+  // ── Inference / Benchmarking ──────────────────────────────────────────
+
+  // GET /v1/admin/inference/models — Ollama running + available models
+  fastify.get('/admin/inference/models', async (request, reply) => {
+    requireScope(request, 'admin');
+
+    const ollamaUrl = process.env.OLLAMA_URL || 'http://ollama:11434';
+
+    const [psRes, tagsRes] = await Promise.allSettled([
+      fetch(`${ollamaUrl}/api/ps`).then((r) => r.json()),
+      fetch(`${ollamaUrl}/api/tags`).then((r) => r.json()),
+    ]);
+
+    return reply.send({
+      running: psRes.status === 'fulfilled' ? (psRes.value as any).models ?? [] : [],
+      available: tagsRes.status === 'fulfilled' ? (tagsRes.value as any).models ?? [] : [],
+    });
+  });
+
+  // GET /v1/admin/inference/stats — per-model perf from real request history
+  fastify.get('/admin/inference/stats', async (request, reply) => {
+    requireScope(request, 'admin');
+
+    const result = await query(
+      `SELECT
+         routed_model AS model,
+         routed_provider AS provider,
+         COUNT(*) AS requests,
+         ROUND(AVG(total_tokens::float / NULLIF(latency_ms, 0) * 1000)::numeric, 1) AS avg_tokens_per_sec,
+         PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY latency_ms)::int AS p50_ms,
+         PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms)::int AS p95_ms,
+         PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY latency_ms)::int AS p99_ms,
+         ROUND(AVG(ttfb_ms))::int AS avg_ttfb_ms,
+         ROUND(AVG(total_tokens))::int AS avg_tokens
+       FROM llm_requests
+       WHERE tenant_id = $1
+         AND status = 'success'
+         AND latency_ms > 0
+         AND total_tokens > 0
+       GROUP BY routed_model, routed_provider
+       ORDER BY requests DESC`,
+      [request.tenantId]
+    );
+
+    return reply.send({ data: result.rows });
+  });
+
+  // POST /v1/admin/inference/benchmark — stream live benchmark results
+  fastify.post<{ Body: { model: string; provider: string; runs?: number } }>(
+    '/admin/inference/benchmark',
+    async (request, reply) => {
+      requireScope(request, 'admin');
+
+      const { model, provider, runs = 5 } = request.body as { model: string; provider: string; runs?: number };
+      const n = Math.min(Math.max(1, runs), 10);
+
+      const TEST_PROMPTS = [
+        'What is 2 + 2? Answer in one sentence.',
+        'Name three primary colors.',
+        'What is the capital of France?',
+        'Write a haiku about software.',
+        'List two programming languages.',
+        'What is the boiling point of water in Celsius?',
+        'Name the first planet in our solar system.',
+        'What does HTTP stand for?',
+        'How many days are in a week?',
+        'What color is the sky on a clear day?',
+      ];
+
+      reply.raw.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      });
+
+      const { streamLLM } = await import('../services/llm');
+
+      for (let i = 0; i < n; i++) {
+        const prompt = TEST_PROMPTS[i % TEST_PROMPTS.length]!;
+        const start = Date.now();
+        let ttfb = 0;
+        let firstToken = true;
+        let completionTokens = 0;
+
+        try {
+          for await (const event of streamLLM(provider as any, model, [{ role: 'user', content: prompt }])) {
+            if (event.type === 'delta') {
+              if (firstToken) { ttfb = Date.now() - start; firstToken = false; }
+            } else {
+              completionTokens = event.completion_tokens;
+            }
+          }
+        } catch (err) {
+          reply.raw.write(`data: ${JSON.stringify({ run: i + 1, error: (err as Error).message })}\n\n`);
+          continue;
+        }
+
+        const latency = Date.now() - start;
+        reply.raw.write(`data: ${JSON.stringify({
+          run: i + 1,
+          prompt,
+          ttfb_ms: ttfb,
+          latency_ms: latency,
+          completion_tokens: completionTokens,
+          tokens_per_sec: completionTokens > 0 ? Math.round(completionTokens / (latency / 1000)) : 0,
+        })}\n\n`);
+      }
+
+      reply.raw.write('data: [DONE]\n\n');
+      reply.raw.end();
+    }
+  );
+
   // ── Eval Results ──────────────────────────────────────────────────────
 
   // GET /v1/admin/evals — recent eval results with request context
