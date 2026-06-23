@@ -17,6 +17,11 @@ import { Traces } from "@/routes/traces";
 import { Sessions } from "@/routes/sessions";
 import { Agent } from "@/routes/agent";
 import { Guardrails } from "@/routes/guardrails";
+import { Agents } from "@/routes/agents";
+import { Approvals } from "@/routes/approvals";
+import { Regression } from "@/routes/regression";
+import { Budgets } from "@/routes/budgets";
+import { Mcp } from "@/routes/mcp";
 
 function RootLayout() {
   return (
@@ -49,8 +54,13 @@ const tracesRoute    = createRoute({ getParentRoute: () => rootRoute, path: "/tr
 const sessionsRoute    = createRoute({ getParentRoute: () => rootRoute, path: "/sessions",    component: Sessions });
 const agentRoute       = createRoute({ getParentRoute: () => rootRoute, path: "/agent",        component: Agent });
 const guardrailsRoute  = createRoute({ getParentRoute: () => rootRoute, path: "/guardrails",   component: Guardrails });
+const agentsRoute      = createRoute({ getParentRoute: () => rootRoute, path: "/agents",        component: Agents });
+const approvalsRoute   = createRoute({ getParentRoute: () => rootRoute, path: "/approvals",     component: Approvals });
+const regressionRoute  = createRoute({ getParentRoute: () => rootRoute, path: "/regression",    component: Regression });
+const budgetsRoute     = createRoute({ getParentRoute: () => rootRoute, path: "/budgets",        component: Budgets });
+const mcpRoute         = createRoute({ getParentRoute: () => rootRoute, path: "/mcp",            component: Mcp });
 
-const routeTree = rootRoute.addChildren([overviewRoute, playgroundRoute, adminRoute, inferenceRoute, modelsRoute, docsRoute, tracesRoute, sessionsRoute, agentRoute, guardrailsRoute]);
+const routeTree = rootRoute.addChildren([overviewRoute, playgroundRoute, adminRoute, inferenceRoute, modelsRoute, docsRoute, tracesRoute, sessionsRoute, agentRoute, guardrailsRoute, agentsRoute, approvalsRoute, regressionRoute, budgetsRoute, mcpRoute]);
 
 // Hash history keeps client routes (/playground, /admin) out of the server's
 // path space — the API owns /admin and /v1, so the browser only ever requests "/".

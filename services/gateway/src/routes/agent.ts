@@ -13,7 +13,17 @@ const bodySchema = z.object({
   model: z.string().optional(),
   session_id: z.string().uuid().optional(),
   stream: z.boolean().optional().default(false),
+  agent_id: z.string().uuid().optional(),
 });
+
+type AgentRow = {
+  id: string;
+  system_prompt: string | null;
+  allowed_tools: string[];
+  allowed_models: string[];
+  max_steps: number;
+  monthly_budget_usd: string | null;
+};
 
 const agentRoute: FastifyPluginAsync = async (_fastify) => {
   _fastify.post('/agent', async (request, reply) => {
@@ -24,10 +34,50 @@ const agentRoute: FastifyPluginAsync = async (_fastify) => {
       return reply.status(400).send({ error: body.error.flatten() });
     }
 
-    const { goal, max_steps, model, session_id, stream } = body.data;
+    const { goal, max_steps, model, session_id, stream, agent_id } = body.data;
     const traceId = randomUUID();
     const requestId = randomUUID();
     const start = Date.now();
+
+    // ── Agent registry lookup ──────────────────────────────────────────────
+    let agentConfig: AgentRow | null = null;
+
+    if (agent_id) {
+      const agentResult = await query<AgentRow>(
+        `SELECT id, system_prompt, allowed_tools, allowed_models, max_steps, monthly_budget_usd
+         FROM agents WHERE id = $1 AND tenant_id = $2 AND is_active = TRUE`,
+        [agent_id, request.tenantId]
+      );
+      if (agentResult.rows.length === 0) {
+        return reply.status(404).send({ error: 'Agent not found or inactive' });
+      }
+      agentConfig = agentResult.rows[0]!;
+
+      // Monthly budget check
+      if (agentConfig.monthly_budget_usd) {
+        const spendResult = await query<{ spent: string }>(
+          `SELECT COALESCE(SUM(cost_usd), 0)::text AS spent
+           FROM agent_runs
+           WHERE agent_id = $1
+             AND DATE_TRUNC('month', started_at) = DATE_TRUNC('month', NOW())`,
+          [agent_id]
+        );
+        const spent = parseFloat(spendResult.rows[0]?.spent ?? '0');
+        const budget = parseFloat(agentConfig.monthly_budget_usd);
+        if (spent >= budget) {
+          return reply.status(402).send({
+            error: 'Agent monthly budget exhausted',
+            spent_usd: spent,
+            budget_usd: budget,
+          });
+        }
+      }
+    }
+
+    const effectiveMaxSteps = agentConfig?.max_steps ?? max_steps;
+    const systemPrompt = agentConfig?.system_prompt ?? undefined;
+    const allowedTools = agentConfig?.allowed_tools?.length ? agentConfig.allowed_tools : undefined;
+    const effectiveModel = model ?? config.DEFAULT_MODEL;
 
     // ── Streaming path ─────────────────────────────────────────────────────
     if (stream) {
@@ -40,59 +90,92 @@ const agentRoute: FastifyPluginAsync = async (_fastify) => {
 
       const result = await runAgent({
         goal,
-        model: model ?? config.DEFAULT_MODEL,
-        maxSteps: max_steps,
+        model: effectiveModel,
+        maxSteps: effectiveMaxSteps,
         tenantId: request.tenantId,
         pool,
+        systemPrompt,
+        allowedTools,
+        agentId: agent_id,
+        traceId,
         onStep: (step) => {
           reply.raw.write(`data: ${JSON.stringify({ type: 'step', step })}\n\n`);
         },
       });
 
+      if (result.approval_required) {
+        reply.raw.write(`data: ${JSON.stringify({ type: 'approval_required', approval_id: result.approval_id, tool_name: result.approval_tool })}\n\n`);
+      }
       reply.raw.write(`data: ${JSON.stringify({ type: 'done', answer: result.answer, usage: { total_tokens: result.total_tokens, cost_usd: result.total_cost_usd } })}\n\n`);
       reply.raw.end();
 
       const latencyMs = Date.now() - start;
+      const runStatus = result.approval_required ? 'pending_approval' : 'completed';
       query(
         `INSERT INTO llm_requests
            (id, tenant_id, api_key_id, trace_id, session_id, mode, status,
             prompt_preview, response_preview, routed_provider, routed_model,
-            total_tokens, latency_ms, http_status)
-         VALUES ($1,$2,$3,$4,$5,'agent','success',$6,$7,$8,$9,$10,$11,200)`,
+            total_tokens, cost_usd, latency_ms, http_status, agent_id)
+         VALUES ($1,$2,$3,$4,$5,'agent','success',$6,$7,$8,$9,$10,$11,$12,200,$13)`,
         [requestId, request.tenantId, request.apiKeyId, traceId, session_id ?? null,
          goal.slice(0, 500), result.answer.slice(0, 500),
-         config.DEFAULT_PROVIDER, model ?? config.DEFAULT_MODEL,
-         result.total_tokens, latencyMs]
-      ).catch(() => {});
+         config.DEFAULT_PROVIDER, effectiveModel,
+         result.total_tokens, result.total_cost_usd, latencyMs, agent_id ?? null]
+      ).then(() => {
+        if (agentConfig) {
+          return query(
+            `INSERT INTO agent_runs
+               (agent_id, request_id, tenant_id, goal, status, steps_used, total_tokens, cost_usd, completed_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())`,
+            [agentConfig.id, requestId, request.tenantId, goal.slice(0, 2000),
+             runStatus, result.steps.length, result.total_tokens, result.total_cost_usd]
+          );
+        }
+      }).catch(() => {});
 
-      writeAudit({ tenant_id: request.tenantId, actor_type: 'api_key', actor_id: request.apiKeyId, action: 'request.created', resource_id: requestId, details: { mode: 'agent', stream: true, steps: result.steps.length } });
+      writeAudit({ tenant_id: request.tenantId, actor_type: 'api_key', actor_id: request.apiKeyId, action: 'request.created', resource_id: requestId, details: { mode: 'agent', stream: true, steps: result.steps.length, agent_id: agent_id ?? null, approval_required: result.approval_required ?? false } });
       return;
     }
 
     // ── Non-streaming path ─────────────────────────────────────────────────
     const result = await runAgent({
       goal,
-      model: model ?? config.DEFAULT_MODEL,
-      maxSteps: max_steps,
+      model: effectiveModel,
+      maxSteps: effectiveMaxSteps,
       tenantId: request.tenantId,
       pool,
+      systemPrompt,
+      allowedTools,
+      agentId: agent_id,
+      traceId,
     });
 
     const latencyMs = Date.now() - start;
+    const runStatus = result.approval_required ? 'pending_approval' : 'completed';
 
     await query(
       `INSERT INTO llm_requests
          (id, tenant_id, api_key_id, trace_id, session_id, mode, status,
           prompt_preview, response_preview, routed_provider, routed_model,
-          total_tokens, latency_ms, http_status)
-       VALUES ($1,$2,$3,$4,$5,'agent','success',$6,$7,$8,$9,$10,$11,200)`,
+          total_tokens, cost_usd, latency_ms, http_status, agent_id)
+       VALUES ($1,$2,$3,$4,$5,'agent','success',$6,$7,$8,$9,$10,$11,$12,200,$13)`,
       [requestId, request.tenantId, request.apiKeyId, traceId, session_id ?? null,
        goal.slice(0, 500), result.answer.slice(0, 500),
-       config.DEFAULT_PROVIDER, model ?? config.DEFAULT_MODEL,
-       result.total_tokens, latencyMs]
+       config.DEFAULT_PROVIDER, effectiveModel,
+       result.total_tokens, result.total_cost_usd, latencyMs, agent_id ?? null]
     );
 
-    writeAudit({ tenant_id: request.tenantId, actor_type: 'api_key', actor_id: request.apiKeyId, action: 'request.created', resource_id: requestId, details: { mode: 'agent', steps: result.steps.length } });
+    if (agentConfig) {
+      await query(
+        `INSERT INTO agent_runs
+           (agent_id, request_id, tenant_id, goal, status, steps_used, total_tokens, cost_usd, completed_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())`,
+        [agentConfig.id, requestId, request.tenantId, goal.slice(0, 2000),
+         runStatus, result.steps.length, result.total_tokens, result.total_cost_usd]
+      ).catch(() => {});
+    }
+
+    writeAudit({ tenant_id: request.tenantId, actor_type: 'api_key', actor_id: request.apiKeyId, action: 'request.created', resource_id: requestId, details: { mode: 'agent', steps: result.steps.length, agent_id: agent_id ?? null, approval_required: result.approval_required ?? false } });
 
     return reply.send({
       id: requestId,
@@ -104,6 +187,11 @@ const agentRoute: FastifyPluginAsync = async (_fastify) => {
         total_tokens: result.total_tokens,
         cost_usd: result.total_cost_usd,
       },
+      ...(result.approval_required ? {
+        approval_required: true,
+        approval_id: result.approval_id,
+        approval_tool: result.approval_tool,
+      } : {}),
     });
   });
 };

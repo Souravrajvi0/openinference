@@ -336,6 +336,223 @@ ALTER TABLE document_chunks ADD COLUMN content_tsv tsvector GENERATED ALWAYS AS 
 CREATE INDEX idx_document_chunks_tsv ON document_chunks USING gin(content_tsv);
 
 -- ─────────────────────────────────────────────
+-- AGENT REGISTRY
+-- ─────────────────────────────────────────────
+
+CREATE TABLE agents (
+  id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id          UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  name               VARCHAR(255) NOT NULL,
+  description        TEXT,
+  allowed_tools      TEXT[] NOT NULL DEFAULT '{}',   -- empty = all tools
+  allowed_models     TEXT[] NOT NULL DEFAULT '{}',   -- empty = any model
+  max_steps          INTEGER NOT NULL DEFAULT 5,
+  monthly_budget_usd NUMERIC(10,4),
+  system_prompt      TEXT,
+  is_active          BOOLEAN NOT NULL DEFAULT TRUE,
+  metadata           JSONB NOT NULL DEFAULT '{}',
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE agent_runs (
+  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  agent_id     UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  request_id   UUID NOT NULL REFERENCES llm_requests(id) ON DELETE CASCADE,
+  tenant_id    UUID NOT NULL REFERENCES tenants(id),
+  goal         TEXT NOT NULL,
+  status       VARCHAR(20) NOT NULL DEFAULT 'completed',  -- completed | failed
+  steps_used   INTEGER NOT NULL DEFAULT 0,
+  total_tokens INTEGER,
+  cost_usd     NUMERIC(10,8),
+  started_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at TIMESTAMPTZ
+);
+
+ALTER TABLE llm_requests ADD COLUMN agent_id UUID REFERENCES agents(id);
+
+CREATE INDEX idx_agents_tenant        ON agents (tenant_id) WHERE is_active = TRUE;
+CREATE INDEX idx_agent_runs_agent_id  ON agent_runs (agent_id, started_at DESC);
+CREATE INDEX idx_agent_runs_tenant    ON agent_runs (tenant_id, started_at DESC);
+CREATE INDEX idx_llm_requests_agent   ON llm_requests (agent_id) WHERE agent_id IS NOT NULL;
+
+-- ─────────────────────────────────────────────
+-- HUMAN APPROVALS
+-- ─────────────────────────────────────────────
+
+CREATE TABLE approval_policies (
+  id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id        UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  tool_pattern     VARCHAR(255) NOT NULL,   -- exact name or glob e.g. 'retrieve_*'
+  require_approval BOOLEAN NOT NULL DEFAULT TRUE,
+  notif_webhook    TEXT,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE agent_approvals (
+  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id     UUID NOT NULL REFERENCES tenants(id),
+  agent_id      UUID REFERENCES agents(id),
+  trace_id      UUID NOT NULL,
+  step_index    INTEGER NOT NULL DEFAULT 0,
+  tool_name     VARCHAR(255) NOT NULL,
+  tool_input    JSONB NOT NULL DEFAULT '{}',
+  goal          TEXT,
+  status        VARCHAR(20) NOT NULL DEFAULT 'pending',  -- pending | approved | rejected | expired
+  reviewer_note TEXT,
+  expires_at    TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '1 hour',
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  resolved_at   TIMESTAMPTZ
+);
+
+CREATE INDEX idx_approval_policies_tenant ON approval_policies (tenant_id);
+CREATE INDEX idx_agent_approvals_tenant_status ON agent_approvals (tenant_id, status, created_at DESC);
+
+-- ─────────────────────────────────────────────
+-- GUARDRAIL POLICIES
+-- ─────────────────────────────────────────────
+
+CREATE TABLE guardrail_policies (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id   UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  name        VARCHAR(255) NOT NULL,
+  type        VARCHAR(50) NOT NULL CHECK (type IN ('regex', 'keyword', 'llm_classifier')),
+  action      VARCHAR(50) NOT NULL DEFAULT 'block' CHECK (action IN ('block', 'flag', 'redact')),
+  priority    INTEGER NOT NULL DEFAULT 100,
+  is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+  config      JSONB NOT NULL DEFAULT '{}',
+  -- regex:          { pattern, flags?, replacement? }
+  -- keyword:        { terms: string[], case_sensitive?: bool }
+  -- llm_classifier: { prompt, model?, provider? }
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_guardrail_policies_tenant ON guardrail_policies (tenant_id, priority) WHERE is_active = TRUE;
+
+-- ─────────────────────────────────────────────
+-- REGRESSION TESTING
+-- ─────────────────────────────────────────────
+
+CREATE TABLE test_suites (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id   UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  name        VARCHAR(255) NOT NULL,
+  description TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE test_cases (
+  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  suite_id        UUID NOT NULL REFERENCES test_suites(id) ON DELETE CASCADE,
+  tenant_id       UUID NOT NULL REFERENCES tenants(id),
+  name            VARCHAR(255) NOT NULL,
+  input_messages  JSONB NOT NULL DEFAULT '[]',
+  expected_output TEXT,
+  assertions      JSONB NOT NULL DEFAULT '[]',
+  tags            TEXT[] NOT NULL DEFAULT '{}',
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE test_runs (
+  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  suite_id     UUID NOT NULL REFERENCES test_suites(id) ON DELETE CASCADE,
+  tenant_id    UUID NOT NULL REFERENCES tenants(id),
+  model        VARCHAR(255),
+  provider     VARCHAR(100),
+  status       VARCHAR(20) NOT NULL DEFAULT 'pending',
+  total_cases  INTEGER NOT NULL DEFAULT 0,
+  passed       INTEGER NOT NULL DEFAULT 0,
+  failed       INTEGER NOT NULL DEFAULT 0,
+  error_count  INTEGER NOT NULL DEFAULT 0,
+  started_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at TIMESTAMPTZ
+);
+
+CREATE TABLE test_results (
+  id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  run_id             UUID NOT NULL REFERENCES test_runs(id) ON DELETE CASCADE,
+  case_id            UUID NOT NULL REFERENCES test_cases(id),
+  tenant_id          UUID NOT NULL REFERENCES tenants(id),
+  status             VARCHAR(20) NOT NULL DEFAULT 'pending',
+  actual_output      TEXT,
+  latency_ms         INTEGER,
+  assertion_results  JSONB NOT NULL DEFAULT '[]',
+  error              TEXT,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_test_suites_tenant ON test_suites (tenant_id);
+CREATE INDEX idx_test_cases_suite   ON test_cases (suite_id);
+CREATE INDEX idx_test_runs_suite    ON test_runs (suite_id, started_at DESC);
+CREATE INDEX idx_test_results_run   ON test_results (run_id);
+
+-- ─────────────────────────────────────────────
+-- HIERARCHICAL BUDGETS (per-key level)
+-- tenant-level budgets already in tenant_budgets;
+-- agent-level already in agents.monthly_budget_usd
+-- ─────────────────────────────────────────────
+
+CREATE TABLE key_budgets (
+  api_key_id          UUID PRIMARY KEY REFERENCES api_keys(id) ON DELETE CASCADE,
+  tenant_id           UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  monthly_budget_usd  NUMERIC(10,4) NOT NULL,
+  alert_threshold_pct INTEGER NOT NULL DEFAULT 80,
+  alert_webhook_url   TEXT,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_key_budgets_tenant ON key_budgets (tenant_id);
+
+-- ─────────────────────────────────────────────
+-- MCP TRAFFIC GOVERNANCE
+-- ─────────────────────────────────────────────
+
+CREATE TABLE mcp_servers (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id   UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  name        VARCHAR(255) NOT NULL,
+  url         TEXT NOT NULL,
+  description TEXT,
+  auth_type   VARCHAR(20) NOT NULL DEFAULT 'none' CHECK (auth_type IN ('none', 'bearer', 'api_key')),
+  auth_header VARCHAR(255),
+  auth_value  TEXT,
+  is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE mcp_policies (
+  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id    UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  server_id    UUID NOT NULL REFERENCES mcp_servers(id) ON DELETE CASCADE,
+  tool_pattern VARCHAR(255) NOT NULL DEFAULT '*',
+  action       VARCHAR(10) NOT NULL DEFAULT 'allow' CHECK (action IN ('allow', 'deny')),
+  rate_limit   INTEGER,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE mcp_call_logs (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id   UUID NOT NULL REFERENCES tenants(id),
+  server_id   UUID NOT NULL REFERENCES mcp_servers(id),
+  agent_id    UUID,
+  tool_name   VARCHAR(255) NOT NULL,
+  input       JSONB NOT NULL DEFAULT '{}',
+  output      TEXT,
+  status      VARCHAR(20) NOT NULL DEFAULT 'success',
+  latency_ms  INTEGER,
+  error       TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_mcp_servers_tenant   ON mcp_servers (tenant_id) WHERE is_active = TRUE;
+CREATE INDEX idx_mcp_policies_server  ON mcp_policies (server_id);
+CREATE INDEX idx_mcp_call_logs_tenant ON mcp_call_logs (tenant_id, created_at DESC);
+
+-- ─────────────────────────────────────────────
 -- SEED: default tenant for local dev
 -- ─────────────────────────────────────────────
 

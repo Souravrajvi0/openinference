@@ -6,6 +6,7 @@ import { query } from '../db/client';
 import { getCacheStats } from '../services/semanticCache';
 import { checkBudget } from '../services/budget';
 import { writeAudit } from '../services/audit';
+import { checkGuardrails } from '../services/guardrails';
 
 const adminRoute: FastifyPluginAsync = async (fastify) => {
   // ── API Key Management ─────────────────────────────────────────────────
@@ -380,6 +381,96 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
   });
 
   // ── Semantic Cache ─────────────────────────────────────────────────────
+
+  // ── Guardrail Policies ─────────────────────────────────────────────────────
+
+  // GET /v1/admin/guardrail-policies — list all policies
+  fastify.get('/admin/guardrail-policies', async (request, reply) => {
+    requireScope(request, 'admin');
+    const result = await query(
+      `SELECT id, name, type, action, priority, is_active, config, created_at, updated_at
+       FROM guardrail_policies WHERE tenant_id = $1 ORDER BY priority ASC, created_at ASC`,
+      [request.tenantId]
+    );
+    return reply.send({ data: result.rows });
+  });
+
+  // POST /v1/admin/guardrail-policies — create policy
+  fastify.post('/admin/guardrail-policies', async (request, reply) => {
+    requireScope(request, 'admin');
+    const schema = z.object({
+      name: z.string().min(1).max(255),
+      type: z.enum(['regex', 'keyword', 'llm_classifier']),
+      action: z.enum(['block', 'flag', 'redact']).default('block'),
+      priority: z.number().int().min(1).max(1000).default(100),
+      config: z.record(z.unknown()),
+    });
+    const body = schema.safeParse(request.body);
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+
+    const result = await query<{ id: string }>(
+      `INSERT INTO guardrail_policies (tenant_id, name, type, action, priority, config)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [request.tenantId, body.data.name, body.data.type, body.data.action,
+       body.data.priority, JSON.stringify(body.data.config)]
+    );
+
+    writeAudit({ tenant_id: request.tenantId, actor_type: 'admin', actor_id: request.apiKeyId, action: 'guardrail_policy.created', resource_id: result.rows[0]!.id, details: { name: body.data.name, type: body.data.type } });
+    return reply.status(201).send({ id: result.rows[0]!.id, ...body.data, is_active: true });
+  });
+
+  // PATCH /v1/admin/guardrail-policies/:id — update / toggle
+  fastify.patch<{ Params: { id: string } }>('/admin/guardrail-policies/:id', async (request, reply) => {
+    requireScope(request, 'admin');
+    const schema = z.object({
+      name:      z.string().min(1).max(255).optional(),
+      is_active: z.boolean().optional(),
+      priority:  z.number().int().min(1).max(1000).optional(),
+      action:    z.enum(['block', 'flag', 'redact']).optional(),
+      config:    z.record(z.unknown()).optional(),
+    });
+    const body = schema.safeParse(request.body);
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+
+    const result = await query(
+      `UPDATE guardrail_policies
+       SET name      = COALESCE($3, name),
+           is_active = COALESCE($4, is_active),
+           priority  = COALESCE($5, priority),
+           action    = COALESCE($6::varchar, action),
+           config    = COALESCE($7::jsonb, config),
+           updated_at = NOW()
+       WHERE id = $1 AND tenant_id = $2
+       RETURNING id, name, type, action, priority, is_active, config`,
+      [request.params.id, request.tenantId,
+       body.data.name ?? null, body.data.is_active ?? null, body.data.priority ?? null,
+       body.data.action ?? null, body.data.config ? JSON.stringify(body.data.config) : null]
+    );
+    if (result.rows.length === 0) return reply.status(404).send({ error: 'Policy not found' });
+    return reply.send(result.rows[0]);
+  });
+
+  // DELETE /v1/admin/guardrail-policies/:id — remove policy
+  fastify.delete<{ Params: { id: string } }>('/admin/guardrail-policies/:id', async (request, reply) => {
+    requireScope(request, 'admin');
+    const result = await query(
+      `DELETE FROM guardrail_policies WHERE id = $1 AND tenant_id = $2 RETURNING id`,
+      [request.params.id, request.tenantId]
+    );
+    if (result.rows.length === 0) return reply.status(404).send({ error: 'Policy not found' });
+    writeAudit({ tenant_id: request.tenantId, actor_type: 'admin', actor_id: request.apiKeyId, action: 'guardrail_policy.deleted', resource_id: request.params.id });
+    return reply.status(204).send();
+  });
+
+  // POST /v1/admin/guardrail-policies/test — run text through all active policies
+  fastify.post('/admin/guardrail-policies/test', async (request, reply) => {
+    requireScope(request, 'admin');
+    const schema = z.object({ text: z.string().min(1).max(5000) });
+    const body = schema.safeParse(request.body);
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+    const result = await checkGuardrails([{ role: 'user', content: body.data.text }], request.tenantId);
+    return reply.send(result);
+  });
 
   // GET /v1/admin/cache/stats — cache statistics
   fastify.get('/admin/cache/stats', async (request, reply) => {

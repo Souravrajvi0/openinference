@@ -20,6 +20,11 @@ import metricsRoute from './routes/metrics';
 import promMetricsRoute from './routes/promMetrics';
 import adminRoute from './routes/admin';
 import sessionsRoute from './routes/sessions';
+import agentRegistryRoute from './routes/agentRegistry';
+import approvalsRoute from './routes/approvals';
+import regressionRoute from './routes/regression';
+import budgetsRoute from './routes/budgets';
+import mcpRoute from './routes/mcp';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -74,6 +79,11 @@ export async function buildApp(): Promise<FastifyInstance> {
       await api.register(metricsRoute);
       await api.register(adminRoute);
       await api.register(sessionsRoute);
+      await api.register(agentRegistryRoute);
+      await api.register(approvalsRoute);
+      await api.register(regressionRoute);
+      await api.register(budgetsRoute);
+      await api.register(mcpRoute);
     },
     { prefix: '/v1' }
   );

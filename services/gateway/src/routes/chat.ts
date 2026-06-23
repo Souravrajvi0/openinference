@@ -60,7 +60,7 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
 
     // ── 1. Guardrails ─────────────────────────────────────────────────────
     const guardrailSpan = startSpan(traceId, 'gateway.guardrails');
-    const guardrailResult = checkGuardrails(messages);
+    const guardrailResult = await checkGuardrails(messages, request.tenantId);
     endSpan(guardrailSpan, guardrailResult.passed ? 'ok' : 'error');
     spans.push(guardrailSpan);
 

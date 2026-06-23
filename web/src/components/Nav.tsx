@@ -26,12 +26,17 @@ const TABS = [
   { to: "/",           label: "Overview" },
   { to: "/playground", label: "Playground" },
   { to: "/agent",      label: "Agent" },
+  { to: "/agents",     label: "Agents" },
   { to: "/inference",  label: "Inference" },
   { to: "/models",     label: "Models" },
   { to: "/docs",       label: "Docs" },
   { to: "/traces",     label: "Traces" },
   { to: "/sessions",   label: "Sessions" },
   { to: "/guardrails", label: "Guardrails" },
+  { to: "/approvals",  label: "Approvals" },
+  { to: "/regression", label: "Regression" },
+  { to: "/budgets",    label: "Budgets" },
+  { to: "/mcp",        label: "MCP" },
   { to: "/admin",      label: "Admin" },
 ] as const;
 

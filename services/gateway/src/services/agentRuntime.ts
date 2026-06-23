@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import OpenAI from 'openai';
 import { config } from '../config';
 import { estimateCost } from './llm';
@@ -43,8 +44,6 @@ async function executeRetrieve(
   tenantId: string,
   pool: import('pg').Pool
 ): Promise<string> {
-  // Inline retrieval using pgvector — avoids internal HTTP call
-  // Embeddings require Mistral API; fall back to keyword search if not available
   try {
     const OpenAIClient = new OpenAI({
       apiKey: config.MISTRAL_API_KEY,
@@ -78,7 +77,6 @@ async function executeRetrieve(
 }
 
 function executeCalculate(args: { expression: string }): string {
-  // Allow only digits, operators, parens, and whitelisted Math methods
   const safe = /^[\d\s\+\-\*\/%\(\)\.]+$/.test(args.expression.replace(/Math\.(sqrt|pow|abs|ceil|floor|round|min|max|log|PI)\b/g, '0'));
   if (!safe) return 'Invalid expression — only basic math operators and Math.* functions allowed.';
   try {
@@ -90,6 +88,17 @@ function executeCalculate(args: { expression: string }): string {
   }
 }
 
+// ── Approval helpers ──────────────────────────────────────────────────────────
+
+type ApprovalPolicy = { tool_pattern: string; require_approval: boolean };
+
+function matchesPattern(toolName: string, pattern: string): boolean {
+  if (pattern === '*') return true;
+  if (pattern.endsWith('.*')) return toolName.startsWith(pattern.slice(0, -2));
+  if (pattern.endsWith('_*')) return toolName.startsWith(pattern.slice(0, -1));
+  return toolName === pattern;
+}
+
 // ── Agent runtime ─────────────────────────────────────────────────────────────
 
 export interface AgentRunOptions {
@@ -99,6 +108,10 @@ export interface AgentRunOptions {
   tenantId: string;
   pool: import('pg').Pool;
   onStep?: (step: AgentStep) => void;
+  systemPrompt?: string;
+  allowedTools?: string[];
+  agentId?: string;
+  traceId?: string;
 }
 
 export interface AgentRunResult {
@@ -106,6 +119,9 @@ export interface AgentRunResult {
   steps: AgentStep[];
   total_tokens: number;
   total_cost_usd: number;
+  approval_required?: boolean;
+  approval_id?: string;
+  approval_tool?: string;
 }
 
 export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
@@ -118,10 +134,24 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
   let totalPromptTokens = 0;
   let totalCompletionTokens = 0;
 
+  const activeTools = opts.allowedTools && opts.allowedTools.length > 0
+    ? TOOLS.filter((t) => opts.allowedTools!.includes(t.function.name))
+    : TOOLS;
+
+  // Load approval policies once before the loop (fail open on DB error)
+  let approvalPolicies: ApprovalPolicy[] = [];
+  try {
+    const polResult = await opts.pool.query<ApprovalPolicy>(
+      `SELECT tool_pattern, require_approval FROM approval_policies WHERE tenant_id = $1`,
+      [opts.tenantId]
+    );
+    approvalPolicies = polResult.rows;
+  } catch { /* no policies */ }
+
   const messages: OpenAI.ChatCompletionMessageParam[] = [
     {
       role: 'system',
-      content:
+      content: opts.systemPrompt ??
         'You are a helpful AI agent. Use the available tools when needed to answer the user\'s question accurately. Think step by step.',
     },
     { role: 'user', content: opts.goal },
@@ -133,8 +163,8 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
     const response = await groq.chat.completions.create({
       model: opts.model,
       messages,
-      tools: TOOLS,
-      tool_choice: 'auto',
+      tools: activeTools.length > 0 ? activeTools : undefined,
+      tool_choice: activeTools.length > 0 ? 'auto' : undefined,
     });
 
     const msg = response.choices[0]?.message;
@@ -149,6 +179,44 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
       for (const call of msg.tool_calls) {
         const args = JSON.parse(call.function.arguments ?? '{}');
         const toolStart = Date.now();
+
+        // ── Approval check ──────────────────────────────────────────────────
+        const policy = approvalPolicies.find((p) => matchesPattern(call.function.name, p.tool_pattern));
+        if (policy?.require_approval) {
+          const approvalId = randomUUID();
+          const traceId = opts.traceId ?? randomUUID();
+
+          const approvalStep: AgentStep = {
+            step,
+            type: 'tool_call',
+            content: `Tool "${call.function.name}" requires human approval before execution`,
+            tool_name: call.function.name,
+            tool_input: args,
+            latency_ms: Date.now() - toolStart,
+          };
+          steps.push(approvalStep);
+          opts.onStep?.(approvalStep);
+
+          // Write the pending approval row (best-effort)
+          await opts.pool.query(
+            `INSERT INTO agent_approvals
+               (id, tenant_id, agent_id, trace_id, step_index, tool_name, tool_input, goal)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+            [approvalId, opts.tenantId, opts.agentId ?? null, traceId, step,
+             call.function.name, JSON.stringify(args), opts.goal.slice(0, 2000)]
+          ).catch(() => {});
+
+          const costUsd = estimateCost(opts.model, totalPromptTokens, totalCompletionTokens);
+          return {
+            answer: `Agent paused — tool "${call.function.name}" requires approval (ID: ${approvalId}). Approve or reject in the Approvals inbox.`,
+            steps,
+            total_tokens: totalPromptTokens + totalCompletionTokens,
+            total_cost_usd: costUsd,
+            approval_required: true,
+            approval_id: approvalId,
+            approval_tool: call.function.name,
+          };
+        }
 
         const toolCallStep: AgentStep = {
           step,
