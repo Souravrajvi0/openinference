@@ -7,6 +7,10 @@ const schema = z.object({
   GATEWAY_PORT: z.coerce.number().default(3000),
   GATEWAY_HOST: z.string().default('0.0.0.0'),
   JWT_SECRET: z.string().min(32),
+  APP_URL: z.string().url().default('http://localhost:8080'),
+
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
 
   DATABASE_URL: z.string().url(),
   DATABASE_POOL_MIN: z.coerce.number().default(2),

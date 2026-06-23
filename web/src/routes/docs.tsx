@@ -6,7 +6,6 @@ import { useAuth } from "@/lib/auth";
 import { fmtDate } from "@/lib/utils";
 import { Badge, Button, Card, Input, Label } from "@/components/ui/primitives";
 import { Modal } from "@/components/ui/overlay";
-import { AuthScreen } from "@/components/AuthScreen";
 
 type DocRow = {
   id: string;
@@ -32,7 +31,7 @@ const statusColor = (s: string): "good" | "bad" | "default" | "flame" =>
   s === "indexed" ? "good" : s === "failed" ? "bad" : "default";
 
 export function Docs() {
-  const { user, loading, setUser } = useAuth();
+  const { user } = useAuth();
   const [docs, setDocs] = useState<DocRow[] | null>(null);
   const [uploading, setUploading] = useState(false);
   const [title, setTitle] = useState("");
@@ -96,13 +95,6 @@ export function Docs() {
     finally { setRetrieving(false); }
   }
 
-  if (loading) {
-    return <div className="px-6 py-20 text-center text-sm text-muted-foreground">Checking session…</div>;
-  }
-  if (!user) {
-    return <AuthScreen onAuthed={(u) => setUser(u)} />;
-  }
-
   const indexed = docs?.filter((d) => d.status === "indexed").length ?? 0;
   const pending = docs?.filter((d) => d.status === "pending" || d.status === "processing").length ?? 0;
   const failed = docs?.filter((d) => d.status === "failed").length ?? 0;
@@ -119,12 +111,14 @@ export function Docs() {
               Upload text to build your knowledge base. OpenInference chunks, embeds, and indexes documents automatically — ready for hybrid vector + keyword search in every RAG request.
             </p>
           </div>
-          <Button
-            onClick={() => setUploading(true)}
-            className="shrink-0 border-cream bg-cream text-ink hover:bg-cream/90"
-          >
-            <Plus className="h-3 w-3" /> Upload
-          </Button>
+          {user && (
+            <Button
+              onClick={() => setUploading(true)}
+              className="shrink-0 border-cream bg-cream text-ink hover:bg-cream/90"
+            >
+              <Plus className="h-3 w-3" /> Upload
+            </Button>
+          )}
         </div>
       </section>
 
@@ -190,9 +184,11 @@ export function Docs() {
                       <td className="px-4 py-3 text-muted-foreground">{d.indexed_at ? fmtDate(d.indexed_at) : "—"}</td>
                       <td className="px-4 py-3 text-muted-foreground">{fmtDate(d.created_at)}</td>
                       <td className="px-4 py-3 text-right">
-                        <Button variant="danger" onClick={() => del(d.id)}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                        {user && (
+                          <Button variant="danger" onClick={() => del(d.id)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))}

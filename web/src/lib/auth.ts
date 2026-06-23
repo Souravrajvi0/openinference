@@ -52,6 +52,16 @@ export function useAuth() {
   }
 
   useEffect(() => {
+    // Pick up token dropped by Google OAuth redirect (?token=<jwt>)
+    const params = new URLSearchParams(window.location.search);
+    const oauthToken = params.get("token");
+    if (oauthToken) {
+      setToken(oauthToken);
+      // Remove it from the URL without a page reload
+      const clean = window.location.pathname + window.location.hash;
+      window.history.replaceState(null, "", clean);
+    }
+
     refresh();
 
     // When any api() call gets a 401, clear the session immediately
