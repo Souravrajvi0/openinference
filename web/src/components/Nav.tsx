@@ -157,7 +157,7 @@ export function Nav({ user }: { user?: AuthUser | null }) {
         <div className="flex items-center gap-6">
           <Logo />
           <nav className="hidden items-center md:flex">
-            {[...NAV, adminEntry].map((entry, i) =>
+            {(user ? [...NAV, adminEntry] : [adminEntry]).map((entry, i) =>
               isGroup(entry) ? (
                 <Dropdown key={i} group={entry} />
               ) : (
@@ -209,7 +209,7 @@ export function Nav({ user }: { user?: AuthUser | null }) {
       {mobileOpen && (
         <div className="sticky top-[45px] z-30 border-b border-border bg-cream/95 backdrop-blur md:hidden">
           <nav className="flex flex-col py-1">
-            {[...NAV, adminEntry].map((entry, i) =>
+            {(user ? [...NAV, adminEntry] : [adminEntry]).map((entry, i) =>
               isGroup(entry) ? (
                 <div key={i}>
                   <div className="px-6 pt-3 pb-1 text-[9px] uppercase tracking-[0.25em] text-muted-foreground">
