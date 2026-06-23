@@ -27,10 +27,7 @@ function RootLayout() {
   return (
     <div className="min-h-screen">
       <Nav />
-      {/* Offset content by sidebar width on desktop */}
-      <div className="lg:pl-48">
-        <Outlet />
-      </div>
+      <Outlet />
       <Toaster
         position="bottom-center"
         toastOptions={{
