@@ -331,13 +331,14 @@ function SelfHostedSection() {
       api<{ data: InferenceStats[] }>("/v1/admin/inference/stats"),
     ])
       .then(([models, perf]) => {
-        setRunning(models.running);
-        setAvailable(models.available);
-        const map: Record<string, number> = {};
-        for (const r of perf.data) {
-          if (r.provider === "ollama") map[r.model] = Number(r.avg_tokens_per_sec ?? 0);
+        if (models) { setRunning(models.running); setAvailable(models.available); }
+        if (perf) {
+          const map: Record<string, number> = {};
+          for (const r of perf.data) {
+            if (r.provider === "ollama") map[r.model] = Number(r.avg_tokens_per_sec ?? 0);
+          }
+          setStats(map);
         }
-        setStats(map);
       })
       .catch((e) => toast.error(e.message))
       .finally(() => setLoading(false));
