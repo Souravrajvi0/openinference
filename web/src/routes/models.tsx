@@ -19,14 +19,23 @@ interface PullEvent {
 const MODEL_META: Record<string, {
   params: string; estTps: string; bestFor: string;
 }> = {
-  "smollm2:135m":  { params: "135 M", estTps: "60–100", bestFor: "Binary classification · keyword extraction · ultra-fast batch" },
-  "smollm2:360m":  { params: "360 M", estTps: "40–65",  bestFor: "Sentiment · multi-label tagging · simple Q&A" },
-  "qwen2.5:0.5b":  { params: "500 M", estTps: "28–40",  bestFor: "Structured JSON output · multilingual classification" },
-  "qwen2.5:1.5b":  { params: "1.5 B", estTps: "18–28",  bestFor: "Data extraction · structured output · code tasks" },
-  "gemma3:1b":     { params: "1 B",   estTps: "18–28",  bestFor: "Summarisation · short-form generation · general chat" },
-  "llama3.2:1b":   { params: "1 B",   estTps: "15–22",  bestFor: "Instruction following · RAG retrieval · general purpose" },
-  "smollm2:1.7b":  { params: "1.7 B", estTps: "12–18",  bestFor: "Better SmolLM quality · chat · summarisation" },
-  "gemma3:4b":     { params: "4 B",   estTps: "6–10",   bestFor: "Best CPU quality · complex reasoning · longer context" },
+  // under 1 GB
+  "smollm2:135m":     { params: "135 M", estTps: "60–100", bestFor: "Binary classification · keyword extraction · ultra-fast batch" },
+  "smollm2:360m":     { params: "360 M", estTps: "40–65",  bestFor: "Sentiment · multi-label tagging · simple Q&A" },
+  "qwen2.5:0.5b":     { params: "500 M", estTps: "28–40",  bestFor: "Structured JSON output · multilingual classification" },
+  "qwen2.5:1.5b":     { params: "1.5 B", estTps: "18–28",  bestFor: "Data extraction · structured output · code tasks" },
+  "gemma3:1b":        { params: "1 B",   estTps: "18–28",  bestFor: "Summarisation · short-form generation · general chat" },
+  // 1–2 GB
+  "deepseek-r1:1.5b": { params: "1.5 B", estTps: "12–20",  bestFor: "Step-by-step reasoning · math · logic with chain-of-thought" },
+  "llama3.2:1b":      { params: "1 B",   estTps: "15–22",  bestFor: "Instruction following · RAG retrieval · general purpose" },
+  "gemma2:2b":        { params: "2 B",   estTps: "10–16",  bestFor: "Google's 2B · general chat · balanced quality vs speed" },
+  "smollm2:1.7b":     { params: "1.7 B", estTps: "12–18",  bestFor: "Better SmolLM quality · chat · summarisation" },
+  "qwen2.5:3b":       { params: "3 B",   estTps: "8–14",   bestFor: "Code generation · complex structured output · 3B quality" },
+  // 2–3 GB
+  "llama3.2:3b":      { params: "3 B",   estTps: "8–12",   bestFor: "Meta's best small model · instruction following · agents" },
+  "phi3.5:latest":    { params: "3.8 B", estTps: "6–10",   bestFor: "Microsoft · strong reasoning · code · efficient for size" },
+  // over 3 GB
+  "gemma3:4b":        { params: "4 B",   estTps: "6–10",   bestFor: "Best CPU quality · complex reasoning · longer context" },
 };
 
 const CLOUD_META: Record<string, {

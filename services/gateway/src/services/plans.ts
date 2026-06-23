@@ -21,15 +21,23 @@ export const PLANS: Record<string, Plan> = {
 // Unlisted models default to 'frontier' (most restrictive) so only the
 // top plan can reach anything not explicitly classified.
 export const MODEL_TIERS: Record<string, Tier> = {
-  // self-hosted via Ollama
-  'smollm2:135m': 'small',
-  'smollm2:360m': 'small',
-  'qwen2.5:0.5b': 'small',
-  'qwen2.5:1.5b': 'small',
-  'gemma3:1b': 'small',
-  'llama3.2:1b': 'small',
-  'smollm2:1.7b': 'small',
-  'gemma3:4b': 'standard',
+  // self-hosted via Ollama — under 1 GB
+  'smollm2:135m':     'small',
+  'smollm2:360m':     'small',
+  'qwen2.5:0.5b':     'small',
+  'qwen2.5:1.5b':     'small',
+  'gemma3:1b':        'small',
+  // 1–2 GB
+  'deepseek-r1:1.5b': 'small',
+  'llama3.2:1b':      'small',
+  'gemma2:2b':        'small',
+  'smollm2:1.7b':     'small',
+  'qwen2.5:3b':       'standard',
+  // 2–3 GB
+  'llama3.2:3b':      'standard',
+  'phi3.5:latest':    'standard',
+  // over 3 GB
+  'gemma3:4b':        'standard',
   // cloud providers
   'llama-3.1-8b-instant': 'small',
   'gemini-1.5-flash': 'small',
