@@ -56,12 +56,14 @@ export interface CatalogModel {
   label: string;
 }
 export const MODEL_CATALOG: CatalogModel[] = [
-  { provider: "ollama", model: "smollm2:135m", tier: "small", label: "SmolLM2 135M · self-hosted (CPU)" },
-  { provider: "ollama", model: "smollm2:360m", tier: "small", label: "SmolLM2 360M · self-hosted (CPU)" },
-  { provider: "ollama", model: "qwen2.5:0.5b", tier: "small", label: "Qwen 2.5 0.5B · self-hosted (CPU)" },
-  { provider: "ollama", model: "gemma3:1b", tier: "small", label: "Gemma 3 1B · self-hosted (CPU)" },
-  { provider: "ollama", model: "llama3.2:1b", tier: "small", label: "Llama 3.2 1B · self-hosted (CPU)" },
-  { provider: "ollama", model: "gemma3:4b", tier: "standard", label: "Gemma 3 4B · self-hosted (CPU)" },
+  { provider: "ollama", model: "smollm2:135m",  tier: "small",    label: "SmolLM2 135M · CPU · 270 MB" },
+  { provider: "ollama", model: "smollm2:360m",  tier: "small",    label: "SmolLM2 360M · CPU · 725 MB" },
+  { provider: "ollama", model: "qwen2.5:0.5b",  tier: "small",    label: "Qwen 2.5 0.5B · CPU · 397 MB" },
+  { provider: "ollama", model: "qwen2.5:1.5b",  tier: "small",    label: "Qwen 2.5 1.5B · CPU · 986 MB" },
+  { provider: "ollama", model: "gemma3:1b",     tier: "small",    label: "Gemma 3 1B · CPU · 815 MB" },
+  { provider: "ollama", model: "llama3.2:1b",   tier: "small",    label: "Llama 3.2 1B · CPU · 1.3 GB" },
+  { provider: "ollama", model: "smollm2:1.7b",  tier: "small",    label: "SmolLM2 1.7B · CPU · 1.8 GB" },
+  { provider: "ollama", model: "gemma3:4b",     tier: "standard", label: "Gemma 3 4B · CPU · 3.3 GB" },
   { provider: "groq", model: "llama-3.1-8b-instant", tier: "small", label: "Llama 3.1 8B · Groq" },
   { provider: "groq", model: "llama-3.3-70b-versatile", tier: "standard", label: "Llama 3.3 70B · Groq" },
   { provider: "mistral", model: "mistral-small-latest", tier: "standard", label: "Mistral Small" },

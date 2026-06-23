@@ -5,65 +5,40 @@ import { api, authHeaders, MODEL_CATALOG } from "@/lib/api";
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
-interface OllamaModel {
-  name: string;
-  size: number;
-  digest?: string;
-  expires_at?: string;
-}
-
+interface OllamaModel { name: string; size: number; expires_at?: string; }
 interface InferenceStats {
-  model: string;
-  provider: string;
-  avg_tokens_per_sec: string | number | null;
-  requests: string | number;
+  model: string; provider: string;
+  avg_tokens_per_sec: string | number | null; requests: string | number;
 }
-
 interface PullEvent {
-  status?: string;
-  completed?: number;
-  total?: number;
-  error?: string;
-  digest?: string;
+  status?: string; completed?: number; total?: number; error?: string;
 }
 
-// ── static enrichment data ────────────────────────────────────────────────────
+// ── static enrichment ─────────────────────────────────────────────────────────
 
-const PARAMS: Record<string, string> = {
-  "smollm2:135m":  "135 M",
-  "smollm2:360m":  "360 M",
-  "qwen2.5:0.5b":  "500 M",
-  "gemma3:1b":     "1 B",
-  "llama3.2:1b":   "1 B",
-  "gemma3:4b":     "4 B",
+const MODEL_META: Record<string, {
+  params: string; estTps: string; bestFor: string;
+}> = {
+  "smollm2:135m":  { params: "135 M", estTps: "60–100", bestFor: "Binary classification · keyword extraction · ultra-fast batch" },
+  "smollm2:360m":  { params: "360 M", estTps: "40–65",  bestFor: "Sentiment · multi-label tagging · simple Q&A" },
+  "qwen2.5:0.5b":  { params: "500 M", estTps: "28–40",  bestFor: "Structured JSON output · multilingual classification" },
+  "qwen2.5:1.5b":  { params: "1.5 B", estTps: "18–28",  bestFor: "Data extraction · structured output · code tasks" },
+  "gemma3:1b":     { params: "1 B",   estTps: "18–28",  bestFor: "Summarisation · short-form generation · general chat" },
+  "llama3.2:1b":   { params: "1 B",   estTps: "15–22",  bestFor: "Instruction following · RAG retrieval · general purpose" },
+  "smollm2:1.7b":  { params: "1.7 B", estTps: "12–18",  bestFor: "Better SmolLM quality · chat · summarisation" },
+  "gemma3:4b":     { params: "4 B",   estTps: "6–10",   bestFor: "Best CPU quality · complex reasoning · longer context" },
 };
 
-const BEST_FOR_CPU: Record<string, string> = {
-  "smollm2:135m":  "Binary classification · keyword extraction · ultra-fast pipelines",
-  "smollm2:360m":  "Sentiment · tagging · simple Q&A",
-  "qwen2.5:0.5b":  "Structured JSON output · multilingual classification",
-  "gemma3:1b":     "Summarisation · short-form generation · chat",
-  "llama3.2:1b":   "Instruction following · RAG retrieval · general purpose",
-  "gemma3:4b":     "Best CPU quality · complex reasoning · longer context",
-};
-
-const EST_TPS: Record<string, string> = {
-  "smollm2:135m":  "60–100",
-  "smollm2:360m":  "40–65",
-  "qwen2.5:0.5b":  "28–40",
-  "gemma3:1b":     "18–28",
-  "llama3.2:1b":   "15–22",
-  "gemma3:4b":     "6–10",
-};
-
-const CLOUD_META: Record<string, { costPerM: number; tps: string; bestFor: string; providerColor: string }> = {
-  "llama-3.1-8b-instant":       { costPerM: 0.08,  tps: "~200",  bestFor: "Fastest cloud · realtime chat · prototyping",         providerColor: "#F55036" },
-  "llama-3.3-70b-versatile":    { costPerM: 0.59,  tps: "~140",  bestFor: "Complex tasks · long context · high accuracy",        providerColor: "#F55036" },
-  "mistral-small-latest":       { costPerM: 0.20,  tps: "~100",  bestFor: "Multilingual · code · function calling",              providerColor: "#FF7000" },
-  "mistral-large-latest":       { costPerM: 6.00,  tps: "~80",   bestFor: "Advanced reasoning · agents · enterprise",            providerColor: "#FF7000" },
-  "claude-haiku-4-5-20251001":  { costPerM: 1.25,  tps: "~120",  bestFor: "Fast structured output · classification at scale",    providerColor: "#CC785C" },
-  "claude-3-5-sonnet-20241022": { costPerM: 15.00, tps: "~80",   bestFor: "Coding · analysis · long document reasoning",         providerColor: "#CC785C" },
-  "gemini-2.0-flash":           { costPerM: 0.15,  tps: "~150",  bestFor: "Multimodal · 1M-token context · low cost cloud",      providerColor: "#4285F4" },
+const CLOUD_META: Record<string, {
+  costPerM: number; tps: string; bestFor: string; color: string;
+}> = {
+  "llama-3.1-8b-instant":       { costPerM: 0.08,  tps: "~200", color: "#F55036", bestFor: "Fastest cloud · realtime chat · prototyping" },
+  "llama-3.3-70b-versatile":    { costPerM: 0.59,  tps: "~140", color: "#F55036", bestFor: "Complex reasoning · long context · high accuracy" },
+  "mistral-small-latest":       { costPerM: 0.20,  tps: "~100", color: "#FF7000", bestFor: "Multilingual · code · function calling" },
+  "mistral-large-latest":       { costPerM: 6.00,  tps: "~80",  color: "#FF7000", bestFor: "Advanced reasoning · agents · enterprise" },
+  "claude-haiku-4-5-20251001":  { costPerM: 1.25,  tps: "~120", color: "#CC785C", bestFor: "Fast structured output · classification at scale" },
+  "claude-3-5-sonnet-20241022": { costPerM: 15.00, tps: "~80",  color: "#CC785C", bestFor: "Coding · analysis · long document reasoning" },
+  "gemini-2.0-flash":           { costPerM: 0.15,  tps: "~150", color: "#4285F4", bestFor: "Multimodal · 1M-token context · low-cost cloud" },
 };
 
 const TIER_STYLE: Record<string, string> = {
@@ -71,6 +46,103 @@ const TIER_STYLE: Record<string, string> = {
   standard: "border-blue-400/40 text-blue-700 bg-blue-50",
   frontier: "border-amber-400/40 text-amber-700 bg-amber-50",
 };
+
+// ── picker tasks ──────────────────────────────────────────────────────────────
+
+interface PickTask {
+  label: string;
+  icon: string;
+  description: string;
+  recommendation: {
+    model: string;
+    provider: string;
+    reason: string;
+    alt?: { model: string; provider: string; why: string };
+  };
+}
+
+const PICK_TASKS: PickTask[] = [
+  {
+    label: "Fast batch classification",
+    icon: "⚡",
+    description: "Millions of rows labelled overnight — yes/no, category, sentiment",
+    recommendation: {
+      model: "smollm2:135m", provider: "ollama",
+      reason: "60–100 t/s on CPU at $0/token. Fast enough to process 500K rows overnight on a $48/mo server.",
+      alt: { model: "smollm2:360m", provider: "ollama", why: "Better accuracy on harder labels, still 40–65 t/s" },
+    },
+  },
+  {
+    label: "Extract structured data",
+    icon: "🗂",
+    description: "Pull fields out of documents into JSON — invoices, emails, logs",
+    recommendation: {
+      model: "qwen2.5:1.5b", provider: "ollama",
+      reason: "Qwen models are purpose-built for structured output. The 1.5B hits the sweet spot of accuracy vs speed for extraction.",
+      alt: { model: "qwen2.5:0.5b", provider: "ollama", why: "Simpler schemas with fewer fields — faster at 28–40 t/s" },
+    },
+  },
+  {
+    label: "General chat / Q&A",
+    icon: "💬",
+    description: "Internal tool, knowledge base assistant, support bot",
+    recommendation: {
+      model: "gemma3:1b", provider: "ollama",
+      reason: "Good instruction following and fluent responses. Runs at 18–28 t/s — fast enough for async chat.",
+      alt: { model: "llama3.2:1b", provider: "ollama", why: "Meta's 1B has better instruction following for complex prompts" },
+    },
+  },
+  {
+    label: "Summarise long text",
+    icon: "📄",
+    description: "Condense articles, reports, meeting transcripts",
+    recommendation: {
+      model: "gemma3:4b", provider: "ollama",
+      reason: "Longer context and better language quality make 4B noticeably better at coherent summaries than 1B models.",
+      alt: { model: "gemma3:1b", provider: "ollama", why: "If throughput matters more than quality — 2–3× faster" },
+    },
+  },
+  {
+    label: "Write or fix code",
+    icon: "🖥",
+    description: "Code generation, autocomplete, bug explanations",
+    recommendation: {
+      model: "qwen2.5:1.5b", provider: "ollama",
+      reason: "Qwen 2.5 series was heavily trained on code. 1.5B handles common languages (Python, JS, SQL) well.",
+      alt: { model: "llama-3.1-8b-instant", provider: "groq", why: "For complex or multi-file code tasks — cloud GPU at $0.08/1M" },
+    },
+  },
+  {
+    label: "Realtime user-facing chat",
+    icon: "🚀",
+    description: "Response must arrive in under 1 second — live product feature",
+    recommendation: {
+      model: "llama-3.1-8b-instant", provider: "groq",
+      reason: "~200 t/s cloud GPU = first token in ~100 ms. CPU inference at 18–30 t/s is too slow for synchronous UX.",
+      alt: { model: "gemini-2.0-flash", provider: "gemini", why: "150 t/s, 1M context, $0.15/1M output" },
+    },
+  },
+  {
+    label: "Complex reasoning / agents",
+    icon: "🧠",
+    description: "Multi-step plans, analysis, coding agents, RAG with large docs",
+    recommendation: {
+      model: "claude-3-5-sonnet-20241022", provider: "anthropic",
+      reason: "Best overall reasoning quality. Worth the cost for tasks where errors are expensive.",
+      alt: { model: "gemma3:4b", provider: "ollama", why: "CPU fallback for non-critical reasoning at $0" },
+    },
+  },
+  {
+    label: "Large documents / PDFs",
+    icon: "📚",
+    description: "Whole books, codebases, long transcripts — context > 32K tokens",
+    recommendation: {
+      model: "gemini-2.0-flash", provider: "gemini",
+      reason: "1M-token context window. Cheapest route for truly long documents at $0.15/1M output tokens.",
+      alt: { model: "claude-3-5-sonnet-20241022", provider: "anthropic", why: "Higher quality on complex docs, 200K context" },
+    },
+  },
+];
 
 const fmtBytes = (b: number) =>
   b >= 1e9 ? (b / 1e9).toFixed(1) + " GB" : b >= 1e6 ? (b / 1e6).toFixed(0) + " MB" : b + " B";
@@ -81,6 +153,7 @@ export function Models() {
   return (
     <div className="overflow-x-hidden">
       <HeroSection />
+      <PickerSection />
       <SelfHostedSection />
       <CloudSection />
       <PullSection />
@@ -91,30 +164,32 @@ export function Models() {
 // ── Hero ──────────────────────────────────────────────────────────────────────
 
 function HeroSection() {
-  const cpuCount  = MODEL_CATALOG.filter((m) => m.provider === "ollama").length;
-  const cloudCount = MODEL_CATALOG.filter((m) => m.provider !== "ollama").length;
+  const cpuModels   = MODEL_CATALOG.filter((m) => m.provider === "ollama");
+  const cloudModels = MODEL_CATALOG.filter((m) => m.provider !== "ollama");
+  const sub1gb      = cpuModels.filter((m) => {
+    const sz = { "smollm2:135m": 270, "smollm2:360m": 725, "qwen2.5:0.5b": 397, "qwen2.5:1.5b": 986, "gemma3:1b": 815 };
+    return (sz as any)[m.model] !== undefined;
+  });
 
   return (
-    <section className="min-h-[50vh] bg-ink px-8 py-16 text-cream md:px-16 flex flex-col justify-between">
+    <section className="flex min-h-[55vh] flex-col justify-between bg-ink px-8 py-16 text-cream md:px-16">
       <div>
-        <div className="text-[11px] uppercase tracking-[0.18em] text-cream/30">
-          OpenInference · Models
-        </div>
+        <div className="text-[11px] uppercase tracking-[0.18em] text-cream/30">OpenInference · Models</div>
         <h1 className="mt-3 text-[clamp(48px,7vw,88px)] font-medium leading-[1.02] tracking-[-0.03em]">
           Model catalogue.
         </h1>
         <p className="mt-4 max-w-lg text-sm leading-relaxed text-cream/50">
-          Every model routable through the gateway. Self-hosted runs on your
-          CPU at zero cost per token; cloud models are one API key away.
+          Every model routable through the gateway — with a built-in picker
+          to tell you which one fits your use case.
         </p>
       </div>
 
-      <div className="mt-16 grid grid-cols-2 gap-px bg-cream/8 sm:grid-cols-4">
+      <div className="mt-12 grid grid-cols-2 gap-px bg-cream/8 sm:grid-cols-4">
         {[
-          { v: String(cpuCount),  l: "Self-hosted models" },
-          { v: String(cloudCount), l: "Cloud models" },
-          { v: "$0",              l: "Cost / token (CPU)" },
-          { v: "1 API",           l: "Unified endpoint" },
+          { v: String(cpuModels.length),   l: "Self-hosted CPU models" },
+          { v: String(sub1gb.length),      l: "Under 1 GB" },
+          { v: String(cloudModels.length), l: "Cloud models" },
+          { v: "$0",                       l: "Per token (CPU)" },
         ].map((s) => (
           <div key={s.l} className="bg-ink px-6 py-6">
             <div className="text-2xl font-semibold tracking-tight text-cream">{s.v}</div>
@@ -122,6 +197,113 @@ function HeroSection() {
           </div>
         ))}
       </div>
+    </section>
+  );
+}
+
+// ── Picker ────────────────────────────────────────────────────────────────────
+
+function PickerSection() {
+  const [selected, setSelected] = useState<PickTask | null>(null);
+
+  function modelLabel(modelId: string, provider: string) {
+    const entry = MODEL_CATALOG.find((m) => m.model === modelId && m.provider === provider);
+    return entry?.label ?? modelId;
+  }
+
+  return (
+    <section className="bg-surface px-8 py-16 md:px-16">
+      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Model picker</div>
+      <h2 className="mt-3 mb-2 text-[clamp(36px,5vw,60px)] font-medium leading-[1.05] tracking-[-0.03em]">
+        What are you building?
+      </h2>
+      <p className="mb-10 text-sm text-muted-foreground">
+        Pick a use case — we'll tell you exactly which model to use and why.
+      </p>
+
+      {/* Task grid */}
+      <div className="grid grid-cols-2 gap-px bg-border border border-border sm:grid-cols-4">
+        {PICK_TASKS.map((task) => {
+          const active = selected?.label === task.label;
+          return (
+            <button
+              key={task.label}
+              onClick={() => setSelected(active ? null : task)}
+              className={`flex flex-col items-start px-5 py-5 text-left transition cursor-pointer ${
+                active ? "bg-ink text-cream" : "bg-surface hover:bg-muted/60 text-ink"
+              }`}
+            >
+              <span className="mb-2 text-xl">{task.icon}</span>
+              <span className={`text-sm font-medium leading-snug ${active ? "text-cream" : ""}`}>
+                {task.label}
+              </span>
+              <span className={`mt-1 text-[11px] leading-snug ${active ? "text-cream/50" : "text-muted-foreground"}`}>
+                {task.description}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Recommendation panel */}
+      {selected && (
+        <div className="mt-px border border-t-0 border-border bg-cream p-8">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+            {/* Primary */}
+            <div>
+              <div className="mb-3 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                Recommended
+              </div>
+              <div className="flex items-start gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-ink text-cream text-lg">
+                  {selected.recommendation.provider === "ollama" ? "⚙" : "☁"}
+                </div>
+                <div>
+                  <div className="font-mono text-base font-semibold">
+                    {modelLabel(selected.recommendation.model, selected.recommendation.provider)}
+                  </div>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    {selected.recommendation.reason}
+                  </p>
+                  {selected.recommendation.provider === "ollama" && (
+                    <div className="mt-3 inline-block text-[11px] font-medium text-green-600 uppercase tracking-[0.1em]">
+                      $0.00 / 1M tokens
+                    </div>
+                  )}
+                </div>
+              </div>
+              <Link
+                to="/playground"
+                className="mt-5 inline-flex items-center gap-2 border border-ink bg-ink px-5 py-2.5 text-xs uppercase tracking-[0.1em] text-cream hover:bg-flame-red hover:border-flame-red transition"
+              >
+                Use in Playground →
+              </Link>
+            </div>
+
+            {/* Alt */}
+            {selected.recommendation.alt && (
+              <div className="border-t border-border pt-6 lg:border-t-0 lg:border-l lg:pl-8 lg:pt-0">
+                <div className="mb-3 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                  Alternative
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-surface border border-border text-lg">
+                    {selected.recommendation.alt.provider === "ollama" ? "⚙" : "☁"}
+                  </div>
+                  <div>
+                    <div className="font-mono text-sm font-medium">
+                      {modelLabel(selected.recommendation.alt.model, selected.recommendation.alt.provider)}
+                    </div>
+                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                      {selected.recommendation.alt.why}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -139,14 +321,12 @@ function SelfHostedSection() {
       api<{ running: OllamaModel[]; available: OllamaModel[] }>("/v1/admin/inference/models"),
       api<{ data: InferenceStats[] }>("/v1/admin/inference/stats"),
     ])
-      .then(([models, perfData]) => {
+      .then(([models, perf]) => {
         setRunning(models.running);
         setAvailable(models.available);
         const map: Record<string, number> = {};
-        for (const row of perfData.data) {
-          if (row.provider === "ollama") {
-            map[row.model] = Number(row.avg_tokens_per_sec ?? 0);
-          }
+        for (const r of perf.data) {
+          if (r.provider === "ollama") map[r.model] = Number(r.avg_tokens_per_sec ?? 0);
         }
         setStats(map);
       })
@@ -156,8 +336,13 @@ function SelfHostedSection() {
 
   const runningNames = new Set(running.map((m) => m.name));
 
+  // Sort: sub-1GB first (ascending size), then over-1GB
+  const sorted = [...available].sort((a, b) => a.size - b.size);
+  const sub1gb  = sorted.filter((m) => m.size < 1e9);
+  const over1gb = sorted.filter((m) => m.size >= 1e9);
+
   return (
-    <section className="bg-surface px-8 py-16 md:px-16">
+    <section className="bg-muted/30 px-8 py-16 md:px-16">
       <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">CPU · $0 / token</div>
       <h2 className="mt-3 mb-10 text-[clamp(36px,5vw,60px)] font-medium leading-[1.05] tracking-[-0.03em]">
         Self-hosted models.
@@ -166,165 +351,155 @@ function SelfHostedSection() {
       {loading ? (
         <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>
       ) : (
-        <div className="grid grid-cols-1 gap-px bg-border border border-border sm:grid-cols-2 lg:grid-cols-3">
-          {available.map((m) => {
-            const isLoaded = runningNames.has(m.name);
-            const realTps  = stats[m.name];
-            const estTps   = EST_TPS[m.name] ?? "—";
-            const params   = PARAMS[m.name] ?? "—";
-            const bestFor  = BEST_FOR_CPU[m.name] ?? "General purpose";
-            const tpsLabel = realTps && realTps > 0
-              ? `${realTps.toFixed(0)} t/s (live)`
-              : `${estTps} t/s (est.)`;
+        <>
+          {/* Under 1 GB */}
+          <div className="mb-2 flex items-center gap-3">
+            <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Under 1 GB</span>
+            <span className="text-[10px] text-muted-foreground/50">{sub1gb.length} models · fits in any VPS</span>
+          </div>
+          <ModelGrid models={sub1gb} runningNames={runningNames} stats={stats} />
 
-            return (
-              <div key={m.name} className="relative flex flex-col bg-surface p-7">
-                {/* Status dot */}
-                <div className="mb-5 flex items-center gap-2">
-                  <span className={`inline-block h-2 w-2 rounded-full ${isLoaded ? "bg-green-500" : "bg-muted-foreground/30"}`} />
-                  <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                    {isLoaded ? "Loaded in RAM" : "On disk"}
-                  </span>
-                </div>
-
-                {/* Name */}
-                <div className="font-mono text-lg font-semibold tracking-tight">{m.name}</div>
-
-                {/* Meta row */}
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-                  <span>{params} params</span>
-                  <span>{fmtBytes(m.size)} on disk</span>
-                </div>
-
-                {/* Speed bar */}
-                <div className="mt-5">
-                  <div className="mb-1.5 flex justify-between text-[11px]">
-                    <span className="uppercase tracking-[0.12em] text-muted-foreground">Speed</span>
-                    <span className={`font-medium ${realTps && realTps > 0 ? "text-flame-red" : "text-muted-foreground"}`}>
-                      {tpsLabel}
-                    </span>
-                  </div>
-                  <div className="h-[2px] bg-border">
-                    <div
-                      className="h-[2px] bg-flame-red"
-                      style={{
-                        width: `${Math.min(
-                          ((realTps && realTps > 0
-                            ? realTps
-                            : parseInt(estTps.split("–")[0] ?? "0")) / 100) * 100,
-                          100
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Best for */}
-                <p className="mt-4 text-xs leading-relaxed text-muted-foreground flex-1">{bestFor}</p>
-
-                {/* Footer */}
-                <div className="mt-6 flex items-center justify-between border-t border-border pt-5">
-                  <span className="text-sm font-semibold text-green-600">$0.00 / 1M tokens</span>
-                  <Link
-                    to="/playground"
-                    className="text-xs uppercase tracking-[0.1em] text-muted-foreground hover:text-ink transition"
-                  >
-                    Test in Playground →
-                  </Link>
-                </div>
+          {over1gb.length > 0 && (
+            <>
+              <div className="mb-2 mt-8 flex items-center gap-3">
+                <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Over 1 GB</span>
+                <span className="text-[10px] text-muted-foreground/50">{over1gb.length} models · need ≥2 GB free RAM</span>
               </div>
-            );
-          })}
-        </div>
+              <ModelGrid models={over1gb} runningNames={runningNames} stats={stats} />
+            </>
+          )}
+        </>
       )}
     </section>
   );
 }
 
-// ── Cloud models ──────────────────────────────────────────────────────────────
+function ModelGrid({ models, runningNames, stats }: {
+  models: OllamaModel[];
+  runningNames: Set<string>;
+  stats: Record<string, number>;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-px bg-border border border-border sm:grid-cols-2 lg:grid-cols-3">
+      {models.map((m) => {
+        const isLoaded = runningNames.has(m.name);
+        const meta     = MODEL_META[m.name];
+        const realTps  = stats[m.name];
+        const tpsLabel = realTps && realTps > 0
+          ? `${realTps.toFixed(0)} t/s (live)`
+          : `${meta?.estTps ?? "—"} t/s (est.)`;
+        const barPct = Math.min(
+          ((realTps && realTps > 0 ? realTps : parseInt(meta?.estTps?.split("–")[0] ?? "0")) / 100) * 100,
+          100
+        );
+
+        return (
+          <div key={m.name} className="flex flex-col bg-surface p-7">
+            <div className="mb-4 flex items-center gap-2">
+              <span className={`inline-block h-2 w-2 rounded-full ${isLoaded ? "bg-green-500" : "bg-muted-foreground/25"}`} />
+              <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                {isLoaded ? "Loaded in RAM" : "On disk"}
+              </span>
+              {m.size < 1e9 && (
+                <span className="ml-auto text-[10px] font-medium text-flame-red uppercase tracking-[0.1em]">
+                  &lt;1 GB
+                </span>
+              )}
+            </div>
+
+            <div className="font-mono text-base font-semibold tracking-tight">{m.name}</div>
+            <div className="mt-1.5 flex flex-wrap gap-x-4 text-[11px] text-muted-foreground">
+              <span>{meta?.params ?? "—"} params</span>
+              <span>{fmtBytes(m.size)}</span>
+            </div>
+
+            <div className="mt-5">
+              <div className="mb-1.5 flex justify-between text-[11px]">
+                <span className="uppercase tracking-[0.12em] text-muted-foreground">Speed</span>
+                <span className={`font-medium ${realTps && realTps > 0 ? "text-flame-red" : "text-muted-foreground"}`}>
+                  {tpsLabel}
+                </span>
+              </div>
+              <div className="h-[2px] bg-border">
+                <div className="h-[2px] bg-flame-red transition-all" style={{ width: `${barPct}%` }} />
+              </div>
+            </div>
+
+            <p className="mt-4 flex-1 text-xs leading-relaxed text-muted-foreground">
+              {meta?.bestFor ?? "General purpose"}
+            </p>
+
+            <div className="mt-6 flex items-center justify-between border-t border-border pt-5">
+              <span className="text-sm font-semibold text-green-600">$0.00 / 1M</span>
+              <Link to="/playground" className="text-xs uppercase tracking-[0.1em] text-muted-foreground hover:text-ink transition">
+                Test →
+              </Link>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Cloud ─────────────────────────────────────────────────────────────────────
 
 function CloudSection() {
   const cloudModels = MODEL_CATALOG.filter((m) => m.provider !== "ollama");
 
   return (
     <section className="bg-ink px-8 py-16 text-cream md:px-16">
-      <div className="text-[11px] uppercase tracking-[0.18em] text-cream/30">Cloud · per token billing</div>
+      <div className="text-[11px] uppercase tracking-[0.18em] text-cream/30">Cloud · per token</div>
       <h2 className="mt-3 mb-10 text-[clamp(36px,5vw,60px)] font-medium leading-[1.05] tracking-[-0.03em]">
         Cloud models.
       </h2>
 
-      {/* Column headers */}
-      <div className="mb-2 hidden grid-cols-[1fr_100px_80px_80px_1fr] items-center gap-5 text-[10px] uppercase tracking-[0.14em] text-cream/25 lg:grid">
-        <span>Model</span>
-        <span>Tier</span>
-        <span className="text-right">Cost / 1M</span>
-        <span className="text-right">Speed</span>
+      <div className="mb-2 hidden grid-cols-[1fr_100px_80px_80px_1fr] gap-5 text-[10px] uppercase tracking-[0.14em] text-cream/25 lg:grid">
+        <span>Model</span><span>Tier</span>
+        <span className="text-right">Cost / 1M</span><span className="text-right">Speed</span>
         <span>Best for</span>
       </div>
 
       <div className="divide-y divide-cream/8 border-t border-cream/8">
         {cloudModels.map((m) => {
           const meta = CLOUD_META[m.model];
-          const providerLabel = m.provider.charAt(0).toUpperCase() + m.provider.slice(1);
-
           return (
-            <div
-              key={m.provider + m.model}
-              className="grid grid-cols-1 gap-3 py-5 lg:grid-cols-[1fr_100px_80px_80px_1fr] lg:items-center lg:gap-5"
-            >
-              {/* Model name + provider */}
+            <div key={m.provider + m.model}
+              className="grid grid-cols-1 gap-3 py-5 lg:grid-cols-[1fr_100px_80px_80px_1fr] lg:items-center lg:gap-5">
               <div>
                 <div className="flex items-center gap-2.5">
-                  <span
-                    className="inline-block h-2 w-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: meta?.providerColor ?? "#888" }}
-                  />
+                  <span className="inline-block h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: meta?.color ?? "#888" }} />
                   <span className="font-mono text-sm text-cream/90">{m.label}</span>
                 </div>
-                <div className="mt-0.5 pl-4 text-[11px] text-cream/35">{providerLabel}</div>
+                <div className="mt-0.5 pl-[18px] text-[11px] text-cream/35 capitalize">{m.provider}</div>
               </div>
-
-              {/* Tier */}
               <div>
                 <span className={`inline-block border px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] ${TIER_STYLE[m.tier]}`}>
                   {m.tier}
                 </span>
               </div>
-
-              {/* Cost */}
               <div className="text-right font-mono text-sm text-cream/70">
                 {meta ? `$${meta.costPerM.toFixed(2)}` : "—"}
               </div>
-
-              {/* Speed */}
-              <div className="text-right font-mono text-sm text-cream/50">
-                {meta?.tps ?? "—"} t/s
-              </div>
-
-              {/* Best for */}
-              <div className="text-xs leading-relaxed text-cream/40">
-                {meta?.bestFor ?? "—"}
-              </div>
+              <div className="text-right font-mono text-sm text-cream/50">{meta?.tps ?? "—"} t/s</div>
+              <div className="text-xs leading-relaxed text-cream/40">{meta?.bestFor ?? "—"}</div>
             </div>
           );
         })}
       </div>
-
-      <p className="mt-8 text-[11px] text-cream/25">
-        Cost is output-token rate as of June 2026. Speed estimates at light load — varies by model size and provider infrastructure.
-      </p>
     </section>
   );
 }
 
-// ── Pull a model ──────────────────────────────────────────────────────────────
+// ── Pull ──────────────────────────────────────────────────────────────────────
 
 const SUGGESTED = [
-  { name: "phi4-mini:3.8b",   note: "Microsoft · 3.8B · strong reasoning for size" },
-  { name: "mistral:7b",       note: "Mistral AI · 7B · best overall CPU quality" },
-  { name: "llama3.2:3b",      note: "Meta · 3B · good balance of speed vs quality" },
-  { name: "qwen2.5:1.5b",     note: "Alibaba · 1.5B · strong code + structured output" },
-  { name: "tinyllama:1.1b",   note: "Community · 1.1B · extremely fast, older base" },
+  { name: "phi4-mini:3.8b",  note: "Microsoft · 3.8B · strong reasoning for size" },
+  { name: "mistral:7b",      note: "Mistral AI · 7B · best overall CPU quality" },
+  { name: "llama3.2:3b",     note: "Meta · 3B · good balance speed vs quality" },
+  { name: "qwen2.5:3b",      note: "Alibaba · 3B · excellent code + structured output" },
+  { name: "deepseek-r1:1.5b",note: "DeepSeek · 1.5B · reasoning-focused, 1.1 GB" },
 ];
 
 function PullSection() {
@@ -356,10 +531,9 @@ function PullSection() {
       const reader = res.body.getReader();
       const dec = new TextDecoder();
       let buf = "";
-
       for (;;) {
-        const { value, done: streamDone } = await reader.read();
-        if (streamDone) break;
+        const { value, done: d } = await reader.read();
+        if (d) break;
         buf += dec.decode(value, { stream: true });
         const parts = buf.split("\n\n");
         buf = parts.pop() ?? "";
@@ -381,17 +555,16 @@ function PullSection() {
   const pct = latest?.total ? Math.round((latest.completed ?? 0) / latest.total * 100) : null;
 
   return (
-    <section className="min-h-[60vh] bg-surface px-8 py-16 md:px-16">
+    <section className="min-h-[55vh] bg-surface px-8 py-16 md:px-16">
       <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Ollama · pull</div>
       <h2 className="mt-3 mb-10 text-[clamp(36px,5vw,60px)] font-medium leading-[1.05] tracking-[-0.03em]">
         Add a model.
       </h2>
 
-      {/* Input */}
-      <div className="flex flex-wrap items-stretch gap-0 border border-border max-w-2xl">
+      <div className="flex max-w-2xl flex-wrap items-stretch gap-0 border border-border">
         <input
-          className="flex-1 min-w-0 bg-cream px-5 py-3.5 font-mono text-sm text-ink placeholder:text-muted-foreground/50 outline-none"
-          placeholder="gemma3:4b, phi4-mini, mistral:7b…"
+          className="min-w-0 flex-1 bg-cream px-5 py-3.5 font-mono text-sm text-ink placeholder:text-muted-foreground/50 outline-none"
+          placeholder="phi4-mini, mistral:7b, llama3.2:3b…"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && !pulling && pull(input)}
@@ -401,28 +574,21 @@ function PullSection() {
           <button
             className="border-l border-border bg-ink px-6 py-3.5 text-[13px] font-medium text-cream hover:bg-red-600 transition cursor-pointer"
             onClick={() => abortRef.current?.abort()}
-          >
-            Stop
-          </button>
+          >Stop</button>
         ) : (
           <button
             className="border-l border-border bg-ink px-6 py-3.5 text-[13px] font-medium text-cream hover:bg-flame-red transition cursor-pointer disabled:opacity-40"
             onClick={() => pull(input)}
             disabled={!input.trim()}
-          >
-            Pull
-          </button>
+          >Pull</button>
         )}
       </div>
 
-      {/* Progress */}
       {(pulling || done) && (
         <div className="mt-4 max-w-2xl border border-border bg-cream p-5">
           <div className="mb-3 flex items-center justify-between">
             <span className="font-mono text-xs text-muted-foreground">{input}</span>
-            {pct != null && (
-              <span className="font-mono text-xs text-muted-foreground">{pct}%</span>
-            )}
+            {pct != null && <span className="font-mono text-xs text-muted-foreground">{pct}%</span>}
           </div>
           {pct != null && (
             <div className="mb-3 h-[2px] bg-border">
@@ -431,7 +597,7 @@ function PullSection() {
           )}
           <div className="text-xs text-muted-foreground">
             {done
-              ? <span className="font-medium text-green-600">Done — model is ready. Refresh to see it above.</span>
+              ? <span className="font-medium text-green-600">Done — model ready. Reload the page to see it in the grid.</span>
               : latest?.error
               ? <span className="text-red-500">{latest.error}</span>
               : latest?.status ?? "Starting…"}
@@ -439,10 +605,9 @@ function PullSection() {
         </div>
       )}
 
-      {/* Suggestions */}
       <div className="mt-10">
-        <div className="mb-4 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Suggested models</div>
-        <div className="grid grid-cols-1 gap-px bg-border border border-border sm:grid-cols-2 lg:grid-cols-3 max-w-4xl">
+        <div className="mb-4 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Suggested</div>
+        <div className="grid max-w-4xl grid-cols-1 gap-px bg-border border border-border sm:grid-cols-2 lg:grid-cols-3">
           {SUGGESTED.map((s) => (
             <button
               key={s.name}
