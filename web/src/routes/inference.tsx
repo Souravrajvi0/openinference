@@ -37,6 +37,7 @@ export function Inference() {
       <BentoSection />
       <OrangeSection />
       <DarkSection />
+      <CostSection />
       <AmberSection />
       <BenchmarkSection />
       <ModelStatusSection />
@@ -325,7 +326,268 @@ function DarkSection() {
   );
 }
 
-// ── Section 4: Amber — decision guide ─────────────────────────────────────────
+// ── Section 4: Cost comparison chart ─────────────────────────────────────────
+
+const COST_ROWS = [
+  // CPU self-hosted — the hero
+  {
+    name: "Your existing server + Ollama",
+    category: "CPU · self-hosted",
+    cost: 0,
+    label: "$0",
+    tps: "18–50",
+    private: true,
+    highlight: true,
+    note: "Zero extra cost if you already pay for a VPS or droplet",
+  },
+  {
+    name: "Dedicated CPU server (DO c-4)",
+    category: "CPU · self-hosted",
+    cost: 0.05,
+    label: "~$0.05",
+    tps: "30–45",
+    private: true,
+    highlight: true,
+    note: "$84/mo amortized at 50% utilisation · 4 dedicated vCPU",
+  },
+  // Free / cheap managed APIs
+  {
+    name: "Groq",
+    category: "Managed API",
+    cost: 0,
+    label: "$0",
+    tps: "200+",
+    private: false,
+    highlight: false,
+    note: "Free tier caps at 500K tokens/day · $0.08/1M after",
+  },
+  {
+    name: "Together.ai",
+    category: "Managed API",
+    cost: 0.18,
+    label: "$0.18",
+    tps: "150+",
+    private: false,
+    highlight: false,
+    note: null,
+  },
+  {
+    name: "Fireworks.ai",
+    category: "Managed API",
+    cost: 0.20,
+    label: "$0.20",
+    tps: "120+",
+    private: false,
+    highlight: false,
+    note: null,
+  },
+  // GPU rental (amortized 24/7)
+  {
+    name: "Vast.ai · RTX 3090",
+    category: "GPU rental",
+    cost: 0.46,
+    label: "$0.46",
+    tps: "~80",
+    private: true,
+    highlight: false,
+    note: "$0.13/hr × 730 hrs/mo · amortized at 80 t/s continuous",
+  },
+  {
+    name: "OpenAI GPT-4o mini",
+    category: "Managed API",
+    cost: 0.60,
+    label: "$0.60",
+    tps: "100+",
+    private: false,
+    highlight: false,
+    note: "Output tokens",
+  },
+  {
+    name: "Vast.ai · RTX 4090",
+    category: "GPU rental",
+    cost: 1.23,
+    label: "$1.23",
+    tps: "~140",
+    private: true,
+    highlight: false,
+    note: "$0.35/hr × 730 hrs/mo · amortized at 80 t/s continuous",
+  },
+  {
+    name: "RunPod · RTX 3090",
+    category: "GPU rental",
+    cost: 1.62,
+    label: "$1.62",
+    tps: "~80",
+    private: true,
+    highlight: false,
+    note: "$0.46/hr × 730 hrs/mo · amortized at 80 t/s continuous",
+  },
+  // Premium APIs
+  {
+    name: "OpenAI GPT-4o",
+    category: "Managed API",
+    cost: 10.00,
+    label: "$10.00",
+    tps: "100+",
+    private: false,
+    highlight: false,
+    note: "Output tokens",
+  },
+  {
+    name: "Anthropic Claude 3.5 Sonnet",
+    category: "Managed API",
+    cost: 15.00,
+    label: "$15.00",
+    tps: "~80",
+    private: false,
+    highlight: false,
+    note: "Output tokens",
+  },
+] as const;
+
+const CATEGORY_COLOR: Record<string, string> = {
+  "CPU · self-hosted": "text-flame-red border-flame-red/30 bg-flame-red/6",
+  "Managed API":       "text-ink/50 border-border bg-surface",
+  "GPU rental":        "text-amber-700 border-amber-400/40 bg-amber-50",
+};
+
+function CostSection() {
+  const MAX = 15;
+
+  return (
+    <section className="min-h-screen bg-surface px-8 py-16 md:px-16">
+      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Cost reality</div>
+      <div className="mt-3 mb-12 flex flex-wrap items-end justify-between gap-6">
+        <h2 className="text-[clamp(44px,6.5vw,80px)] font-medium leading-[1.05] tracking-[-0.03em]">
+          The numbers.
+        </h2>
+        <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
+          Cost per 1M output tokens. GPU rental figures are amortised at 24/7
+          continuous use — real burst costs are higher.
+        </p>
+      </div>
+
+      {/* Column headers */}
+      <div className="mb-2 hidden grid-cols-[2fr_120px_1fr_72px_52px_52px] items-center gap-5 text-[10px] uppercase tracking-[0.14em] text-muted-foreground md:grid">
+        <span>Provider</span>
+        <span>Category</span>
+        <span>Cost / 1M tokens</span>
+        <span className="text-right">Speed</span>
+        <span className="text-right">Private</span>
+        <span className="text-right">Limited</span>
+      </div>
+
+      <div className="divide-y divide-border border-t border-border">
+        {COST_ROWS.map((row) => {
+          const barPct = row.cost === 0 ? 0 : Math.min((row.cost / MAX) * 100, 100);
+          const isCpu = row.category === "CPU · self-hosted";
+          const isGpu = row.category === "GPU rental";
+
+          return (
+            <div
+              key={row.name}
+              className={`grid grid-cols-1 gap-3 py-5 md:grid-cols-[2fr_120px_1fr_72px_52px_52px] md:items-center md:gap-5 ${
+                isCpu ? "bg-flame-red/[0.03]" : ""
+              }`}
+            >
+              {/* Name */}
+              <div>
+                <div className={`text-sm font-medium ${isCpu ? "text-ink" : "text-ink/70"}`}>
+                  {row.name}
+                </div>
+                {row.note && (
+                  <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground/70">
+                    {row.note}
+                  </div>
+                )}
+              </div>
+
+              {/* Category badge */}
+              <div>
+                <span className={`inline-block border px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] ${CATEGORY_COLOR[row.category]}`}>
+                  {row.category}
+                </span>
+              </div>
+
+              {/* Cost bar + label */}
+              <div className="flex items-center gap-3">
+                <div className="relative h-[3px] flex-1 bg-border">
+                  {row.cost === 0 ? (
+                    <div className="absolute inset-0 border-r-0 border border-dashed border-green-400/60" />
+                  ) : (
+                    <div
+                      className={`absolute left-0 top-0 h-[3px] ${isCpu ? "bg-flame-red" : isGpu ? "bg-amber-400" : "bg-ink/25"}`}
+                      style={{ width: `${barPct}%` }}
+                    />
+                  )}
+                </div>
+                <span className={`w-14 shrink-0 text-right text-sm font-semibold tabular-nums ${
+                  row.cost === 0 ? "text-green-600" : isCpu ? "text-flame-red" : "text-ink/60"
+                }`}>
+                  {row.label}
+                </span>
+              </div>
+
+              {/* Speed */}
+              <div className="text-right font-mono text-xs text-muted-foreground">
+                {row.tps} t/s
+              </div>
+
+              {/* Private */}
+              <div className="text-right text-xs">
+                {row.private
+                  ? <span className="text-green-600">Yes</span>
+                  : <span className="text-muted-foreground/50">No</span>}
+              </div>
+
+              {/* Rate limited */}
+              <div className="text-right text-xs">
+                {row.category === "Managed API"
+                  ? <span className="text-muted-foreground/50">Yes</span>
+                  : <span className="text-green-600">None</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Insight callout */}
+      <div className="mt-10 grid grid-cols-1 gap-px bg-border sm:grid-cols-3">
+        {[
+          {
+            stat: "$0",
+            label: "Incremental cost",
+            body: "If you already run a server for your app, Ollama adds zero cost per token. You're already paying for the server.",
+          },
+          {
+            stat: "6–9M",
+            label: "Tokens to break even vs Claude",
+            body: "At $84/mo for a dedicated CPU server, you break even against Claude 3.5 Sonnet pricing at around 6M output tokens per month.",
+          },
+          {
+            stat: "∞",
+            label: "Daily token limit",
+            body: "No rate limits, no quota requests, no 429s at 3 AM. CPU inference runs as fast as hardware allows — nothing else controls your throughput.",
+          },
+        ].map((c) => (
+          <div key={c.label} className="bg-surface px-8 py-7">
+            <div className="text-3xl font-semibold tracking-tight text-flame-red">{c.stat}</div>
+            <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{c.label}</div>
+            <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{c.body}</p>
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-5 text-[11px] text-muted-foreground/50">
+        * GPU rental amortised cost assumes 24/7 continuous utilisation at stated t/s.
+        Burst / spot use is pay-per-second — cheaper for low volume, higher effective cost per token when idle.
+        Managed API prices are output-token rates as of June 2026.
+      </p>
+    </section>
+  );
+}
+
+// ── Section 5: Amber — decision guide ─────────────────────────────────────────
 
 function AmberSection() {
   return (
