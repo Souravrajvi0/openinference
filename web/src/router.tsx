@@ -12,6 +12,11 @@ import { Playground } from "@/routes/playground";
 import { Admin } from "@/routes/admin";
 import { Inference } from "@/routes/inference";
 import { Models } from "@/routes/models";
+import { Docs } from "@/routes/docs";
+import { Traces } from "@/routes/traces";
+import { Sessions } from "@/routes/sessions";
+import { Agent } from "@/routes/agent";
+import { Guardrails } from "@/routes/guardrails";
 
 function RootLayout() {
   return (
@@ -39,8 +44,13 @@ const playgroundRoute = createRoute({ getParentRoute: () => rootRoute, path: "/p
 const adminRoute = createRoute({ getParentRoute: () => rootRoute, path: "/admin", component: Admin });
 const inferenceRoute = createRoute({ getParentRoute: () => rootRoute, path: "/inference", component: Inference });
 const modelsRoute    = createRoute({ getParentRoute: () => rootRoute, path: "/models",    component: Models });
+const docsRoute      = createRoute({ getParentRoute: () => rootRoute, path: "/docs",      component: Docs });
+const tracesRoute    = createRoute({ getParentRoute: () => rootRoute, path: "/traces",    component: Traces });
+const sessionsRoute    = createRoute({ getParentRoute: () => rootRoute, path: "/sessions",    component: Sessions });
+const agentRoute       = createRoute({ getParentRoute: () => rootRoute, path: "/agent",        component: Agent });
+const guardrailsRoute  = createRoute({ getParentRoute: () => rootRoute, path: "/guardrails",   component: Guardrails });
 
-const routeTree = rootRoute.addChildren([overviewRoute, playgroundRoute, adminRoute, inferenceRoute, modelsRoute]);
+const routeTree = rootRoute.addChildren([overviewRoute, playgroundRoute, adminRoute, inferenceRoute, modelsRoute, docsRoute, tracesRoute, sessionsRoute, agentRoute, guardrailsRoute]);
 
 // Hash history keeps client routes (/playground, /admin) out of the server's
 // path space — the API owns /admin and /v1, so the browser only ever requests "/".
