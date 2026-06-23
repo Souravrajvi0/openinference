@@ -22,8 +22,11 @@ export const PLANS: Record<string, Plan> = {
 // top plan can reach anything not explicitly classified.
 export const MODEL_TIERS: Record<string, Tier> = {
   // self-hosted via Ollama
-  'gemma3:1b': 'small',
+  'smollm2:135m': 'small',
+  'smollm2:360m': 'small',
   'qwen2.5:0.5b': 'small',
+  'gemma3:1b': 'small',
+  'llama3.2:1b': 'small',
   'gemma3:4b': 'standard',
   // cloud providers
   'llama-3.1-8b-instant': 'small',
