@@ -13,7 +13,7 @@ const LS_SYS = "sentinel_sys";
 export function Playground() {
   const [apiKey, setApiKeyState] = useState(() => getKey());
   const [modelKey, setModelKey] = useState(MODEL_CATALOG[0].provider + "/" + MODEL_CATALOG[0].model);
-  const [stream, setStream] = useState(false);
+  const [stream, setStream] = useState(true);
   const [sys, setSys] = useState(() => localStorage.getItem(LS_SYS) || "");
   const [messages, setMessages] = useState<Msg[]>([]);
   const [busy, setBusy] = useState(false);
