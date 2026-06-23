@@ -7,7 +7,6 @@ import {
 } from "@tanstack/react-router";
 import { Toaster } from "sonner";
 import { Nav } from "@/components/Nav";
-import { AuthScreen } from "@/components/AuthScreen";
 import { useAuth } from "@/lib/auth";
 import { Overview } from "@/routes/overview";
 import { Playground } from "@/routes/playground";
@@ -26,15 +25,13 @@ import { Budgets } from "@/routes/budgets";
 import { Mcp } from "@/routes/mcp";
 
 function RootLayout() {
-  const { user, loading, setUser } = useAuth();
+  const { user, loading } = useAuth();
 
   return (
     <div className="min-h-screen">
       <Nav user={user} />
       {loading ? (
         <div className="px-6 py-20 text-center text-sm text-muted-foreground">Checking session…</div>
-      ) : !user ? (
-        <AuthScreen onAuthed={(u) => setUser(u)} />
       ) : (
         <Outlet />
       )}
