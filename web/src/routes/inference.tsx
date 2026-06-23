@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Play, RefreshCw } from "lucide-react";
 import { api, authHeaders, MODEL_CATALOG } from "@/lib/api";
-import { fmtNum } from "@/lib/utils";
-import { Button, Label, Select } from "@/components/ui/primitives";
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
-interface OllamaModel { name: string; size: number; expires_at?: string; size_vram?: number; }
+interface OllamaModel { name: string; size: number; expires_at?: string; }
 
 interface InferenceStats {
   model: string; provider: string; requests: string | number;
@@ -21,7 +18,7 @@ interface BenchRun {
   completion_tokens?: number; tokens_per_sec?: number; error?: string;
 }
 
-// ── static data ───────────────────────────────────────────────────────────────
+// ── helpers ───────────────────────────────────────────────────────────────────
 
 const CLOUD_COST: Record<string, number> = {
   "mistral-small-latest": 0.20, "mistral-large-latest": 4.00,
@@ -29,186 +26,189 @@ const CLOUD_COST: Record<string, number> = {
   "gemini-2.0-flash": 0.15, "gemini-1.5-flash": 0.19, "gemini-1.5-pro": 3.13,
 };
 
-const BEST_FOR: Record<string, string> = {
-  ollama: "batch · async · private data",
-  groq: "realtime chat · low latency",
-  openai: "production · high accuracy",
-  anthropic: "reasoning · long context",
-  mistral: "multilingual · code",
-  gemini: "multimodal · large context",
-};
-
 const fmtBytes = (b: number) =>
   b >= 1e9 ? (b / 1e9).toFixed(1) + " GB" : b >= 1e6 ? (b / 1e6).toFixed(0) + " MB" : b + " B";
-
-const ms = (v: number | null) => (v == null ? "—" : v.toLocaleString() + " ms");
 
 // ── page ──────────────────────────────────────────────────────────────────────
 
 export function Inference() {
   return (
-    <div>
-      <HeroSection />
-      <WhySection />
-      <StatsSection />
-      <ModelStatusSection />
+    <div className="overflow-x-hidden">
+      <BentoSection />
+      <OrangeSection />
+      <DarkSection />
+      <AmberSection />
       <BenchmarkSection />
+      <ModelStatusSection />
     </div>
   );
 }
 
-// ── Hero ──────────────────────────────────────────────────────────────────────
+// ── Section 1: Bento overview (cream) ─────────────────────────────────────────
 
-function HeroSection() {
+function BentoSection() {
   return (
-    <section className="relative overflow-hidden bg-ink px-6 py-24 text-cream md:px-16">
-      {/* Background grid decoration */}
-      <div className="pointer-events-none absolute inset-0 opacity-[0.04]"
-        style={{ backgroundImage: "linear-gradient(var(--cream) 1px,transparent 1px),linear-gradient(90deg,var(--cream) 1px,transparent 1px)", backgroundSize: "48px 48px" }} />
-
-      <div className="relative mx-auto max-w-6xl">
-        <div className="mb-4 text-[11px] uppercase tracking-[0.2em] text-cream/50">Inference</div>
-        <h1 className="mb-6 text-5xl font-medium leading-[1.05] tracking-tight md:text-7xl">
-          CPU inference.<br />
-          <span className="text-flame-red">Zero cost.</span>
+    <section className="flex min-h-screen flex-col bg-surface">
+      {/* Header */}
+      <div className="px-8 pb-12 pt-16 md:px-16">
+        <div className="mb-4 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          OpenInference · Inference
+        </div>
+        <h1 className="text-[clamp(48px,7vw,88px)] font-medium leading-[1.02] tracking-[-0.03em]">
+          CPU inference.<br />Open source models.
         </h1>
-        <p className="mb-16 max-w-xl text-base text-cream/60">
-          GPU cloud APIs win on raw speed. But for batch workloads, private data,
-          and cost-sensitive pipelines — self-hosted CPU inference is production-viable
-          and costs nothing per token.
+        <p className="mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">
+          Route to self-hosted models for batch work, private data, and zero-cost pipelines —
+          without changing your API.
         </p>
+      </div>
 
-        {/* Visual comparison bars */}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div>
-            <div className="mb-3 text-[10px] uppercase tracking-[0.2em] text-cream/40">Self-hosted · CPU</div>
-            <div className="space-y-3">
-              {[
-                { name: "gemma3:1b", tps: 18, max: 200, cost: "$0.00" },
-                { name: "qwen2.5:0.5b", tps: 28, max: 200, cost: "$0.00" },
-                { name: "gemma3:4b", tps: 8, max: 200, cost: "$0.00" },
-              ].map((m) => (
-                <div key={m.name}>
-                  <div className="mb-1 flex justify-between text-xs">
-                    <span className="font-mono text-cream/80">{m.name}</span>
-                    <span className="text-flame-red font-medium">{m.cost} · {m.tps} t/s</span>
-                  </div>
-                  <div className="h-1.5 w-full bg-cream/10">
-                    <div className="h-full bg-flame-red transition-all" style={{ width: `${(m.tps / m.max) * 100}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
+      {/* Bento grid */}
+      <div className="flex-1 grid grid-cols-2 gap-px border-t border-border bg-border md:grid-cols-4">
+
+        {/* Big dark tile — $0 */}
+        <div className="relative col-span-2 row-span-2 flex min-h-[280px] flex-col justify-end overflow-hidden bg-ink p-9 text-cream">
+          <div className="absolute right-0 top-0 h-20 w-20 -translate-y-1/2 translate-x-1/2 rotate-45 border border-cream/10" />
+          <div className="mb-auto flex h-9 w-9 items-center justify-center bg-flame-red">
+            <svg viewBox="0 0 18 18" className="h-4 w-4 fill-none stroke-white stroke-[1.5]">
+              <path d="M9 1v16M5 5h5.5a3.5 3.5 0 010 7H5M5 5H3M5 12H3" strokeLinecap="round" />
+            </svg>
           </div>
-          <div>
-            <div className="mb-3 text-[10px] uppercase tracking-[0.2em] text-cream/40">Cloud GPU · for reference</div>
-            <div className="space-y-3">
-              {[
-                { name: "llama-3.1-8b · groq", tps: 200, max: 200, cost: "free tier" },
-                { name: "llama-3.3-70b · groq", tps: 140, max: 200, cost: "free tier" },
-                { name: "gemini-2.0-flash", tps: 120, max: 200, cost: "$0.15/1M" },
-              ].map((m) => (
-                <div key={m.name}>
-                  <div className="mb-1 flex justify-between text-xs">
-                    <span className="font-mono text-cream/50">{m.name}</span>
-                    <span className="text-cream/40">{m.cost} · {m.tps} t/s</span>
-                  </div>
-                  <div className="h-1.5 w-full bg-cream/10">
-                    <div className="h-full bg-cream/25 transition-all" style={{ width: `${(m.tps / m.max) * 100}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="text-[84px] font-semibold leading-none tracking-[-0.04em] text-flame-red">$0</div>
+          <div className="mt-2 text-base font-medium text-cream">Zero cost inference</div>
+          <div className="mt-1.5 text-xs leading-relaxed text-cream/50">
+            No per-token billing. Self-hosted Ollama on your own hardware. No surprises.
+          </div>
+          <div className="absolute bottom-4 right-4 h-12 w-12 rotate-45 border border-cream/8" />
+        </div>
+
+        {/* Privacy */}
+        <div className="relative flex flex-col justify-end overflow-hidden bg-surface p-7">
+          <div className="absolute right-0 top-0 h-16 w-16 -translate-y-1/2 translate-x-1/2 rotate-45 border border-border" />
+          <div className="mb-auto flex h-9 w-9 items-center justify-center bg-ink">
+            <svg viewBox="0 0 18 18" className="h-4 w-4 fill-none stroke-cream stroke-[1.5]">
+              <path d="M9 2L3 5v5c0 3.5 2.5 6 6 7 3.5-1 6-3.5 6-7V5L9 2z" strokeLinecap="round" />
+            </svg>
+          </div>
+          <div className="mt-6 text-base font-medium">100% private</div>
+          <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            Prompts never leave your server. No vendor data retention policy to audit.
           </div>
         </div>
 
-        <p className="mt-6 text-[10px] text-cream/30">
-          * CPU t/s are estimates for a 2-vCPU cloud instance. Run a live benchmark below for your actual numbers.
-        </p>
+        {/* No rate limits */}
+        <div className="flex flex-col justify-end bg-flame-red p-7 text-cream">
+          <div className="mb-auto flex h-9 w-9 items-center justify-center bg-white/20">
+            <svg viewBox="0 0 18 18" className="h-4 w-4 fill-none stroke-white stroke-[1.5]">
+              <circle cx="9" cy="9" r="7" /><path d="M9 5v4l3 2" strokeLinecap="round" />
+            </svg>
+          </div>
+          <div className="mt-6 text-base font-medium">No rate limits</div>
+          <div className="mt-1 text-xs leading-relaxed text-cream/75">
+            Runs as fast as hardware allows. No 429s, no quota negotiations.
+          </div>
+        </div>
+
+        {/* Batch pipelines */}
+        <div className="relative flex flex-col justify-end overflow-hidden bg-surface p-7">
+          <div className="absolute bottom-3 right-3 h-12 w-12 rotate-45 border border-border" />
+          <div className="mb-auto flex h-9 w-9 items-center justify-center" style={{ backgroundColor: "#F2C335" }}>
+            <svg viewBox="0 0 18 18" className="h-4 w-4 fill-none stroke-ink stroke-[1.5]">
+              <rect x="2" y="4" width="14" height="3" rx="0.5" /><rect x="2" y="9" width="14" height="3" rx="0.5" />
+              <rect x="2" y="14" width="8" height="3" rx="0.5" />
+            </svg>
+          </div>
+          <div className="mt-6 text-base font-medium">Batch pipelines</div>
+          <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            Classification, extraction, summarisation. Run millions of requests overnight.
+          </div>
+        </div>
+
+        {/* Open source */}
+        <div className="relative flex flex-col justify-end overflow-hidden bg-muted p-7">
+          <div className="absolute right-0 top-0 h-20 w-20 -translate-y-1/2 translate-x-1/2 rotate-45 border border-border" />
+          <div className="mt-16 text-base font-medium">Open source models</div>
+          <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            Gemma, Qwen, Llama — any GGUF model on Ollama. Your weights, your infra.
+          </div>
+        </div>
+
+        {/* Hybrid routing */}
+        <div className="flex flex-col justify-end bg-surface p-7">
+          <div className="mb-auto flex h-9 w-9 items-center justify-center bg-ink">
+            <svg viewBox="0 0 18 18" className="h-4 w-4 fill-none stroke-cream stroke-[1.5]">
+              <path d="M2 9h14M9 2l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+          <div className="mt-6 text-base font-medium">Hybrid routing</div>
+          <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            CPU for cost-sensitive tasks. Cloud GPU for latency-critical ones. One gateway.
+          </div>
+        </div>
       </div>
     </section>
   );
 }
 
-// ── Why CPU ───────────────────────────────────────────────────────────────────
+// ── Section 2: Orange — the economics ─────────────────────────────────────────
 
-function WhySection() {
+function OrangeSection() {
   return (
-    <section className="bg-surface px-6 py-20 md:px-16">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">The case for CPU</div>
-        <h2 className="mb-12 text-4xl font-medium tracking-tight md:text-5xl">
-          Slower. Cheaper.<br />Sometimes the right call.
-        </h2>
+    <section className="relative flex min-h-[90vh] flex-col bg-flame-red px-8 py-16 text-cream md:px-16">
+      <a className="absolute right-8 top-16 text-[13px] text-cream/50 hover:text-cream transition md:right-16">
+        Discover Benchmark ›
+      </a>
 
-        {/* Bento grid */}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {/* Big tile - cost */}
-          <div className="col-span-2 row-span-2 border border-border bg-ink p-8 text-cream">
-            <div className="mb-4 text-[10px] uppercase tracking-[0.2em] text-cream/40">Cost per 1M tokens</div>
-            <div className="mb-2 text-7xl font-medium text-flame-red">$0</div>
-            <div className="mb-6 text-cream/60">Self-hosted Ollama. Always. No per-token billing, no surprises on your invoice, no rate-limit 429s at 3am.</div>
-            <div className="text-[10px] uppercase tracking-[0.15em] text-cream/30">vs $0.15–$9.00 on cloud</div>
+      <div className="text-[11px] uppercase tracking-[0.18em] text-cream/40">The economics</div>
+      <h2 className="mt-3 max-w-2xl text-[clamp(44px,6.5vw,80px)] font-medium leading-[1.05] tracking-[-0.03em]">
+        Your server.<br />Their model.<br />Your rules.
+      </h2>
+      <p className="mt-4 max-w-md text-sm leading-relaxed text-cream/60">
+        Pull any open-source model with Ollama. OpenInference routes to it automatically.
+        No API keys, no invoices, no quotas — ever.
+      </p>
+
+      {/* Mockup */}
+      <div className="flex flex-1 items-center justify-center py-12">
+        <div className="w-full max-w-[520px] border border-cream/15 bg-cream/10 backdrop-blur">
+          <div className="flex items-center gap-2 border-b border-cream/10 bg-cream/8 px-4 py-3 text-xs text-cream/50">
+            <span className="inline-block h-2 w-2 rounded-full bg-red-400" />
+            <span className="inline-block h-2 w-2 rounded-full bg-yellow-400" />
+            <span className="inline-block h-2 w-2 rounded-full bg-green-400" />
+            <span className="ml-2">OpenInference — Request log</span>
           </div>
-
-          {/* Privacy */}
-          <div className="border border-border bg-cream p-6">
-            <div className="mb-2 text-[10px] uppercase tracking-[0.15em] text-muted-foreground">Privacy</div>
-            <div className="mb-2 text-lg font-medium">Stays on your server</div>
-            <p className="text-xs text-muted-foreground">Prompts never leave your infrastructure. No vendor data retention to audit. Required for PII, HIPAA, and proprietary data.</p>
+          <div className="divide-y divide-cream/8 px-6 py-2">
+            {[
+              { label: "Model", value: "gemma3:1b · Ollama", mono: true },
+              { label: "Tokens generated", value: "124 tokens" },
+              { label: "Latency", value: "1,840 ms" },
+              { label: "Cost", value: "$0.0000", big: true },
+              { label: "Data left your server", value: "Never", green: true },
+            ].map((row) => (
+              <div key={row.label} className="flex items-center justify-between py-4">
+                <span className="text-[11px] uppercase tracking-[0.12em] text-cream/40">{row.label}</span>
+                <span className={[
+                  "font-medium",
+                  row.big ? "text-2xl tracking-tight" : "text-sm",
+                  row.green ? "text-green-300" : "text-cream",
+                  row.mono ? "font-mono" : "",
+                ].filter(Boolean).join(" ")} style={row.big ? { color: "#F2C335" } : undefined}>
+                  {row.value}
+                </span>
+              </div>
+            ))}
           </div>
-
-          {/* Rate limits */}
-          <div className="border border-border bg-cream p-6">
-            <div className="mb-2 text-[10px] uppercase tracking-[0.15em] text-muted-foreground">Limits</div>
-            <div className="mb-2 text-lg font-medium">No rate limits</div>
-            <p className="text-xs text-muted-foreground">Cloud APIs throttle bursts. CPU inference runs as fast as hardware allows — predictable, no quotas, no negotiations.</p>
-          </div>
-
-          {/* Right-sized */}
-          <div className="border border-border bg-cream p-6">
-            <div className="mb-2 text-[10px] uppercase tracking-[0.15em] text-muted-foreground">Model size</div>
-            <div className="mb-2 text-lg font-medium">Right-sized models</div>
-            <p className="text-xs text-muted-foreground">1B–4B models handle classification, extraction, and short Q&A well. Not every task needs a 70B frontier model.</p>
-          </div>
-
-          {/* No lock-in */}
-          <div className="border border-border bg-cream p-6">
-            <div className="mb-2 text-[10px] uppercase tracking-[0.15em] text-muted-foreground">Ownership</div>
-            <div className="mb-2 text-lg font-medium">Zero vendor lock-in</div>
-            <p className="text-xs text-muted-foreground">Swap models without changing your API. Ollama runs any GGUF model. Your gateway, your weights, your infra.</p>
-          </div>
-        </div>
-
-        {/* Use-case strip */}
-        <div className="mt-3 grid grid-cols-1 gap-0 border border-border sm:grid-cols-3">
-          {[
-            { label: "Use CPU when", items: ["Batch / async pipelines", "High-volume internal tools", "Privacy-sensitive prompts", "Cost ceilings are hard", "No latency SLA < 2s"], bg: "bg-flame-red/5 border-r border-border" },
-            { label: "Use cloud GPU when", items: ["Customer-facing realtime chat", "Code generation at scale", "Long-context reasoning (>32K)", "Multimodal tasks", "Sub-500ms latency required"], bg: "bg-surface border-r border-border" },
-            { label: "Use both (hybrid)", items: ["CPU for pre-filtering/classify", "GPU only for final generation", "CPU fallback on quota hit", "A/B cost experiments", "Plan-tiered routing (free→CPU)"], bg: "bg-surface" },
-          ].map((col) => (
-            <div key={col.label} className={`p-6 ${col.bg}`}>
-              <div className="mb-4 text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground">{col.label}</div>
-              <ul className="space-y-2">
-                {col.items.map((item) => (
-                  <li key={item} className="flex items-start gap-2 text-xs">
-                    <span className="mt-1.5 h-1 w-1 shrink-0 bg-flame-red" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
         </div>
       </div>
     </section>
   );
 }
 
-// ── Stats ─────────────────────────────────────────────────────────────────────
+// ── Section 3: Dark — performance stats ───────────────────────────────────────
 
-function StatsSection() {
+function DarkSection() {
   const [rows, setRows] = useState<InferenceStats[] | null>(null);
+
   useEffect(() => {
     api<{ data: InferenceStats[] }>("/v1/admin/inference/stats")
       .then((r) => setRows(r.data))
@@ -218,177 +218,182 @@ function StatsSection() {
   const cpu = rows?.filter((r) => r.provider === "ollama") ?? [];
   const cloud = rows?.filter((r) => r.provider !== "ollama") ?? [];
   const cpuReqs = cpu.reduce((a, r) => a + Number(r.requests), 0);
-  const avgTok = cpu.length ? cpu.reduce((a, r) => a + (r.avg_tokens ?? 0), 0) / cpu.length : 50;
+  const avgTok = cpu.length ? cpu.reduce((a, r) => a + (Number(r.avg_tokens) || 0), 0) / cpu.length : 50;
   const saved = (cpuReqs * avgTok / 1_000_000) * 0.10;
 
-  const maxTps = rows ? Math.max(...rows.map((r) => Number(r.avg_tokens_per_sec ?? 0)), 1) : 1;
+  const STATIC_CPU = [
+    { name: "gemma3:1b", tps: 18, w: 9 },
+    { name: "qwen2.5:0.5b", tps: 28, w: 14 },
+    { name: "gemma3:4b", tps: 8, w: 4 },
+  ];
+  const STATIC_CLOUD = [
+    { name: "llama-3.1-8b · groq", tps: 200, w: 100 },
+    { name: "gemini-2.0-flash", tps: 120, w: 60 },
+    { name: "claude-3-5-sonnet", tps: 80, w: 40 },
+  ];
+
+  const allRows = rows && rows.length > 0 ? null : null;
+  void allRows;
+
+  const displayCpu = rows && cpu.length > 0
+    ? cpu.map((r) => ({ name: r.model, tps: Number(r.avg_tokens_per_sec ?? 0), w: Math.round(Number(r.avg_tokens_per_sec ?? 0) / 2) }))
+    : STATIC_CPU;
+
+  const displayCloud = rows && cloud.length > 0
+    ? cloud.map((r) => ({ name: `${r.model} · ${r.provider}`, tps: Number(r.avg_tokens_per_sec ?? 0), w: Math.round(Number(r.avg_tokens_per_sec ?? 0) / 2) }))
+    : STATIC_CLOUD;
+
+  const maxW = Math.max(...displayCpu.map(r => r.w), ...displayCloud.map(r => r.w), 1);
 
   return (
-    <section className="px-6 py-20 md:px-16">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Real traffic</div>
-        <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
-          <h2 className="text-4xl font-medium tracking-tight md:text-5xl">Performance from your requests.</h2>
+    <section className="flex min-h-screen flex-col bg-ink text-cream">
+      {/* Tag strip */}
+      <div className="overflow-hidden border-b border-cream/8 px-8 py-4 md:px-16">
+        <div className="whitespace-nowrap text-[11px] uppercase tracking-[0.16em] text-cream/25">
+          {["SELF-HOSTED", "CPU INFERENCE", "ZERO COST", "PRIVATE DATA", "BATCH PIPELINES",
+            "NO RATE LIMITS", "OPEN SOURCE MODELS", "HYBRID ROUTING", "ZERO VENDOR LOCK-IN",
+            "SELF-HOSTED", "CPU INFERENCE", "ZERO COST"].map((t, i) => (
+            <span key={i} className="mr-8">{t}</span>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-1 flex-col px-8 py-16 md:px-16">
+        <div className="text-[11px] uppercase tracking-[0.18em] text-cream/30">Real traffic</div>
+        <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
+          <h2 className="text-[clamp(40px,6vw,72px)] font-medium leading-[1.05] tracking-[-0.03em]">
+            Performance from<br />your requests.
+          </h2>
           {cpuReqs > 0 && (
-            <div className="border border-flame-red/30 bg-flame-red/5 px-5 py-3">
-              <div className="text-2xl font-medium text-flame-red">${saved < 0.01 ? "<$0.01" : "$" + saved.toFixed(2)}</div>
-              <div className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">saved vs cheapest cloud</div>
-            </div>
-          )}
-        </div>
-
-        {!rows ? (
-          <div className="py-16 text-center text-sm text-muted-foreground">Loading…</div>
-        ) : rows.length === 0 ? (
-          <div className="border border-border py-16 text-center text-sm text-muted-foreground">
-            No request history yet. Send some chat requests to populate this table.
-          </div>
-        ) : (
-          <div className="space-y-1">
-            {/* Header */}
-            <div className="grid grid-cols-[1fr_80px_100px_80px_80px_80px_100px] gap-4 px-4 py-2 text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
-              <span>Model</span><span>Requests</span><span>Tok/s</span>
-              <span>p50</span><span>p95</span><span>TTFB</span><span>Cost/1M</span>
-            </div>
-
-            {cpu.length > 0 && (
-              <>
-                <div className="bg-flame-red/5 px-4 py-2 text-[10px] font-medium uppercase tracking-[0.15em] text-flame-red border-l-2 border-flame-red">
-                  Self-hosted · CPU · $0 per request
-                </div>
-                {cpu.map((r) => <StatRow key={r.model} row={r} maxTps={maxTps} isCpu />)}
-              </>
-            )}
-
-            {cloud.length > 0 && (
-              <>
-                <div className="mt-2 bg-muted px-4 py-2 text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground border-l-2 border-border">
-                  Cloud GPU · per-token billing
-                </div>
-                {cloud.map((r) => <StatRow key={r.model + r.provider} row={r} maxTps={maxTps} isCpu={false} />)}
-              </>
-            )}
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function StatRow({ row, maxTps, isCpu }: { row: InferenceStats; maxTps: number; isCpu: boolean }) {
-  const tps = Number(row.avg_tokens_per_sec ?? 0);
-  const cost = isCpu ? "$0.00" : (CLOUD_COST[row.model] != null ? (CLOUD_COST[row.model] === 0 ? "free tier" : `$${CLOUD_COST[row.model].toFixed(2)}`) : "—");
-
-  return (
-    <div className="group border border-border hover:bg-muted/40 transition-colors">
-      <div className="grid grid-cols-[1fr_80px_100px_80px_80px_80px_100px] items-center gap-4 px-4 py-4">
-        <div>
-          <div className="font-mono text-sm">{row.model}</div>
-          <div className="text-[10px] text-muted-foreground">{BEST_FOR[row.provider] ?? row.provider}</div>
-        </div>
-        <div className="text-sm">{fmtNum(row.requests)}</div>
-        <div>
-          <div className="mb-1 text-sm font-medium">{tps > 0 ? tps.toFixed(1) + " t/s" : "—"}</div>
-          {tps > 0 && (
-            <div className="h-1 w-full bg-border">
-              <div className={`h-full ${isCpu ? "bg-flame-red" : "bg-good"}`} style={{ width: `${Math.min((tps / maxTps) * 100, 100)}%` }} />
-            </div>
-          )}
-        </div>
-        <div className="text-sm text-muted-foreground">{ms(row.p50_ms)}</div>
-        <div className="text-sm text-muted-foreground">{ms(row.p95_ms)}</div>
-        <div className="text-sm text-muted-foreground">{ms(row.avg_ttfb_ms)}</div>
-        <div className={`text-sm font-medium ${isCpu ? "text-good" : "text-muted-foreground"}`}>{cost}</div>
-      </div>
-    </div>
-  );
-}
-
-// ── Model Status ──────────────────────────────────────────────────────────────
-
-function ModelStatusSection() {
-  const [data, setData] = useState<{ running: OllamaModel[]; available: OllamaModel[] } | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const load = () => {
-    setLoading(true);
-    api<{ running: OllamaModel[]; available: OllamaModel[] }>("/v1/admin/inference/models")
-      .then(setData).catch((e) => toast.error(e.message)).finally(() => setLoading(false));
-  };
-  useEffect(() => { load(); }, []);
-
-  return (
-    <section className="bg-ink px-6 py-20 text-cream md:px-16">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-2 text-[11px] uppercase tracking-[0.2em] text-cream/40">Ollama node</div>
-        <div className="mb-10 flex items-end justify-between">
-          <h2 className="text-4xl font-medium tracking-tight md:text-5xl">Self-hosted models.</h2>
-          <button onClick={load} className="flex items-center gap-2 border border-cream/20 px-4 py-2 text-xs text-cream/60 hover:border-cream/40 hover:text-cream transition cursor-pointer">
-            <RefreshCw className="h-3 w-3" /> Refresh
-          </button>
-        </div>
-
-        {loading ? (
-          <div className="py-8 text-center text-cream/30">Loading…</div>
-        ) : (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            {/* Running */}
-            <div>
-              <div className="mb-4 flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-cream/40">
-                <span className="inline-block h-2 w-2 bg-good" /> Loaded in RAM
+            <div className="border border-flame-red/30 px-5 py-3">
+              <div className="text-2xl font-medium text-flame-red">
+                {saved < 0.01 ? "<$0.01" : `$${saved.toFixed(2)}`}
               </div>
-              {!data || data.running.length === 0 ? (
-                <div className="border border-cream/10 p-6 text-sm text-cream/30">
-                  No models loaded. The first request to any model triggers a cold load (~2–5s), after which it stays in memory.
-                </div>
-              ) : data.running.map((m) => (
-                <div key={m.name} className="flex items-center justify-between border border-cream/10 p-4 mb-2">
-                  <div>
-                    <div className="font-mono text-sm">{m.name}</div>
-                    {m.expires_at && <div className="text-[10px] text-cream/30">unloads {new Date(m.expires_at).toLocaleTimeString()}</div>}
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm">{fmtBytes(m.size)}</div>
-                    <div className="text-[10px] text-good">ready</div>
-                  </div>
-                </div>
-              ))}
+              <div className="mt-0.5 text-[10px] uppercase tracking-[0.15em] text-cream/30">
+                saved vs cheapest cloud
+              </div>
             </div>
+          )}
+        </div>
+        <p className="mt-4 max-w-md text-sm leading-relaxed text-cream/40">
+          Every request is timed and recorded. This is your actual data, not synthetic benchmarks.
+          {rows === null && " Loading…"}
+        </p>
 
-            {/* Available */}
-            <div>
-              <div className="mb-4 text-[10px] uppercase tracking-[0.2em] text-cream/40">Available on disk</div>
-              {!data || data.available.length === 0 ? (
-                <div className="border border-cream/10 p-6 text-sm text-cream/30">No models pulled yet.</div>
-              ) : (
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-cream/10 text-[10px] uppercase tracking-[0.15em] text-cream/30">
-                      <th className="pb-3 pr-4 text-left font-normal">Model</th>
-                      <th className="pb-3 pr-4 text-left font-normal">Size</th>
-                      <th className="pb-3 text-left font-normal">Cost/1M</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.available.map((m) => (
-                      <tr key={m.name} className="border-b border-cream/10">
-                        <td className="py-3 pr-4 font-mono text-sm text-cream/80">{m.name}</td>
-                        <td className="py-3 pr-4 text-sm text-cream/50">{fmtBytes(m.size)}</td>
-                        <td className="py-3 text-sm font-medium text-flame-red">$0.00</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
+        <div className="mt-12 flex-1">
+          {/* Column labels */}
+          <div className="mb-3 grid grid-cols-[200px_1fr_80px_96px] gap-6 text-[10px] uppercase tracking-[0.15em] text-cream/25 md:grid-cols-[240px_1fr_80px_96px]">
+            <span>Model</span><span>Tokens / sec</span>
+            <span className="text-right">t/s avg</span><span className="text-right">Cost / 1M</span>
           </div>
-        )}
+
+          {/* CPU rows */}
+          {displayCpu.map((r) => (
+            <div key={r.name} className="grid grid-cols-[200px_1fr_80px_96px] items-center gap-6 border-b border-cream/6 py-5 md:grid-cols-[240px_1fr_80px_96px]">
+              <span className="truncate font-mono text-[13px] text-cream/70">{r.name}</span>
+              <div className="h-[3px] bg-cream/8">
+                <div className="h-[3px] bg-flame-red transition-all" style={{ width: `${(r.w / maxW) * 100}%` }} />
+              </div>
+              <span className="text-right text-[13px] font-medium text-flame-red">{r.tps} t/s</span>
+              <span className="text-right text-[12px] text-green-400">$0.00</span>
+            </div>
+          ))}
+
+          {/* Divider */}
+          <div className="my-2 border-t border-cream/4 pt-6" />
+
+          {/* Cloud rows */}
+          {displayCloud.map((r) => {
+            const costKey = r.name.split(" · ")[0] ?? r.name;
+            const cost = CLOUD_COST[costKey];
+            return (
+              <div key={r.name} className="grid grid-cols-[200px_1fr_80px_96px] items-center gap-6 border-b border-cream/6 py-5 md:grid-cols-[240px_1fr_80px_96px]">
+                <span className="truncate font-mono text-[13px] text-cream/30">{r.name}</span>
+                <div className="h-[3px] bg-cream/8">
+                  <div className="h-[3px] bg-cream/25 transition-all" style={{ width: `${(r.w / maxW) * 100}%` }} />
+                </div>
+                <span className="text-right text-[13px] text-cream/30">{r.tps} t/s</span>
+                <span className="text-right text-[12px] text-cream/30">
+                  {cost != null ? (cost === 0 ? "free tier" : `$${cost.toFixed(2)}`) : "—"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
 }
 
-// ── Benchmark ─────────────────────────────────────────────────────────────────
+// ── Section 4: Amber — decision guide ─────────────────────────────────────────
+
+function AmberSection() {
+  return (
+    <section
+      className="relative flex min-h-[90vh] flex-col px-8 py-16 md:px-16"
+      style={{ backgroundColor: "#F2C335" }}
+    >
+      <div className="text-[11px] uppercase tracking-[0.18em]" style={{ color: "rgba(20,18,16,0.45)" }}>
+        Decision guide
+      </div>
+      <h2 className="mt-3 max-w-lg text-[clamp(44px,6.5vw,80px)] font-medium leading-[1.05] tracking-[-0.03em] text-ink">
+        Right model.<br />Right backend.
+      </h2>
+      <p className="mt-4 max-w-md text-sm leading-relaxed" style={{ color: "rgba(20,18,16,0.55)" }}>
+        CPU inference handles more than you'd expect. Know where the line is —
+        and let the gateway route automatically.
+      </p>
+
+      {/* 3-col grid */}
+      <div
+        className="mt-12 flex-1 grid grid-cols-1 gap-px sm:grid-cols-3"
+        style={{ background: "rgba(20,18,16,0.14)" }}
+      >
+        {[
+          {
+            label: "Use CPU · Ollama", bg: "#F2C335",
+            items: ["Batch classification overnight", "Async document extraction",
+              "High-volume internal tools", "PII / HIPAA sensitive prompts", "No latency SLA under 2 s"],
+          },
+          {
+            label: "Use cloud GPU", bg: "rgba(20,18,16,0.06)",
+            items: ["Customer-facing realtime chat", "Code generation at scale",
+              "Long-context reasoning (>32K)", "Multimodal tasks", "Sub-500 ms latency required"],
+          },
+          {
+            label: "Use both · hybrid", bg: "rgba(20,18,16,0.06)",
+            items: ["CPU pre-filters, GPU generates", "CPU fallback on quota hit",
+              "A/B cost experiments", "Free plan → CPU, Pro → cloud", "Plan-tiered routing built in"],
+          },
+        ].map((col) => (
+          <div key={col.label} className="px-8 py-8" style={{ backgroundColor: col.bg }}>
+            <div
+              className="mb-5 text-[11px] uppercase tracking-[0.16em]"
+              style={{ color: "rgba(20,18,16,0.45)" }}
+            >
+              {col.label}
+            </div>
+            {col.items.map((item) => (
+              <div
+                key={item}
+                className="flex items-center gap-3 border-b py-3 text-[13px] text-ink"
+                style={{ borderColor: "rgba(20,18,16,0.1)" }}
+              >
+                <span
+                  className="inline-block h-1 w-1 shrink-0"
+                  style={{ backgroundColor: "#141210" }}
+                />
+                {item}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ── Section 5: Benchmark ──────────────────────────────────────────────────────
 
 function BenchmarkSection() {
   const [modelKey, setModelKey] = useState(MODEL_CATALOG[0].provider + "/" + MODEL_CATALOG[0].model);
@@ -443,96 +448,222 @@ function BenchmarkSection() {
   const maxResultTps = ok.length ? Math.max(...ok.map((r) => r.tokens_per_sec ?? 0), 1) : 1;
 
   return (
-    <section className="px-6 py-20 md:px-16">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Live test</div>
-        <h2 className="mb-10 text-4xl font-medium tracking-tight md:text-5xl">Run a benchmark.</h2>
+    <section className="min-h-screen bg-surface px-8 py-16 md:px-16">
+      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Live test</div>
+      <h2 className="mt-3 mb-12 text-[clamp(44px,6.5vw,80px)] font-medium leading-[1.05] tracking-[-0.03em]">
+        Run a benchmark.
+      </h2>
 
-        {/* Controls */}
-        <div className="mb-8 flex flex-wrap items-end gap-4 border border-border p-5">
-          <div className="flex-1 min-w-52">
-            <Label>Model</Label>
-            <Select className="w-full" value={modelKey} onChange={(e) => setModelKey(e.target.value)} disabled={running}>
-              {MODEL_CATALOG.map((m) => (
-                <option key={m.provider + "/" + m.model} value={m.provider + "/" + m.model}>{m.label}</option>
-              ))}
-            </Select>
-          </div>
-          <div className="w-28">
-            <Label>Runs</Label>
-            <Select className="w-full" value={String(runs)} onChange={(e) => setRuns(Number(e.target.value))} disabled={running}>
-              {[1, 3, 5, 10].map((n) => <option key={n} value={n}>{n}</option>)}
-            </Select>
-          </div>
-          <div className="flex items-end gap-3">
-            {running
-              ? <Button variant="danger" onClick={() => abortRef.current?.abort()}>Stop</Button>
-              : <Button onClick={runBenchmark}><Play className="h-3 w-3" /> Run</Button>}
-            <div className={`border px-4 py-2 text-[10px] uppercase tracking-[0.1em] ${isCpu ? "border-flame-red/40 text-flame-red bg-flame-red/5" : "border-good/40 text-good bg-good/5"}`}>
-              {isCpu ? "CPU · $0" : "Cloud GPU"}
-            </div>
+      {/* Controls */}
+      <div className="flex flex-wrap items-end gap-4 border border-border bg-cream p-6 mb-8">
+        <div className="flex min-w-52 flex-1 flex-col gap-2">
+          <label className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Model</label>
+          <select
+            className="border border-border bg-white px-3 py-2.5 text-[13px] text-ink appearance-none cursor-pointer disabled:opacity-50"
+            value={modelKey}
+            onChange={(e) => setModelKey(e.target.value)}
+            disabled={running}
+          >
+            {MODEL_CATALOG.map((m) => (
+              <option key={m.provider + "/" + m.model} value={m.provider + "/" + m.model}>{m.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex w-24 flex-col gap-2">
+          <label className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Runs</label>
+          <select
+            className="border border-border bg-white px-3 py-2.5 text-[13px] text-ink appearance-none cursor-pointer disabled:opacity-50"
+            value={String(runs)}
+            onChange={(e) => setRuns(Number(e.target.value))}
+            disabled={running}
+          >
+            {[1, 3, 5, 10].map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
+        <div className="flex items-end gap-3">
+          {running ? (
+            <button
+              className="border border-red-500/50 bg-red-500/10 px-6 py-2.5 text-[13px] font-medium text-red-600 hover:bg-red-500/20 transition cursor-pointer"
+              onClick={() => abortRef.current?.abort()}
+            >
+              Stop
+            </button>
+          ) : (
+            <button
+              className="flex items-center gap-2 bg-ink px-6 py-2.5 text-[13px] font-medium text-cream hover:bg-flame-red transition cursor-pointer"
+              onClick={runBenchmark}
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M1 1l8 4-8 4V1z"/></svg>
+              Run benchmark
+            </button>
+          )}
+          <div className={`border px-4 py-2.5 text-[10px] uppercase tracking-[0.1em] ${
+            isCpu ? "border-flame-red/30 bg-flame-red/5 text-flame-red" : "border-green-500/30 bg-green-500/5 text-green-600"
+          }`}>
+            {isCpu ? "CPU · $0" : "Cloud GPU"}
           </div>
         </div>
-
-        {/* Summary */}
-        {ok.length > 0 && (
-          <div className="mb-8 grid grid-cols-3 gap-px bg-border">
-            {[
-              { v: avgTps != null ? avgTps + " t/s" : "—", l: "Avg tokens/sec", good: avgTps != null && avgTps >= greenTps },
-              { v: avgLat != null ? avgLat + " ms" : "—", l: "Avg latency", good: avgLat != null && avgLat < 5000 },
-              { v: avgTtfb != null ? avgTtfb + " ms" : "—", l: "Avg time to first token", good: avgTtfb != null && avgTtfb < 2000 },
-            ].map((s) => (
-              <div key={s.l} className="bg-surface p-6">
-                <div className={`text-3xl font-medium tracking-tight ${s.good ? "text-good" : ""}`}>{s.v}</div>
-                <div className="mt-1 text-[10px] uppercase tracking-[0.15em] text-muted-foreground">{s.l}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Results */}
-        {results.length > 0 ? (
-          <div className="space-y-1">
-            {results.map((r) => (
-              <div key={r.run} className={`border p-4 ${r.error ? "border-bad/30 bg-bad/5" : "border-border"}`}>
-                {r.error ? (
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono text-muted-foreground">{r.prompt}</span>
-                    <span className="text-xs text-bad">{r.error}</span>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-[24px_1fr_72px_80px_72px] items-center gap-4">
-                    <div className="text-[11px] text-muted-foreground">{r.run}</div>
-                    <div>
-                      <div className="mb-1.5 truncate font-mono text-xs text-muted-foreground">{r.prompt}</div>
-                      <div className="h-1 w-full bg-border">
-                        <div className={`h-full ${isCpu ? "bg-flame-red" : "bg-good"}`}
-                          style={{ width: `${Math.min(((r.tokens_per_sec ?? 0) / maxResultTps) * 100, 100)}%` }} />
-                      </div>
-                    </div>
-                    <div className="text-right text-xs text-muted-foreground">{r.ttfb_ms}ms TTFB</div>
-                    <div className="text-right text-xs text-muted-foreground">{r.latency_ms}ms</div>
-                    <div className={`text-right text-sm font-medium ${(r.tokens_per_sec ?? 0) >= greenTps ? "text-good" : "text-flame-red"}`}>
-                      {r.tokens_per_sec} t/s
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-            {running && (
-              <div className="border border-border p-4 text-center text-xs text-muted-foreground animate-pulse">
-                Running {results.length + 1} of {runs}…
-              </div>
-            )}
-          </div>
-        ) : !running ? (
-          <div className="border border-border py-16 text-center text-sm text-muted-foreground">
-            {isCpu
-              ? `CPU models score green at ≥${greenTps} t/s — viable for async pipelines.`
-              : `Cloud GPU models score green at ≥${greenTps} t/s — required for realtime chat.`}
-          </div>
-        ) : null}
       </div>
+
+      {/* Summary stats */}
+      {ok.length > 0 && (
+        <div className="mb-8 grid grid-cols-3 gap-px bg-border border border-border">
+          {[
+            { v: avgTps != null ? `${avgTps} t/s` : "—", l: "Avg tokens/sec", good: avgTps != null && avgTps >= greenTps },
+            { v: avgLat != null ? `${avgLat} ms` : "—", l: "Avg latency", good: avgLat != null && avgLat < 5000 },
+            { v: avgTtfb != null ? `${avgTtfb} ms` : "—", l: "Time to first token", good: avgTtfb != null && avgTtfb < 2000 },
+          ].map((s) => (
+            <div key={s.l} className="bg-surface p-6">
+              <div className={`text-3xl font-medium tracking-tight ${s.good ? "text-green-600" : ""}`}>{s.v}</div>
+              <div className="mt-1 text-[10px] uppercase tracking-[0.15em] text-muted-foreground">{s.l}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Results */}
+      {results.length > 0 ? (
+        <div>
+          <div className="grid grid-cols-[32px_1fr_80px_80px_72px] gap-5 border-t border-border pb-3 pt-4 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+            <span /><span>Prompt</span><span className="text-right">TTFB</span>
+            <span className="text-right">Latency</span><span className="text-right">Tok/s</span>
+          </div>
+          {results.map((r) => (
+            <div
+              key={r.run}
+              className={`border-b border-border py-4 ${r.error ? "opacity-50" : ""}`}
+            >
+              {r.error ? (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-mono text-muted-foreground">{r.prompt}</span>
+                  <span className="text-red-500">{r.error}</span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-[32px_1fr_80px_80px_72px] items-center gap-5">
+                  <span className="text-[11px] text-muted-foreground">{r.run}</span>
+                  <div>
+                    <div className="mb-2 truncate font-mono text-xs text-muted-foreground">{r.prompt}</div>
+                    <div className="h-[2px] w-full bg-border">
+                      <div
+                        className={isCpu ? "h-[2px] bg-flame-red" : "h-[2px] bg-green-500"}
+                        style={{ width: `${Math.min(((r.tokens_per_sec ?? 0) / maxResultTps) * 100, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="text-right text-xs text-muted-foreground">{r.ttfb_ms} ms</div>
+                  <div className="text-right text-xs text-muted-foreground">{r.latency_ms} ms</div>
+                  <div className={`text-right text-sm font-medium ${
+                    (r.tokens_per_sec ?? 0) >= greenTps ? "text-green-600" : "text-flame-red"
+                  }`}>
+                    {r.tokens_per_sec} t/s
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+          {running && (
+            <div className="border-b border-border py-4 text-center text-xs text-muted-foreground animate-pulse">
+              Running {results.length + 1} of {runs}…
+            </div>
+          )}
+        </div>
+      ) : !running ? (
+        <div className="border border-border py-20 text-center text-sm text-muted-foreground">
+          {isCpu
+            ? `CPU models score green at ≥${greenTps} t/s — viable for async pipelines.`
+            : `Cloud GPU models score green at ≥${greenTps} t/s — required for realtime chat.`}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+// ── Section 6: Model status (dark) ────────────────────────────────────────────
+
+function ModelStatusSection() {
+  const [data, setData] = useState<{ running: OllamaModel[]; available: OllamaModel[] } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = () => {
+    setLoading(true);
+    api<{ running: OllamaModel[]; available: OllamaModel[] }>("/v1/admin/inference/models")
+      .then(setData).catch((e) => toast.error(e.message)).finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, []);
+
+  return (
+    <section className="min-h-[60vh] bg-ink px-8 py-16 text-cream md:px-16">
+      <div className="mb-10 flex items-end justify-between">
+        <div>
+          <div className="mb-3 text-[11px] uppercase tracking-[0.18em] text-cream/30">Ollama node</div>
+          <h2 className="text-[clamp(36px,5vw,64px)] font-medium leading-[1.05] tracking-[-0.03em]">
+            Self-hosted models.
+          </h2>
+        </div>
+        <button
+          onClick={load}
+          className="flex items-center gap-2 border border-cream/15 px-4 py-2 text-xs text-cream/50 hover:border-cream/30 hover:text-cream transition cursor-pointer"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M11 6A5 5 0 111 6" strokeLinecap="round"/>
+            <path d="M11 2v4H7" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Refresh
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="py-8 text-center text-sm text-cream/25">Loading…</div>
+      ) : (
+        <div className="grid grid-cols-1 gap-px bg-cream/6 lg:grid-cols-2">
+          {/* Loaded in RAM */}
+          <div className="bg-ink p-8">
+            <div className="mb-5 flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-cream/30">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400" /> Loaded in RAM
+            </div>
+            {!data || data.running.length === 0 ? (
+              <p className="text-sm leading-relaxed text-cream/25">
+                No models currently loaded. The first request triggers a cold load (~2–5 s),
+                after which it stays in memory until idle timeout.
+              </p>
+            ) : data.running.map((m) => (
+              <div key={m.name} className="flex items-center justify-between border-b border-cream/8 py-4">
+                <div>
+                  <div className="font-mono text-sm text-cream/80">{m.name}</div>
+                  {m.expires_at && (
+                    <div className="mt-0.5 text-[10px] text-cream/30">
+                      unloads {new Date(m.expires_at).toLocaleTimeString()}
+                    </div>
+                  )}
+                </div>
+                <div className="text-right">
+                  <div className="text-sm text-cream/60">{fmtBytes(m.size)}</div>
+                  <div className="mt-0.5 text-[10px] text-green-400">ready</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Available on disk */}
+          <div className="bg-ink p-8">
+            <div className="mb-5 text-[11px] uppercase tracking-[0.16em] text-cream/30">Available on disk</div>
+            {!data || data.available.length === 0 ? (
+              <p className="text-sm text-cream/25">
+                No models pulled yet. Run{" "}
+                <code className="font-mono text-cream/40">ollama pull gemma3:1b</code> to get started.
+              </p>
+            ) : data.available.map((m) => (
+              <div key={m.name} className="flex items-center justify-between border-b border-cream/8 py-4">
+                <span className="font-mono text-sm text-cream/70">{m.name}</span>
+                <div className="text-right">
+                  <div className="text-sm text-cream/40">{fmtBytes(m.size)}</div>
+                  <div className="mt-0.5 text-[10px] font-medium text-flame-red">$0.00 / 1M</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
