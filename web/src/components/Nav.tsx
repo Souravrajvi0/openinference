@@ -8,31 +8,35 @@ import { cn } from "@/lib/utils";
 
 // ── Structure ──────────────────────────────────────────────────────────────────
 
-type NavItem = { to: string; label: string; exact?: boolean };
-type NavGroup = { label: string; items: NavItem[] };
+type NavItem = { to: string; label: string; exact?: boolean; auth?: boolean };
+type NavGroup = { label: string; items: NavItem[]; auth?: boolean };
 type NavEntry = NavItem | NavGroup;
 
+// auth: true → only shown when signed in
 const NAV: NavEntry[] = [
-  { to: "/", label: "Overview", exact: true },
+  { to: "/",           label: "Overview",   exact: true },
+  { to: "/playground", label: "Playground" },
+  { to: "/inference",  label: "Inference" },
+  { to: "/models",     label: "Models" },
+  { to: "/docs",       label: "Docs" },
   {
     label: "Monitor",
+    auth: true,
     items: [
-      { to: "/inference", label: "Inference" },
-      { to: "/traces",    label: "Traces" },
-      { to: "/sessions",  label: "Sessions" },
+      { to: "/traces",   label: "Traces" },
+      { to: "/sessions", label: "Sessions" },
     ],
   },
   {
     label: "Build",
+    auth: true,
     items: [
-      { to: "/playground", label: "Playground" },
-      { to: "/agent",      label: "Agent runner" },
-      { to: "/models",     label: "Models" },
-      { to: "/docs",       label: "Docs" },
+      { to: "/agent", label: "Agent runner" },
     ],
   },
   {
     label: "Agents",
+    auth: true,
     items: [
       { to: "/agents",    label: "Registry" },
       { to: "/approvals", label: "Approvals" },
@@ -40,6 +44,7 @@ const NAV: NavEntry[] = [
   },
   {
     label: "Govern",
+    auth: true,
     items: [
       { to: "/guardrails", label: "Guardrails" },
       { to: "/budgets",    label: "Budgets" },
@@ -140,6 +145,8 @@ export function Nav({ user }: { user?: AuthUser | null }) {
     ? { to: "/admin", label: "Admin" }
     : { to: "/admin", label: "Sign in" };
 
+  const visibleNav = [...NAV.filter((e) => !e.auth || user), adminEntry];
+
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   useEffect(() => {
@@ -157,7 +164,7 @@ export function Nav({ user }: { user?: AuthUser | null }) {
         <div className="flex items-center gap-6">
           <Logo />
           <nav className="hidden items-center md:flex">
-            {(user ? [...NAV, adminEntry] : [adminEntry]).map((entry, i) =>
+            {visibleNav.map((entry, i) =>
               isGroup(entry) ? (
                 <Dropdown key={i} group={entry} />
               ) : (
@@ -209,7 +216,7 @@ export function Nav({ user }: { user?: AuthUser | null }) {
       {mobileOpen && (
         <div className="sticky top-[45px] z-30 border-b border-border bg-cream/95 backdrop-blur md:hidden">
           <nav className="flex flex-col py-1">
-            {(user ? [...NAV, adminEntry] : [adminEntry]).map((entry, i) =>
+            {visibleNav.map((entry, i) =>
               isGroup(entry) ? (
                 <div key={i}>
                   <div className="px-6 pt-3 pb-1 text-[9px] uppercase tracking-[0.25em] text-muted-foreground">
