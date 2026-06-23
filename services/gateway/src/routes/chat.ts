@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { Queue } from 'bullmq';
+import OpenAI from 'openai';
 import { requireScope } from '../plugins/auth';
 import { checkGuardrails } from '../services/guardrails';
 import { routeRequest, getAbRoute, getFallbackRoute, estimateTokens } from '../services/router';
