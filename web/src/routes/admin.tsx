@@ -18,7 +18,7 @@ import { Modal } from "@/components/ui/overlay";
 import { AuthScreen } from "@/components/AuthScreen";
 
 const usd = (v: unknown) => "$" + Number(v || 0).toFixed(4);
-const TABS = ["Metrics", "Keys", "Budget", "Experiments", "Cache", "Requests", "Audit"] as const;
+const TABS = ["Metrics", "Keys", "Budget", "Experiments", "Cache", "Evals", "Documents", "Requests", "Audit"] as const;
 type Tab = (typeof TABS)[number];
 
 export function Admin() {
@@ -69,6 +69,8 @@ export function Admin() {
         {tab === "Budget" && <BudgetPanel />}
         {tab === "Experiments" && <ExperimentsPanel />}
         {tab === "Cache" && <CachePanel />}
+        {tab === "Evals" && <EvalsPanel />}
+        {tab === "Documents" && <DocumentsPanel />}
         {tab === "Requests" && <RequestsPanel />}
         {tab === "Audit" && <AuditPanel />}
       </div>
@@ -483,6 +485,160 @@ function AuditPanel() {
         </div>
       )}
     </Card>
+  );
+}
+
+/* ───────────── Evals ───────────── */
+type EvalRow = { id: string; request_id: string; faithfulness_score: number | null; relevance_score: number | null; coherence_score: number | null; hallucination_detected: boolean; regression_detected: boolean; eval_model: string | null; eval_latency_ms: number | null; created_at: string; routed_model: string; routed_provider: string };
+type EvalSummary = { avg_faithfulness: string | null; avg_relevance: string | null; avg_coherence: string | null; hallucinations: string; total: string };
+
+function EvalsPanel() {
+  const [rows, setRows] = useState<EvalRow[] | null>(null);
+  const [summary, setSummary] = useState<EvalSummary | null>(null);
+  useEffect(() => {
+    api<{ data: EvalRow[]; summary: EvalSummary }>("/v1/admin/evals")
+      .then((r) => { setRows(r.data); setSummary(r.summary); })
+      .catch((e) => toast.error(e.message));
+  }, []);
+
+  const score = (v: number | null | string) => v == null ? "—" : Number(v).toFixed(2);
+
+  return (
+    <div>
+      {summary && Number(summary.total) > 0 && (
+        <div className="mb-5 grid grid-cols-2 gap-px bg-border sm:grid-cols-4">
+          {[
+            { n: score(summary.avg_faithfulness), l: "Avg faithfulness" },
+            { n: score(summary.avg_relevance), l: "Avg relevance" },
+            { n: score(summary.avg_coherence), l: "Avg coherence" },
+            { n: summary.hallucinations + " / " + summary.total, l: "Hallucinations" },
+          ].map((s) => (
+            <div key={s.l} className="bg-surface p-5">
+              <div className="text-2xl font-medium tracking-tight">{s.n}</div>
+              <div className="mt-1 text-[11px] uppercase tracking-[0.15em] text-muted-foreground">{s.l}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      <Card className="p-5">
+        <h3 className="mb-4 text-sm font-medium">Recent eval results</h3>
+        {!rows ? <Loading /> : rows.length === 0 ? <Empty text="No eval results yet — evals run async after each chat request." /> : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11px]">
+              <thead><tr className="border-b border-border text-left uppercase tracking-[0.1em] text-muted-foreground">
+                <th className="py-2 pr-3 font-normal">Time</th>
+                <th className="py-2 pr-3 font-normal">Model</th>
+                <th className="py-2 pr-3 font-normal">Faith.</th>
+                <th className="py-2 pr-3 font-normal">Relev.</th>
+                <th className="py-2 pr-3 font-normal">Coher.</th>
+                <th className="py-2 pr-3 font-normal">Halluc.</th>
+                <th className="py-2 font-normal">Regress.</th>
+              </tr></thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id} className="border-b border-border last:border-0">
+                    <td className="py-2 pr-3">{fmtTime(r.created_at)}</td>
+                    <td className="py-2 pr-3">{r.routed_provider}/{r.routed_model}</td>
+                    <td className="py-2 pr-3">{score(r.faithfulness_score)}</td>
+                    <td className="py-2 pr-3">{score(r.relevance_score)}</td>
+                    <td className="py-2 pr-3">{score(r.coherence_score)}</td>
+                    <td className="py-2 pr-3">{r.hallucination_detected ? <Badge tone="bad">yes</Badge> : <Badge tone="good">no</Badge>}</td>
+                    <td className="py-2">{r.regression_detected ? <Badge tone="bad">yes</Badge> : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+/* ───────────── Documents ───────────── */
+type DocRow = { id: string; title: string; source_type: string; status: string; chunk_count: number | null; error_message: string | null; created_at: string; indexed_at: string | null };
+
+function DocumentsPanel() {
+  const [docs, setDocs] = useState<DocRow[] | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [url, setUrl] = useState("");
+
+  const load = () => api<{ data: DocRow[] }>("/v1/documents").then((r) => setDocs(r.data)).catch((e) => toast.error(e.message));
+  useEffect(() => { load(); }, []);
+
+  async function upload() {
+    if (!title.trim()) return toast.error("Title required");
+    if (!content.trim()) return toast.error("Content required");
+    try {
+      await api("/v1/documents", {
+        method: "POST",
+        body: JSON.stringify({ title: title.trim(), content: content.trim(), source_url: url.trim() || undefined }),
+      });
+      toast.success("Document queued for ingestion");
+      setUploading(false); setTitle(""); setContent(""); setUrl("");
+      load();
+    } catch (e: any) { toast.error(e.message); }
+  }
+
+  async function del(id: string) {
+    if (!window.confirm("Delete this document and all its chunks?")) return;
+    try { await api(`/v1/documents/${id}`, { method: "DELETE" }); toast.success("Deleted"); load(); }
+    catch (e: any) { toast.error(e.message); }
+  }
+
+  const statusColor = (s: string) => s === "indexed" ? "good" : s === "failed" ? "bad" : "default";
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-sm font-medium">Documents</h3>
+        <Button onClick={() => setUploading(true)}><Plus className="h-3 w-3" /> Upload</Button>
+      </div>
+      <Card className="p-5">
+        {!docs ? <Loading /> : docs.length === 0 ? <Empty text="No documents yet. Upload text to enable RAG retrieval." /> : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead><tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                <th className="py-2 pr-3 font-normal">Title</th>
+                <th className="py-2 pr-3 font-normal">Status</th>
+                <th className="py-2 pr-3 font-normal">Chunks</th>
+                <th className="py-2 pr-3 font-normal">Indexed</th>
+                <th className="py-2 font-normal"></th>
+              </tr></thead>
+              <tbody>
+                {docs.map((d) => (
+                  <tr key={d.id} className="border-b border-border last:border-0">
+                    <td className="py-2 pr-3 max-w-xs truncate">{d.title}</td>
+                    <td className="py-2 pr-3"><Badge tone={statusColor(d.status)}>{d.status}</Badge></td>
+                    <td className="py-2 pr-3">{d.chunk_count ?? "—"}</td>
+                    <td className="py-2 pr-3 text-muted-foreground">{d.indexed_at ? fmtDate(d.indexed_at) : "—"}</td>
+                    <td className="py-2 text-right"><Button variant="danger" onClick={() => del(d.id)}>Delete</Button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      <Modal open={uploading} onClose={() => setUploading(false)} title="Upload document">
+        <div className="mb-3"><Label>Title</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Company handbook" /></div>
+        <div className="mb-3"><Label>Source URL (optional)</Label><Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" /></div>
+        <div className="mb-5">
+          <Label>Content</Label>
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            rows={8}
+            placeholder="Paste document text here…"
+            className="w-full border border-border bg-surface px-3 py-2 text-sm font-mono resize-y focus:outline-none focus:ring-1 focus:ring-flame-red"
+          />
+        </div>
+        <Button className="w-full" onClick={upload}>Upload &amp; ingest</Button>
+      </Modal>
+    </div>
   );
 }
 

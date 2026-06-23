@@ -180,6 +180,41 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
     return reply.send(result.rows[0]);
   });
 
+  // ── Eval Results ──────────────────────────────────────────────────────
+
+  // GET /v1/admin/evals — recent eval results with request context
+  fastify.get<{ Querystring: { limit?: string; offset?: string } }>('/admin/evals', async (request, reply) => {
+    requireScope(request, 'admin');
+    const limit = Math.min(parseInt(request.query.limit ?? '50'), 200);
+    const offset = parseInt(request.query.offset ?? '0');
+
+    const [rows, summary] = await Promise.all([
+      query(
+        `SELECT e.id, e.request_id, e.faithfulness_score, e.relevance_score,
+                e.coherence_score, e.hallucination_detected, e.regression_detected,
+                e.eval_model, e.eval_latency_ms, e.created_at,
+                r.routed_model, r.routed_provider
+         FROM eval_results e
+         JOIN llm_requests r ON r.id = e.request_id
+         WHERE e.tenant_id = $1
+         ORDER BY e.created_at DESC
+         LIMIT $2 OFFSET $3`,
+        [request.tenantId, limit, offset]
+      ),
+      query(
+        `SELECT AVG(faithfulness_score)::numeric(4,3) AS avg_faithfulness,
+                AVG(relevance_score)::numeric(4,3) AS avg_relevance,
+                AVG(coherence_score)::numeric(4,3) AS avg_coherence,
+                COUNT(*) FILTER (WHERE hallucination_detected) AS hallucinations,
+                COUNT(*) AS total
+         FROM eval_results WHERE tenant_id = $1`,
+        [request.tenantId]
+      ),
+    ]);
+
+    return reply.send({ data: rows.rows, summary: summary.rows[0], limit, offset });
+  });
+
   // ── Semantic Cache ─────────────────────────────────────────────────────
 
   // GET /v1/admin/cache/stats — cache statistics
