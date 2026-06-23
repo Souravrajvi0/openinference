@@ -33,14 +33,15 @@ export async function api<T = any>(
   });
   if (res.status === 204) return undefined as T;
 
-  // Only treat 401 as "session expired" if the user had an active token
+  // Session expired — only if a token was stored
   if (res.status === 401) {
     if (getToken()) {
       clearToken();
       window.dispatchEvent(new CustomEvent("auth:expired"));
       throw new Error("Session expired — please sign in again");
     }
-    throw new Error("Not authenticated");
+    // No token = unauthenticated visitor on a public page; return null silently
+    return null as unknown as T;
   }
 
   let body: any = null;

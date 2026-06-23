@@ -212,7 +212,7 @@ function DarkSection() {
 
   useEffect(() => {
     api<{ data: InferenceStats[] }>("/v1/admin/inference/stats")
-      .then((r) => setRows(r.data))
+      .then((r) => r && setRows(r.data))
       .catch((e) => toast.error(e.message));
   }, []);
 
@@ -849,7 +849,7 @@ function ModelStatusSection() {
   const load = () => {
     setLoading(true);
     api<{ running: OllamaModel[]; available: OllamaModel[] }>("/v1/admin/inference/models")
-      .then(setData).catch((e) => toast.error(e.message)).finally(() => setLoading(false));
+      .then((r) => r && setData(r)).catch((e) => toast.error(e.message)).finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, []);
 
