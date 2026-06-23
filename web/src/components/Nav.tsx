@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Moon, Sun, Menu, X, ChevronDown } from "lucide-react";
 import { api } from "@/lib/api";
+import { type AuthUser } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
@@ -46,7 +47,6 @@ const NAV: NavEntry[] = [
       { to: "/regression", label: "Regression" },
     ],
   },
-  { to: "/admin", label: "Admin" },
 ];
 
 function isGroup(e: NavEntry): e is NavGroup {
@@ -130,11 +130,15 @@ function Logo() {
 
 // ── Nav ────────────────────────────────────────────────────────────────────────
 
-export function Nav() {
+export function Nav({ user }: { user?: AuthUser | null }) {
   const { theme, toggle } = useTheme();
   const [health, setHealth] = useState<"checking" | "ok" | "down">("checking");
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  const adminEntry: NavItem = user
+    ? { to: "/admin", label: "Admin" }
+    : { to: "/admin", label: "Sign in" };
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
@@ -153,7 +157,7 @@ export function Nav() {
         <div className="flex items-center gap-6">
           <Logo />
           <nav className="hidden items-center md:flex">
-            {NAV.map((entry, i) =>
+            {[...NAV, adminEntry].map((entry, i) =>
               isGroup(entry) ? (
                 <Dropdown key={i} group={entry} />
               ) : (
@@ -205,7 +209,7 @@ export function Nav() {
       {mobileOpen && (
         <div className="sticky top-[45px] z-30 border-b border-border bg-cream/95 backdrop-blur md:hidden">
           <nav className="flex flex-col py-1">
-            {NAV.map((entry, i) =>
+            {[...NAV, adminEntry].map((entry, i) =>
               isGroup(entry) ? (
                 <div key={i}>
                   <div className="px-6 pt-3 pb-1 text-[9px] uppercase tracking-[0.25em] text-muted-foreground">

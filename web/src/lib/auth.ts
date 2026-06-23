@@ -53,6 +53,14 @@ export function useAuth() {
 
   useEffect(() => {
     refresh();
+
+    // When any api() call gets a 401, clear the session immediately
+    function onExpired() {
+      setUser(null);
+      setLoading(false);
+    }
+    window.addEventListener("auth:expired", onExpired);
+    return () => window.removeEventListener("auth:expired", onExpired);
   }, []);
 
   return { user, loading, refresh, setUser };

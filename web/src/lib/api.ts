@@ -32,6 +32,14 @@ export async function api<T = any>(
     },
   });
   if (res.status === 204) return undefined as T;
+
+  // Session expired — clear stored credentials and notify listeners
+  if (res.status === 401) {
+    clearToken();
+    window.dispatchEvent(new CustomEvent("auth:expired"));
+    throw new Error("Session expired — please sign in again");
+  }
+
   let body: any = null;
   try {
     body = await res.json();
