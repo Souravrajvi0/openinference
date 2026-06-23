@@ -6,7 +6,14 @@ export type AuditAction =
   | 'doc.indexed' | 'doc.deleted'
   | 'cache.hit' | 'budget.alert' | 'budget.exceeded'
   | 'experiment.created' | 'experiment.stopped'
-  | 'user.signup';
+  | 'user.signup'
+  | 'guardrail_policy.created' | 'guardrail_policy.deleted'
+  | 'agent.created' | 'agent.deactivated'
+  | 'approval.approved' | 'approval.rejected'
+  | 'approval_policy.created'
+  | 'key_budget.set'
+  | 'mcp_server.created'
+  | 'test_suite.created' | 'test_run.completed';
 
 export interface AuditEntry {
   tenant_id: string;
