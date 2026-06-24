@@ -7,7 +7,7 @@ import path from "node:path";
 // In dev we proxy API calls there; in prod the gateway serves the built SPA.
 const API_TARGET = process.env.API_TARGET || "http://localhost:3000";
 const proxy = Object.fromEntries(
-  ["/v1", "/health", "/docs"].map((p) => [p, { target: API_TARGET, changeOrigin: true }]),
+  ["/v1", "/health", "/api-docs"].map((p) => [p, { target: API_TARGET, changeOrigin: true }]),
 );
 
 export default defineConfig({

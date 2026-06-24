@@ -1,5 +1,5 @@
 import {
-  createHashHistory,
+  createBrowserHistory,
   createRootRoute,
   createRoute,
   createRouter,
@@ -69,11 +69,12 @@ const mcpRoute         = createRoute({ getParentRoute: () => rootRoute, path: "/
 
 const routeTree = rootRoute.addChildren([overviewRoute, playgroundRoute, adminRoute, inferenceRoute, modelsRoute, docsRoute, tracesRoute, sessionsRoute, agentRoute, guardrailsRoute, agentsRoute, approvalsRoute, regressionRoute, budgetsRoute, mcpRoute]);
 
-// Hash history keeps client routes (/playground, /admin) out of the server's
-// path space — the API owns /admin and /v1, so the browser only ever requests "/".
+// Browser history gives clean URLs (/playground, /admin) with no "#". The gateway
+// owns the API under /v1 (so /admin here never collides with /v1/admin) and serves
+// the SPA's index.html for any unmatched HTML GET, so deep-link refreshes resolve.
 export const router = createRouter({
   routeTree,
-  history: createHashHistory(),
+  history: createBrowserHistory(),
   defaultPreload: "intent",
 });
 

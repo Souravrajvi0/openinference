@@ -8,7 +8,7 @@ async function main() {
   try {
     await app.listen({ port: config.GATEWAY_PORT, host: config.GATEWAY_HOST });
     app.log.info(`Gateway running on ${config.GATEWAY_HOST}:${config.GATEWAY_PORT}`);
-    app.log.info(`API docs at http://localhost:${config.GATEWAY_PORT}/docs`);
+    app.log.info(`API docs at http://localhost:${config.GATEWAY_PORT}/api-docs`);
   } catch (err) {
     app.log.error(err);
     process.exit(1);

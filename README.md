@@ -16,7 +16,7 @@ Client → Nginx → Gateway (Fastify)
                     └── Response
 ```
 
-**Live:** `http://64.227.178.3` · **Docs:** `http://64.227.178.3/docs`
+**Live:** `http://64.227.178.3` · **API docs:** `http://64.227.178.3/api-docs`
 
 ---
 
@@ -76,7 +76,7 @@ curl -X POST http://localhost:3000/v1/chat \
   -d '{"messages": [{"role": "user", "content": "Hello"}]}'
 ```
 
-API docs: `http://localhost:3000/docs`
+API docs: `http://localhost:3000/api-docs`
 
 ---
 

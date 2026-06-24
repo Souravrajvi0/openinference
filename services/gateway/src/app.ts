@@ -58,7 +58,9 @@ export async function buildApp(): Promise<FastifyInstance> {
     },
   });
 
-  await app.register(fastifySwaggerUi, { routePrefix: '/docs' });
+  // Swagger UI lives at /api-docs — the SPA owns the clean /docs route for its
+  // user-facing documentation page (browser-history routing, no "#").
+  await app.register(fastifySwaggerUi, { routePrefix: '/api-docs' });
   await app.register(fastifyJwt, { secret: config.JWT_SECRET });
   await app.register(authPlugin);
 
@@ -89,7 +91,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   );
 
   // Serve the built SPA (web/dist copied to ./web in the image) when present.
-  // Hash-routed, so only "/" and static assets are requested from the server.
+  // Browser-history routed: any unmatched HTML GET falls back to index.html below,
+  // so deep links like /playground and /admin resolve to the SPA on hard refresh.
   const webDir = path.join(process.cwd(), 'web');
   if (fs.existsSync(path.join(webDir, 'index.html'))) {
     await app.register(fastifyStatic, { root: webDir, prefix: '/' });

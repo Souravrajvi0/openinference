@@ -107,4 +107,4 @@ curl -X POST http://localhost:3000/v1/chat \
   -d '{"messages": [{"role": "user", "content": "Hello"}]}'
 ```
 
-API docs auto-generated at `http://localhost:3000/docs`.
+API docs auto-generated at `http://localhost:3000/api-docs`.
