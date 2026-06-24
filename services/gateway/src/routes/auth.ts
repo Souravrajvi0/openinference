@@ -6,8 +6,19 @@ import { query } from '../db/client';
 import { writeAudit } from '../services/audit';
 import { config } from '../config';
 
-// Scopes granted to a web user over their own tenant.
-const USER_SCOPES = ['chat', 'retrieve', 'agent', 'admin'];
+// Scopes every web user gets over their own tenant. Admins additionally get
+// 'admin', which unlocks key management, budgets, traces, registry, etc.
+const BASE_SCOPES = ['chat', 'retrieve', 'agent'];
+const ADMIN_EMAILS = config.ADMIN_EMAILS.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+
+function isAdminEmail(email: string): boolean {
+  return ADMIN_EMAILS.includes(email.toLowerCase().trim());
+}
+
+// Role assigned at account creation, based on the email allow-list.
+function roleFor(email: string): 'admin' | 'user' {
+  return isAdminEmail(email) ? 'admin' : 'user';
+}
 
 interface UserRow {
   id: string;
@@ -23,8 +34,11 @@ function makeSlug(email: string): string {
 }
 
 function sign(fastify: Parameters<FastifyPluginAsync>[0], user: UserRow) {
+  // Scopes are derived from the email allow-list at token time, so they stay
+  // correct even if a stored role row is stale.
+  const scopes = isAdminEmail(user.email) ? [...BASE_SCOPES, 'admin'] : BASE_SCOPES;
   return fastify.jwt.sign(
-    { sub: user.id, tenantId: user.tenant_id, email: user.email, scopes: USER_SCOPES },
+    { sub: user.id, tenantId: user.tenant_id, email: user.email, scopes },
     { expiresIn: '7d' },
   );
 }
@@ -57,9 +71,9 @@ const authRoute: FastifyPluginAsync = async (fastify) => {
 
     const user = await query<UserRow>(
       `INSERT INTO users (email, password_hash, tenant_id, role)
-       VALUES ($1, $2, $3, 'admin')
+       VALUES ($1, $2, $3, $4)
        RETURNING id, email, password_hash, tenant_id, role`,
-      [email, passwordHash, tenantId],
+      [email, passwordHash, tenantId, roleFor(email)],
     );
 
     writeAudit({ tenant_id: tenantId, actor_type: 'system', actor_id: user.rows[0]!.id, action: 'user.signup', resource_type: 'user', resource_id: user.rows[0]!.id, details: { email } });
@@ -179,9 +193,9 @@ const authRoute: FastifyPluginAsync = async (fastify) => {
         const tenantId = tenant.rows[0]!.id;
         const created = await query<UserRow>(
           `INSERT INTO users (email, google_id, tenant_id, role)
-           VALUES ($1, $2, $3, 'admin')
+           VALUES ($1, $2, $3, $4)
            RETURNING id, email, password_hash, tenant_id, role`,
-          [email, profile.sub, tenantId],
+          [email, profile.sub, tenantId, roleFor(email)],
         );
         userRow = created.rows[0]!;
         writeAudit({ tenant_id: tenantId, actor_type: 'system', actor_id: userRow.id, action: 'user.signup', resource_type: 'user', resource_id: userRow.id, details: { email, via: 'google' } });

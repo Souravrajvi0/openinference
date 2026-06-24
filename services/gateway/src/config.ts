@@ -12,6 +12,10 @@ const schema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
 
+  // Comma-separated emails that get the 'admin' role/scope. Everyone else is a
+  // regular user (chat + retrieve + agent only).
+  ADMIN_EMAILS: z.string().default('souravrajvi@gmail.com'),
+
   DATABASE_URL: z.string().url(),
   DATABASE_POOL_MIN: z.coerce.number().default(2),
   DATABASE_POOL_MAX: z.coerce.number().default(10),
