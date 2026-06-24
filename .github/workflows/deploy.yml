@@ -31,6 +31,12 @@ jobs:
             # Rebuild only changed service images, restart in place
             docker compose up -d --build --remove-orphans
 
+            # nginx caches the gateway's upstream IP at startup; when the gateway
+            # container is recreated above it gets a new docker-network IP, so nginx
+            # keeps proxying to the dead IP and every request 502s. Restart it so it
+            # re-resolves the upstream.
+            docker compose restart nginx
+
             # Wait for gateway to become healthy (45s max)
             echo "Waiting for gateway health..."
             healthy=0
