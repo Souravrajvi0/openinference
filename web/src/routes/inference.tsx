@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { api, authHeaders, getToken, getKey, MODEL_CATALOG } from "@/lib/api";
 
@@ -760,12 +761,12 @@ function BenchmarkSection() {
               Run benchmark
             </button>
           ) : (
-            <a
-              href="/#/admin"
+            <Link
+              to="/admin"
               className="flex items-center gap-2 border border-border px-6 py-2.5 text-[13px] text-muted-foreground hover:text-ink transition"
             >
               Sign in to run
-            </a>
+            </Link>
           )}
           <div className={`border px-4 py-2.5 text-[10px] uppercase tracking-[0.1em] ${
             isCpu ? "border-flame-red/30 bg-flame-red/5 text-flame-red" : "border-green-500/30 bg-green-500/5 text-green-600"

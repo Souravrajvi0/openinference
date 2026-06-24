@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -381,7 +382,7 @@ function AgentsTab({ summary }: { summary: Summary | null }) {
   return (
     <div className="mx-auto max-w-2xl px-6 py-8 md:px-10">
       <p className="mb-6 text-sm text-muted-foreground">
-        Agent monthly budgets are configured in the <a href="#/agents" className="underline">Agents</a> page when creating or editing an agent.
+        Agent monthly budgets are configured in the <Link to="/agents" className="underline">Agents</Link> page when creating or editing an agent.
       </p>
       {rows.length === 0 ? (
         <div className="py-6 text-center text-sm text-muted-foreground">No agent spend this month.</div>

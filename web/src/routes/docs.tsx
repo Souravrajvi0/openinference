@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Plus, Search, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -151,7 +152,11 @@ export function Docs() {
           </button>
         </div>
         <Card>
-          {!docs ? (
+          {!user ? (
+            <div className="py-10 text-center text-sm text-muted-foreground">
+              <Link to="/admin" className="underline">Sign in</Link> to upload, index, and search your knowledge base.
+            </div>
+          ) : !docs ? (
             <div className="py-6 text-center text-sm text-muted-foreground">Loading…</div>
           ) : docs.length === 0 ? (
             <div className="py-10 text-center text-sm text-muted-foreground">
@@ -207,19 +212,25 @@ export function Docs() {
             Query your indexed documents. Uses hybrid vector + keyword search with RRF reranking.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && retrieve()}
-            placeholder="What does the refund policy say?"
-            className="flex-1"
-          />
-          <Button onClick={retrieve} disabled={retrieving}>
-            <Search className="h-3 w-3" />
-            {retrieving ? "Searching…" : "Search"}
-          </Button>
-        </div>
+        {!user ? (
+          <Card className="p-6 text-center text-sm text-muted-foreground">
+            <Link to="/admin" className="underline">Sign in</Link> to query your indexed documents.
+          </Card>
+        ) : (
+          <div className="flex gap-2">
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && retrieve()}
+              placeholder="What does the refund policy say?"
+              className="flex-1"
+            />
+            <Button onClick={retrieve} disabled={retrieving}>
+              <Search className="h-3 w-3" />
+              {retrieving ? "Searching…" : "Search"}
+            </Button>
+          </div>
+        )}
 
         {results !== null && (
           <div className="mt-5">
