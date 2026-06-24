@@ -121,7 +121,7 @@ const authRoute: FastifyPluginAsync = async (fastify) => {
 
     const { code, error } = request.query as { code?: string; error?: string };
     if (error || !code) {
-      return reply.redirect(`${config.APP_URL}/#/admin?error=google_denied`);
+      return reply.redirect(`${config.APP_URL}/admin?error=google_denied`);
     }
 
     try {
@@ -188,10 +188,10 @@ const authRoute: FastifyPluginAsync = async (fastify) => {
       }
 
       const token = sign(fastify, userRow);
-      return reply.redirect(`${config.APP_URL}/?token=${token}#/admin`);
+      return reply.redirect(`${config.APP_URL}/admin?token=${token}`);
     } catch (err) {
       fastify.log.error(err, 'Google OAuth callback error');
-      return reply.redirect(`${config.APP_URL}/#/admin?error=google_failed`);
+      return reply.redirect(`${config.APP_URL}/admin?error=google_failed`);
     }
   });
 };
