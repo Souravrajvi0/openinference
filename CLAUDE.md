@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-SentinelAI — a self-hosted AI gateway and observability platform. It routes requests to LLMs, enforces security policies, retrieves enterprise documents (RAG), runs async eval workers, and records full traces. There is no frontend; everything is REST APIs.
+SentinelAI (OpenInference) — a self-hosted AI gateway and observability platform. It routes requests to LLMs, enforces security policies, retrieves enterprise documents (RAG), runs agent workflows, and records full traces. A React dashboard (`web/`) is served by the gateway in production; REST APIs live under `/v1`.
 
 ## Commands
 
@@ -16,6 +16,10 @@ npm install
 npm run dev -w @sentinelai/gateway
 npm run dev -w @sentinelai/ingestion-worker
 npm run dev -w @sentinelai/eval-worker
+npm run dev -w maas-gateway-web   # Vite dev server for the dashboard
+
+# Apply pending DB migrations (also runs automatically on gateway container start)
+npm run migrate -w @sentinelai/gateway
 
 # Type-check everything
 npm run typecheck
@@ -35,12 +39,13 @@ docker compose down -v && docker compose up postgres -d
 
 ## Architecture
 
-This is an npm workspace monorepo with three services and one shared types package.
+This is an npm workspace monorepo with three backend services, a React dashboard, and one shared types package.
 
 ```
+web/                       — React dashboard (Vite); built into gateway image
 shared/                    — Shared TypeScript types + queue name constants
 services/
-  gateway/                 — Fastify HTTP server (port 3000)
+  gateway/                 — Fastify HTTP server (port 3000) + SPA static host
   ingestion-worker/        — BullMQ worker: chunks + embeds documents
   eval-worker/             — BullMQ worker: scores LLM response quality
 infra/
@@ -75,7 +80,8 @@ PostgreSQL with `pgvector`. Key tables:
 - `tenants`, `api_keys` — multi-tenant auth
 - `llm_requests` — one row per request, full audit trail
 - `trace_spans` — OTel-style spans linked by `trace_id`
-- `document_chunks` — chunked text + `vector(1536)` embedding column
+- `document_chunks` — chunked text + `vector(1024)` embedding column (Mistral embed)
+- `users` — web login (email/password or Google OAuth)
 - `eval_results` — per-request quality scores
 - `audit_logs` — append-only, no UPDATE/DELETE
 
@@ -83,7 +89,8 @@ Vector search uses `ivfflat` index with cosine distance (`<=>` operator).
 
 ### Key Design Decisions
 
-- **API key auth only** — keys are SHA-256 hashed at storage; raw key never persisted.
+- **API key + JWT auth** — API keys are SHA-256 hashed at storage; web users get JWTs from `/v1/auth`.
+- **Migrations on gateway start** — `migrate.js` applies `services/gateway/migrations/*.sql` before the server listens.
 - **Provider abstraction** in `services/llm.ts` — add a new provider by adding a case there and updating `COST_TABLE`.
 - **Routing rules** in `services/router.ts` — pure function, easy to extend with cost/latency-based rules.
 - **Guardrails** in `services/guardrails.ts` — regex-based injection/PII checks run before every LLM call.

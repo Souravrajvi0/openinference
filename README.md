@@ -170,7 +170,7 @@ Retrieve conversation history + summary for a session.
 JWT_SECRET=your-32-char-secret-minimum
 
 # Database + Cache (Docker Compose sets these automatically)
-DATABASE_URL=postgresql://sentinel:sentinel@postgres:5432/sentinelai
+DATABASE_URL=postgresql://sentinel:sentinel@postgres:5432/openinference
 REDIS_URL=redis://redis:6379
 
 # LLM providers — add at least one
@@ -209,6 +209,7 @@ See [`IDEA.txt`](./IDEA.txt) for the full engineering journal including design d
 ## Project Structure
 
 ```
+web/src/                     React dashboard (playground, admin, traces, agents…)
 shared/src/types.ts          Shared TypeScript types + Provider union
 services/gateway/src/
   app.ts                     Fastify app setup, plugin registration
@@ -243,14 +244,18 @@ infra/
 
 ## Deployment
 
-Runs on DigitalOcean via Docker Compose. GitHub Actions deploys on every push to `main`:
+Runs on DigitalOcean via Docker Compose. GitHub Actions deploys on every push to **`production`** (not `main`):
 
 ```yaml
 # .github/workflows/deploy.yml
 # SSH → git pull → docker compose up --build → health check
 ```
 
+The gateway container runs pending SQL migrations from `services/gateway/migrations/` on startup before accepting traffic.
+
 Required repository secrets: `DROPLET_IP`, `DROPLET_USER`, `SSH_PRIVATE_KEY`.
+
+Branch flow: `dev` → `main` → `production`. Only `production` triggers deploy.
 
 ---
 

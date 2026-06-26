@@ -22,8 +22,11 @@ FROM node:20-alpine
 WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/services/gateway/dist ./dist
+COPY --from=builder /app/services/gateway/migrate.js ./migrate.js
+COPY --from=builder /app/services/gateway/migrations ./migrations
 COPY --from=builder /app/shared ./shared
 # Bring in the built SPA; app.ts serves ./web when index.html is present.
 COPY --from=web /web/dist ./web
 ENV NODE_ENV=production
-CMD ["node", "dist/index.js"]
+# Apply pending SQL migrations before accepting traffic (idempotent).
+CMD ["sh", "-c", "node migrate.js && exec node dist/index.js"]

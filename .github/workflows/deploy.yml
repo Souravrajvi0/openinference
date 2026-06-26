@@ -28,7 +28,8 @@ jobs:
             git fetch origin production
             git reset --hard origin/production
 
-            # Rebuild only changed service images, restart in place
+            # Rebuild only changed service images, restart in place.
+            # Gateway runs pending SQL migrations on container start before listening.
             docker compose up -d --build --remove-orphans
 
             # nginx caches the gateway's upstream IP at startup; when the gateway

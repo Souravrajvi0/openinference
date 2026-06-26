@@ -33,12 +33,14 @@ CREATE TABLE api_keys (
 );
 
 -- Email + password users (web login). Each user owns one tenant.
+-- password_hash is nullable for Google OAuth accounts; google_id links OAuth identity.
 CREATE TABLE IF NOT EXISTS users (
   id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   email         VARCHAR(255) UNIQUE NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
+  password_hash VARCHAR(255),
+  google_id     VARCHAR(255) UNIQUE,
   tenant_id     UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  role          VARCHAR(50) NOT NULL DEFAULT 'admin',
+  role          VARCHAR(50) NOT NULL DEFAULT 'free',
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
