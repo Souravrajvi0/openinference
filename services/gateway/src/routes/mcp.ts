@@ -36,7 +36,7 @@ const mcpRoute: FastifyPluginAsync = async (fastify) => {
   // ── Servers ───────────────────────────────────────────────────────────────
 
   fastify.get('/admin/mcp-servers', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
     const result = await query(
       `SELECT s.id, s.name, s.url, s.description, s.auth_type, s.is_active, s.created_at,
               COUNT(p.id)::int AS policy_count,
@@ -54,7 +54,7 @@ const mcpRoute: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.post('/admin/mcp-servers', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
 
     const schema = z.object({
       name:        z.string().min(1).max(255),
@@ -79,7 +79,7 @@ const mcpRoute: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.patch<{ Params: { id: string } }>('/admin/mcp-servers/:id', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
 
     const schema = z.object({
       name:        z.string().min(1).max(255).optional(),
@@ -115,7 +115,7 @@ const mcpRoute: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.delete<{ Params: { id: string } }>('/admin/mcp-servers/:id', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
     const result = await query(
       `DELETE FROM mcp_servers WHERE id = $1 AND tenant_id = $2 RETURNING id`,
       [request.params.id, request.tenantId]
@@ -127,7 +127,7 @@ const mcpRoute: FastifyPluginAsync = async (fastify) => {
   // ── Policies ──────────────────────────────────────────────────────────────
 
   fastify.get<{ Params: { id: string } }>('/admin/mcp-servers/:id/policies', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
     const result = await query(
       `SELECT id, tool_pattern, action, rate_limit, created_at
        FROM mcp_policies WHERE server_id = $1 AND tenant_id = $2
@@ -138,7 +138,7 @@ const mcpRoute: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.post<{ Params: { id: string } }>('/admin/mcp-servers/:id/policies', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
 
     const schema = z.object({
       tool_pattern: z.string().min(1).max(255).default('*'),
@@ -165,7 +165,7 @@ const mcpRoute: FastifyPluginAsync = async (fastify) => {
   fastify.delete<{ Params: { id: string; policyId: string } }>(
     '/admin/mcp-servers/:id/policies/:policyId',
     async (request, reply) => {
-      requireScope(request, 'admin');
+      requireScope(request, 'pro');
       const result = await query(
         `DELETE FROM mcp_policies WHERE id = $1 AND tenant_id = $2 RETURNING id`,
         [request.params.policyId, request.tenantId]
@@ -180,7 +180,7 @@ const mcpRoute: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Querystring: { server_id?: string; status?: string; limit?: string } }>(
     '/admin/mcp-logs',
     async (request, reply) => {
-      requireScope(request, 'admin');
+      requireScope(request, 'pro');
       const limit  = Math.min(parseInt(request.query.limit ?? '100'), 500);
       const result = await query(
         `SELECT l.id, l.server_id, l.tool_name, l.status, l.latency_ms, l.error,

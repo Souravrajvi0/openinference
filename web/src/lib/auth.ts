@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import { api, getToken, setToken, clearToken } from "./api";
 
+export type Role = "free" | "pro" | "admin";
+
 export interface AuthUser {
   email: string;
   tenant_id?: string;
   id?: string;
+  role?: Role;
   scopes?: string[];
   is_admin?: boolean;
+  is_pro?: boolean;
 }
 
 export async function signup(email: string, password: string): Promise<AuthUser> {
@@ -75,5 +79,14 @@ export function useAuth() {
     return () => window.removeEventListener("auth:expired", onExpired);
   }, []);
 
-  return { user, loading, refresh, setUser, isAdmin: !!user?.is_admin };
+  return {
+    user,
+    loading,
+    refresh,
+    setUser,
+    role: (user?.role ?? "free") as Role,
+    isAdmin: !!user?.is_admin,
+    // Pro capabilities; admins are a superset of pro.
+    isPro: !!user?.is_pro || !!user?.is_admin,
+  };
 }

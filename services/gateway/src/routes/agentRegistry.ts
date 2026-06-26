@@ -7,7 +7,7 @@ import { writeAudit } from '../services/audit';
 const agentRegistryRoute: FastifyPluginAsync = async (fastify) => {
   // GET /v1/admin/agents — list with last-run summary
   fastify.get('/admin/agents', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
 
     const result = await query(
       `SELECT
@@ -34,7 +34,7 @@ const agentRegistryRoute: FastifyPluginAsync = async (fastify) => {
 
   // POST /v1/admin/agents — create agent
   fastify.post('/admin/agents', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
 
     const schema = z.object({
       name:               z.string().min(1).max(255),
@@ -68,7 +68,7 @@ const agentRegistryRoute: FastifyPluginAsync = async (fastify) => {
 
   // GET /v1/admin/agents/:id — detail
   fastify.get<{ Params: { id: string } }>('/admin/agents/:id', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
 
     const result = await query(
       `SELECT id, name, description, allowed_tools, allowed_models, max_steps,
@@ -83,7 +83,7 @@ const agentRegistryRoute: FastifyPluginAsync = async (fastify) => {
 
   // PATCH /v1/admin/agents/:id — update
   fastify.patch<{ Params: { id: string } }>('/admin/agents/:id', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
 
     const schema = z.object({
       name:               z.string().min(1).max(255).optional(),
@@ -126,7 +126,7 @@ const agentRegistryRoute: FastifyPluginAsync = async (fastify) => {
 
   // DELETE /v1/admin/agents/:id — deactivate (soft delete)
   fastify.delete<{ Params: { id: string } }>('/admin/agents/:id', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
 
     const result = await query(
       `UPDATE agents SET is_active = FALSE, updated_at = NOW()
@@ -143,7 +143,7 @@ const agentRegistryRoute: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: { id: string }; Querystring: { limit?: string; offset?: string } }>(
     '/admin/agents/:id/runs',
     async (request, reply) => {
-      requireScope(request, 'admin');
+      requireScope(request, 'pro');
 
       const limit  = Math.min(parseInt(request.query.limit  ?? '50'), 200);
       const offset = parseInt(request.query.offset ?? '0');
@@ -170,7 +170,7 @@ const agentRegistryRoute: FastifyPluginAsync = async (fastify) => {
 
   // GET /v1/admin/agents/:id/stats — aggregate stats
   fastify.get<{ Params: { id: string } }>('/admin/agents/:id/stats', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
 
     const result = await query(
       `SELECT

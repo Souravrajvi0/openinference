@@ -75,7 +75,7 @@ const regressionRoute: FastifyPluginAsync = async (fastify) => {
   // ── Suites ────────────────────────────────────────────────────────────────
 
   fastify.get('/admin/test-suites', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
     const result = await query(
       `SELECT ts.id, ts.name, ts.description, ts.created_at, ts.updated_at,
               COUNT(tc.id)::int AS case_count,
@@ -91,7 +91,7 @@ const regressionRoute: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.post('/admin/test-suites', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
     const schema = z.object({
       name:        z.string().min(1).max(255),
       description: z.string().max(2000).optional(),
@@ -109,7 +109,7 @@ const regressionRoute: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.patch<{ Params: { id: string } }>('/admin/test-suites/:id', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
     const schema = z.object({
       name:        z.string().min(1).max(255).optional(),
       description: z.string().max(2000).optional().nullable(),
@@ -131,7 +131,7 @@ const regressionRoute: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.delete<{ Params: { id: string } }>('/admin/test-suites/:id', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
     const result = await query(
       `DELETE FROM test_suites WHERE id = $1 AND tenant_id = $2 RETURNING id`,
       [request.params.id, request.tenantId]
@@ -143,7 +143,7 @@ const regressionRoute: FastifyPluginAsync = async (fastify) => {
   // ── Cases ─────────────────────────────────────────────────────────────────
 
   fastify.get<{ Params: { id: string } }>('/admin/test-suites/:id/cases', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
     const result = await query(
       `SELECT id, name, input_messages, expected_output, assertions, tags, created_at
        FROM test_cases
@@ -155,7 +155,7 @@ const regressionRoute: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.post<{ Params: { id: string } }>('/admin/test-suites/:id/cases', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
 
     // Verify suite belongs to tenant
     const suiteCheck = await query(
@@ -190,7 +190,7 @@ const regressionRoute: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.delete<{ Params: { id: string } }>('/admin/test-cases/:id', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
     const result = await query(
       `DELETE FROM test_cases WHERE id = $1 AND tenant_id = $2 RETURNING id`,
       [request.params.id, request.tenantId]
@@ -202,7 +202,7 @@ const regressionRoute: FastifyPluginAsync = async (fastify) => {
   // ── Runs ──────────────────────────────────────────────────────────────────
 
   fastify.get<{ Params: { id: string } }>('/admin/test-suites/:id/runs', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
     const result = await query(
       `SELECT id, model, provider, status, total_cases, passed, failed, error_count, started_at, completed_at
        FROM test_runs
@@ -215,7 +215,7 @@ const regressionRoute: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.get<{ Params: { id: string } }>('/admin/test-runs/:id', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
 
     const runResult = await query(
       `SELECT tr.id, tr.suite_id, tr.model, tr.provider, tr.status,
@@ -248,7 +248,7 @@ const regressionRoute: FastifyPluginAsync = async (fastify) => {
     Params: { id: string };
     Body: { model?: string; provider?: string };
   }>('/admin/test-suites/:id/run', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
 
     const body = z.object({
       model:    z.string().optional(),

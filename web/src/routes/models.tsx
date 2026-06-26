@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { api, authHeaders, MODEL_CATALOG } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
@@ -159,13 +160,15 @@ const fmtBytes = (b: number) =>
 // ── page ──────────────────────────────────────────────────────────────────────
 
 export function Models() {
+  // Anyone can browse the catalogue; pulling a model is a heavy, admin-only op.
+  const { isAdmin } = useAuth();
   return (
     <div className="overflow-x-hidden">
       <HeroSection />
       <PickerSection />
       <SelfHostedSection />
       <CloudSection />
-      <PullSection />
+      {isAdmin && <PullSection />}
     </div>
   );
 }

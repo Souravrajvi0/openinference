@@ -9,7 +9,7 @@ const budgetsRoute: FastifyPluginAsync = async (fastify) => {
   // ── Tenant budget (reuse existing admin.ts endpoint but add DELETE) ────────
 
   fastify.delete('/admin/budget', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
     await query(`DELETE FROM tenant_budgets WHERE tenant_id = $1`, [request.tenantId]);
     return reply.status(204).send();
   });
@@ -17,7 +17,7 @@ const budgetsRoute: FastifyPluginAsync = async (fastify) => {
   // ── Budget summary: spend breakdown by key + agent ─────────────────────────
 
   fastify.get('/admin/budget/summary', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
 
     const [tenantStatus, keySpend, agentSpend] = await Promise.all([
       checkBudget(request.tenantId),
@@ -78,7 +78,7 @@ const budgetsRoute: FastifyPluginAsync = async (fastify) => {
   // ── Per-key budgets ────────────────────────────────────────────────────────
 
   fastify.get('/admin/key-budgets', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
     const result = await query(
       `SELECT kb.api_key_id, kb.monthly_budget_usd, kb.alert_threshold_pct, kb.alert_webhook_url,
               kb.created_at, kb.updated_at,
@@ -99,7 +99,7 @@ const budgetsRoute: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.post('/admin/key-budgets', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
 
     const schema = z.object({
       api_key_id:          z.string().uuid(),
@@ -133,7 +133,7 @@ const budgetsRoute: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.delete<{ Params: { keyId: string } }>('/admin/key-budgets/:keyId', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
     await query(
       `DELETE FROM key_budgets WHERE api_key_id = $1 AND tenant_id = $2`,
       [request.params.keyId, request.tenantId]
@@ -144,7 +144,7 @@ const budgetsRoute: FastifyPluginAsync = async (fastify) => {
   // ── Agent budget (quick patch — full CRUD lives in agentRegistry) ──────────
 
   fastify.patch<{ Params: { agentId: string } }>('/admin/agents/:agentId/budget', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
 
     const schema = z.object({
       monthly_budget_usd: z.number().positive().nullable(),

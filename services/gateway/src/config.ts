@@ -12,8 +12,9 @@ const schema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
 
-  // Comma-separated emails that get the 'admin' role/scope. Everyone else is a
-  // regular user (chat + retrieve + agent only).
+  // Comma-separated emails force-promoted to the 'admin' tier (bootstrap /
+  // lockout protection). Everyone else's tier comes from users.role
+  // (free | pro | admin); new signups default to 'free'.
   ADMIN_EMAILS: z.string().default('souravrajvi@gmail.com'),
 
   DATABASE_URL: z.string().url(),

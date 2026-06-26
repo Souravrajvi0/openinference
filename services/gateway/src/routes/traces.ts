@@ -7,7 +7,7 @@ const tracesRoute: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: { traceId: string } }>(
     '/traces/:traceId',
     async (request, reply) => {
-      requireScope(request, 'admin');
+      requireScope(request, 'pro');
 
       const { traceId } = request.params;
 
@@ -42,7 +42,7 @@ const tracesRoute: FastifyPluginAsync = async (fastify) => {
   fastify.get<{
     Querystring: { limit?: string; offset?: string; status?: string };
   }>('/requests', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
 
     const limit = Math.min(parseInt(request.query.limit ?? '20'), 100);
     const offset = parseInt(request.query.offset ?? '0');

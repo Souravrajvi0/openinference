@@ -17,7 +17,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
 
     const schema = z.object({
       name: z.string().min(1).max(255),
-      scopes: z.array(z.enum(['chat', 'retrieve', 'agent', 'admin'])).min(1),
+      scopes: z.array(z.enum(['chat', 'retrieve', 'agent', 'inference', 'pro', 'admin'])).min(1),
       rate_limit_rpm: z.number().int().min(1).max(10000).default(60),
       expires_at: z.string().datetime().optional(),
     });
@@ -43,7 +43,9 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
 
   // GET /v1/admin/keys — list API keys
   fastify.get('/admin/keys', async (request, reply) => {
-    requireScope(request, 'admin');
+    // Pro's Budgets page lists keys to show per-key budgets; creating/revoking
+    // keys below stays admin-only.
+    requireScope(request, 'pro');
 
     const result = await query(
       `SELECT id, name, scopes, rate_limit_rpm, is_active, last_used_at, expires_at, created_at
@@ -74,7 +76,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
 
   // POST /v1/admin/budget — set or update monthly budget
   fastify.post('/admin/budget', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
 
     const schema = z.object({
       monthly_budget_usd: z.number().positive(),
@@ -102,7 +104,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
 
   // GET /v1/admin/budget — get budget status
   fastify.get('/admin/budget', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
     const status = await checkBudget(request.tenantId);
     if (!status) return reply.status(404).send({ error: 'No budget configured' });
     return reply.send(status);
@@ -185,7 +187,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
 
   // GET /v1/admin/inference/models — Ollama running + available models
   fastify.get('/admin/inference/models', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'inference');
 
     const ollamaUrl = process.env.OLLAMA_URL || 'http://ollama:11434';
 
@@ -202,7 +204,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
 
   // GET /v1/admin/inference/stats — per-model perf from real request history
   fastify.get('/admin/inference/stats', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'inference');
 
     const result = await query(
       `SELECT
@@ -386,7 +388,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
 
   // GET /v1/admin/guardrail-policies — list all policies
   fastify.get('/admin/guardrail-policies', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
     const result = await query(
       `SELECT id, name, type, action, priority, is_active, config, created_at, updated_at
        FROM guardrail_policies WHERE tenant_id = $1 ORDER BY priority ASC, created_at ASC`,
@@ -397,7 +399,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
 
   // POST /v1/admin/guardrail-policies — create policy
   fastify.post('/admin/guardrail-policies', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
     const schema = z.object({
       name: z.string().min(1).max(255),
       type: z.enum(['regex', 'keyword', 'llm_classifier']),
@@ -421,7 +423,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
 
   // PATCH /v1/admin/guardrail-policies/:id — update / toggle
   fastify.patch<{ Params: { id: string } }>('/admin/guardrail-policies/:id', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
     const schema = z.object({
       name:      z.string().min(1).max(255).optional(),
       is_active: z.boolean().optional(),
@@ -452,7 +454,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
 
   // DELETE /v1/admin/guardrail-policies/:id — remove policy
   fastify.delete<{ Params: { id: string } }>('/admin/guardrail-policies/:id', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
     const result = await query(
       `DELETE FROM guardrail_policies WHERE id = $1 AND tenant_id = $2 RETURNING id`,
       [request.params.id, request.tenantId]
@@ -464,7 +466,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
 
   // POST /v1/admin/guardrail-policies/test — run text through all active policies
   fastify.post('/admin/guardrail-policies/test', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
     const schema = z.object({ text: z.string().min(1).max(5000) });
     const body = schema.safeParse(request.body);
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() });

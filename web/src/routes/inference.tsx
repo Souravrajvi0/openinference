@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { api, authHeaders, getToken, getKey, MODEL_CATALOG } from "@/lib/api";
+import { api, authHeaders, MODEL_CATALOG } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
@@ -659,6 +660,8 @@ function AmberSection() {
 // ── Section 5: Benchmark ──────────────────────────────────────────────────────
 
 function BenchmarkSection() {
+  // Anyone can read the page; running a live benchmark is an admin-only op.
+  const { user, isAdmin } = useAuth();
   const [modelKey, setModelKey] = useState(MODEL_CATALOG[0].provider + "/" + MODEL_CATALOG[0].model);
   const [runs, setRuns] = useState(5);
   const [results, setResults] = useState<BenchRun[]>([]);
@@ -707,7 +710,6 @@ function BenchmarkSection() {
   const avgTps = ok.length ? Math.round(ok.reduce((a, r) => a + (r.tokens_per_sec ?? 0), 0) / ok.length) : null;
   const avgLat = ok.length ? Math.round(ok.reduce((a, r) => a + (r.latency_ms ?? 0), 0) / ok.length) : null;
   const avgTtfb = ok.length ? Math.round(ok.reduce((a, r) => a + (r.ttfb_ms ?? 0), 0) / ok.length) : null;
-  const isAuthed = !!(getToken() || getKey());
   const greenTps = isCpu ? 8 : 80;
   const maxResultTps = ok.length ? Math.max(...ok.map((r) => r.tokens_per_sec ?? 0), 1) : 1;
 
@@ -752,7 +754,7 @@ function BenchmarkSection() {
             >
               Stop
             </button>
-          ) : isAuthed ? (
+          ) : isAdmin ? (
             <button
               className="flex items-center gap-2 bg-ink px-6 py-2.5 text-[13px] font-medium text-cream hover:bg-flame-red transition cursor-pointer"
               onClick={runBenchmark}
@@ -760,6 +762,13 @@ function BenchmarkSection() {
               <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M1 1l8 4-8 4V1z"/></svg>
               Run benchmark
             </button>
+          ) : user ? (
+            <span
+              className="flex items-center gap-2 border border-border px-6 py-2.5 text-[13px] text-muted-foreground cursor-not-allowed"
+              title="Running benchmarks is restricted to admins"
+            >
+              Admin only
+            </span>
           ) : (
             <Link
               to="/admin"

@@ -8,12 +8,12 @@ import { cn } from "@/lib/utils";
 
 // ── Structure ──────────────────────────────────────────────────────────────────
 
-type NavItem = { to: string; label: string; exact?: boolean; auth?: boolean; admin?: boolean };
-type NavGroup = { label: string; items: NavItem[]; auth?: boolean; admin?: boolean };
+type NavItem = { to: string; label: string; exact?: boolean; pro?: boolean; admin?: boolean };
+type NavGroup = { label: string; items: NavItem[]; pro?: boolean; admin?: boolean };
 type NavEntry = NavItem | NavGroup;
 
-// auth: true → only shown when signed in. admin: true → only shown to admins
-// (the underlying endpoints require the 'admin' scope, so non-admins would 403).
+// Tiers: no flag → everyone (incl. free + logged-out). pro: true → pro & admin.
+// admin: true → admin only. Mirrors the backend scope each route requires.
 const NAV: NavEntry[] = [
   { to: "/",           label: "Overview",   exact: true },
   { to: "/playground", label: "Playground" },
@@ -22,22 +22,22 @@ const NAV: NavEntry[] = [
   { to: "/docs",       label: "Docs" },
   {
     label: "Monitor",
-    auth: true,
+    pro: true,
     items: [
-      { to: "/traces",   label: "Traces", admin: true },
+      { to: "/traces",   label: "Traces" },
       { to: "/sessions", label: "Sessions" },
     ],
   },
   {
     label: "Build",
-    auth: true,
+    pro: true,
     items: [
       { to: "/agent", label: "Agent runner" },
     ],
   },
   {
     label: "Agents",
-    admin: true,
+    pro: true,
     items: [
       { to: "/agents",    label: "Registry" },
       { to: "/approvals", label: "Approvals" },
@@ -45,7 +45,7 @@ const NAV: NavEntry[] = [
   },
   {
     label: "Govern",
-    admin: true,
+    pro: true,
     items: [
       { to: "/guardrails", label: "Guardrails" },
       { to: "/budgets",    label: "Budgets" },
@@ -59,10 +59,10 @@ function isGroup(e: NavEntry): e is NavGroup {
   return "items" in e;
 }
 
-// Whether an entry is visible given the current session.
-function canSee(e: { auth?: boolean; admin?: boolean }, user: unknown, isAdmin: boolean): boolean {
+// Whether an entry is visible given the current session's tier.
+function canSee(e: { pro?: boolean; admin?: boolean }, isPro: boolean, isAdmin: boolean): boolean {
   if (e.admin) return isAdmin;
-  if (e.auth) return !!user;
+  if (e.pro) return isPro;
   return true;
 }
 
@@ -143,24 +143,24 @@ function Logo() {
 
 // ── Nav ────────────────────────────────────────────────────────────────────────
 
-export function Nav({ user, isAdmin = false }: { user?: AuthUser | null; isAdmin?: boolean }) {
+export function Nav({ user, isPro = false, isAdmin = false }: { user?: AuthUser | null; isPro?: boolean; isAdmin?: boolean }) {
   const { theme, toggle } = useTheme();
   const [health, setHealth] = useState<"checking" | "ok" | "down">("checking");
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   // Admins get the full console; logged-out users get a sign-in entry; signed-in
-  // non-admins get their account/sign-out screen, also at /admin.
+  // non-admins (free/pro) get their account/sign-out screen, also at /admin.
   const adminEntry: NavItem = user
     ? { to: "/admin", label: isAdmin ? "Admin" : "Account" }
     : { to: "/admin", label: "Sign in" };
 
   const visibleNav: NavEntry[] = [
     ...NAV
-      .filter((e) => canSee(e, user, isAdmin))
+      .filter((e) => canSee(e, isPro, isAdmin))
       .map((e) =>
         isGroup(e)
-          ? { ...e, items: e.items.filter((i) => canSee(i, user, isAdmin)) }
+          ? { ...e, items: e.items.filter((i) => canSee(i, isPro, isAdmin)) }
           : e,
       )
       .filter((e) => !isGroup(e) || e.items.length > 0),

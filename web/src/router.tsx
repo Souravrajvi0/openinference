@@ -25,11 +25,11 @@ import { Budgets } from "@/routes/budgets";
 import { Mcp } from "@/routes/mcp";
 
 function RootLayout() {
-  const { user, loading, isAdmin } = useAuth();
+  const { user, loading, isPro, isAdmin } = useAuth();
 
   return (
     <div className="min-h-screen">
-      <Nav user={user} isAdmin={isAdmin} />
+      <Nav user={user} isPro={isPro} isAdmin={isAdmin} />
       {loading ? (
         <div className="px-6 py-20 text-center text-sm text-muted-foreground">Checking session…</div>
       ) : (

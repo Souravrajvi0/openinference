@@ -11,7 +11,7 @@ const approvalsRoute: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Querystring: { status?: string; limit?: string; offset?: string } }>(
     '/admin/approvals',
     async (request, reply) => {
-      requireScope(request, 'admin');
+      requireScope(request, 'pro');
 
       const status  = request.query.status ?? 'pending';
       const limit   = Math.min(parseInt(request.query.limit  ?? '50'), 200);
@@ -55,7 +55,7 @@ const approvalsRoute: FastifyPluginAsync = async (fastify) => {
 
   // GET /v1/admin/approvals/:id
   fastify.get<{ Params: { id: string } }>('/admin/approvals/:id', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
 
     const result = await query(
       `SELECT aa.*, a.name AS agent_name
@@ -71,7 +71,7 @@ const approvalsRoute: FastifyPluginAsync = async (fastify) => {
 
   // POST /v1/admin/approvals/:id/approve
   fastify.post<{ Params: { id: string } }>('/admin/approvals/:id/approve', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
 
     const schema = z.object({ note: z.string().max(1000).optional() });
     const body = schema.safeParse(request.body);
@@ -95,7 +95,7 @@ const approvalsRoute: FastifyPluginAsync = async (fastify) => {
 
   // POST /v1/admin/approvals/:id/reject
   fastify.post<{ Params: { id: string } }>('/admin/approvals/:id/reject', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
 
     const schema = z.object({ reason: z.string().min(1).max(1000) });
     const body = schema.safeParse(request.body);
@@ -121,7 +121,7 @@ const approvalsRoute: FastifyPluginAsync = async (fastify) => {
 
   // GET /v1/admin/approval-policies
   fastify.get('/admin/approval-policies', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
     const result = await query(
       `SELECT id, tool_pattern, require_approval, notif_webhook, created_at
        FROM approval_policies WHERE tenant_id = $1 ORDER BY created_at DESC`,
@@ -132,7 +132,7 @@ const approvalsRoute: FastifyPluginAsync = async (fastify) => {
 
   // POST /v1/admin/approval-policies
   fastify.post('/admin/approval-policies', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
 
     const schema = z.object({
       tool_pattern:     z.string().min(1).max(255),
@@ -155,7 +155,7 @@ const approvalsRoute: FastifyPluginAsync = async (fastify) => {
 
   // DELETE /v1/admin/approval-policies/:id
   fastify.delete<{ Params: { id: string } }>('/admin/approval-policies/:id', async (request, reply) => {
-    requireScope(request, 'admin');
+    requireScope(request, 'pro');
 
     const result = await query(
       `DELETE FROM approval_policies WHERE id = $1 AND tenant_id = $2 RETURNING id`,

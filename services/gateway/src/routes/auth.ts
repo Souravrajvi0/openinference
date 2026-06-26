@@ -6,18 +6,36 @@ import { query } from '../db/client';
 import { writeAudit } from '../services/audit';
 import { config } from '../config';
 
-// Scopes every web user gets over their own tenant. Admins additionally get
-// 'admin', which unlocks key management, budgets, traces, registry, etc.
-const BASE_SCOPES = ['chat', 'retrieve', 'agent'];
+type Role = 'free' | 'pro' | 'admin';
+
+// What each tier can do, expressed as scopes. The auth plugin's requireScope()
+// treats 'admin' as a superuser, so admins implicitly pass every check.
+//   chat      → playground, sessions          retrieve → RAG
+//   inference → view inference/models          agent    → agent runner, mcp/call
+//   pro       → monitor/build/agents/govern    admin    → admin console + heavy ops
+const SCOPES_BY_ROLE: Record<Role, string[]> = {
+  free:  ['chat', 'retrieve', 'inference'],
+  pro:   ['chat', 'retrieve', 'agent', 'inference', 'pro'],
+  admin: ['chat', 'retrieve', 'agent', 'inference', 'pro', 'admin'],
+};
+
 const ADMIN_EMAILS = config.ADMIN_EMAILS.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
 
 function isAdminEmail(email: string): boolean {
   return ADMIN_EMAILS.includes(email.toLowerCase().trim());
 }
 
-// Role assigned at account creation, based on the email allow-list.
-function roleFor(email: string): 'admin' | 'user' {
-  return isAdminEmail(email) ? 'admin' : 'user';
+// Normalise a stored role into a known tier. The ADMIN_EMAILS env list always
+// wins (bootstrap / lockout protection); legacy 'user' rows map to 'free'.
+function normalizeRole(role: string | null | undefined, email: string): Role {
+  if (isAdminEmail(email)) return 'admin';
+  if (role === 'admin' || role === 'pro' || role === 'free') return role;
+  return 'free';
+}
+
+// Role assigned at account creation.
+function roleFor(email: string): Role {
+  return isAdminEmail(email) ? 'admin' : 'free';
 }
 
 interface UserRow {
@@ -34,11 +52,12 @@ function makeSlug(email: string): string {
 }
 
 function sign(fastify: Parameters<FastifyPluginAsync>[0], user: UserRow) {
-  // Scopes are derived from the email allow-list at token time, so they stay
-  // correct even if a stored role row is stale.
-  const scopes = isAdminEmail(user.email) ? [...BASE_SCOPES, 'admin'] : BASE_SCOPES;
+  // Scopes are derived from the user's tier at token time. ADMIN_EMAILS still
+  // forces admin, so a misconfigured stored role can never lock an admin out.
+  const role = normalizeRole(user.role, user.email);
+  const scopes = SCOPES_BY_ROLE[role];
   return fastify.jwt.sign(
-    { sub: user.id, tenantId: user.tenant_id, email: user.email, scopes },
+    { sub: user.id, tenantId: user.tenant_id, email: user.email, role, scopes },
     { expiresIn: '7d' },
   );
 }
@@ -105,15 +124,18 @@ const authRoute: FastifyPluginAsync = async (fastify) => {
   // GET /v1/auth/me — current user from the bearer token
   fastify.get('/me', async (request, reply) => {
     try {
-      const payload = await request.jwtVerify<{ sub: string; email: string; tenantId: string; scopes?: string[] }>();
+      const payload = await request.jwtVerify<{ sub: string; email: string; tenantId: string; role?: string; scopes?: string[] }>();
       const scopes = payload.scopes ?? [];
+      const role = payload.role ?? (scopes.includes('admin') ? 'admin' : scopes.includes('pro') ? 'pro' : 'free');
       return reply.send({
         user: {
           id: payload.sub,
           email: payload.email,
           tenant_id: payload.tenantId,
+          role,
           scopes,
           is_admin: scopes.includes('admin'),
+          is_pro: scopes.includes('pro') || scopes.includes('admin'),
         },
       });
     } catch {
@@ -213,7 +235,7 @@ const authRoute: FastifyPluginAsync = async (fastify) => {
       const token = sign(fastify, userRow);
       // Admins land on the admin console; everyone else goes to the playground,
       // which they actually have scopes for (otherwise the console 403s on load).
-      const dest = isAdminEmail(userRow.email) ? '/admin' : '/playground';
+      const dest = normalizeRole(userRow.role, userRow.email) === 'admin' ? '/admin' : '/playground';
       return reply.redirect(`${config.APP_URL}${dest}?token=${token}`);
     } catch (err) {
       fastify.log.error(err, 'Google OAuth callback error');
