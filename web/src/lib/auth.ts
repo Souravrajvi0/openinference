@@ -58,14 +58,27 @@ export function useAuth() {
   }
 
   useEffect(() => {
-    // Pick up token dropped by Google OAuth redirect (?token=<jwt>)
+    // Pick up one-time code from Google OAuth redirect (?code=…)
     const params = new URLSearchParams(window.location.search);
-    const oauthToken = params.get("token");
-    if (oauthToken) {
-      setToken(oauthToken);
-      // Remove it from the URL without a page reload
+    const oauthCode = params.get("code");
+    if (oauthCode) {
       const clean = window.location.pathname + window.location.hash;
       window.history.replaceState(null, "", clean);
+
+      api<{ token: string; user: AuthUser }>("/v1/auth/oauth/exchange", {
+        method: "POST",
+        body: JSON.stringify({ code: oauthCode }),
+      })
+        .then((r) => {
+          setToken(r.token);
+          setUser(r.user);
+        })
+        .catch(() => {
+          clearToken();
+          setUser(null);
+        })
+        .finally(() => setLoading(false));
+      return;
     }
 
     refresh();

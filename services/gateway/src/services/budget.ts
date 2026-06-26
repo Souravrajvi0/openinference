@@ -11,35 +11,21 @@ export interface BudgetStatus {
   near_limit: boolean;
 }
 
-export async function checkBudget(tenantId: string): Promise<BudgetStatus | null> {
-  const result = await pool.query<{
-    monthly_budget_usd: string;
-    alert_threshold_pct: number;
-    alert_webhook_url: string | null;
-    spent_usd: string;
-  }>(
-    `SELECT b.monthly_budget_usd, b.alert_threshold_pct, b.alert_webhook_url,
-            COALESCE(SUM(r.cost_usd), 0) AS spent_usd
-     FROM tenant_budgets b
-     LEFT JOIN llm_requests r
-       ON r.tenant_id = b.tenant_id
-      AND r.created_at >= date_trunc('month', NOW())
-      AND r.status = 'success'
-     WHERE b.tenant_id = $1
-     GROUP BY b.monthly_budget_usd, b.alert_threshold_pct, b.alert_webhook_url`,
-    [tenantId]
-  );
+type BudgetRow = {
+  monthly_budget_usd: string;
+  alert_threshold_pct: number;
+  alert_webhook_url: string | null;
+  spent_usd: string;
+};
 
-  if (result.rows.length === 0) return null;
-  const row = result.rows[0]!;
-
+function buildBudgetStatus(row: BudgetRow, tenantId: string, notify: boolean): BudgetStatus {
   const budget = parseFloat(row.monthly_budget_usd);
   const spent = parseFloat(row.spent_usd);
   const pct = budget > 0 ? Math.round((spent / budget) * 100) : 0;
   const exceeded = spent >= budget;
   const near_limit = !exceeded && pct >= row.alert_threshold_pct;
 
-  if ((near_limit || exceeded) && row.alert_webhook_url) {
+  if (notify && (near_limit || exceeded) && row.alert_webhook_url) {
     const event = exceeded ? 'budget.exceeded' : 'budget.alert';
     fetch(row.alert_webhook_url, {
       method: 'POST',
@@ -63,4 +49,65 @@ export async function checkBudget(tenantId: string): Promise<BudgetStatus | null
     exceeded,
     near_limit,
   };
+}
+
+export async function checkBudget(tenantId: string): Promise<BudgetStatus | null> {
+  const result = await pool.query<BudgetRow>(
+    `SELECT b.monthly_budget_usd, b.alert_threshold_pct, b.alert_webhook_url,
+            COALESCE(SUM(r.cost_usd), 0) AS spent_usd
+     FROM tenant_budgets b
+     LEFT JOIN llm_requests r
+       ON r.tenant_id = b.tenant_id
+      AND r.created_at >= date_trunc('month', NOW())
+      AND r.status = 'success'
+     WHERE b.tenant_id = $1
+     GROUP BY b.monthly_budget_usd, b.alert_threshold_pct, b.alert_webhook_url`,
+    [tenantId]
+  );
+
+  if (result.rows.length === 0) return null;
+  return buildBudgetStatus(result.rows[0]!, tenantId, true);
+}
+
+export async function checkKeyBudget(apiKeyId: string): Promise<BudgetStatus | null> {
+  const result = await pool.query<BudgetRow & { tenant_id: string }>(
+    `SELECT kb.monthly_budget_usd, kb.alert_threshold_pct, kb.alert_webhook_url,
+            kb.tenant_id,
+            COALESCE(SUM(r.cost_usd), 0) AS spent_usd
+     FROM key_budgets kb
+     LEFT JOIN llm_requests r
+       ON r.api_key_id = kb.api_key_id
+      AND r.created_at >= date_trunc('month', NOW())
+      AND r.status = 'success'
+     WHERE kb.api_key_id = $1
+     GROUP BY kb.monthly_budget_usd, kb.alert_threshold_pct, kb.alert_webhook_url, kb.tenant_id`,
+    [apiKeyId]
+  );
+
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0]!;
+  // Key-budget webhooks audit under the owning tenant.
+  return buildBudgetStatus(row, row.tenant_id, true);
+}
+
+export type SpendLimitFailure = { level: 'tenant' | 'key'; status: BudgetStatus };
+
+/** Enforce tenant budget, then per-API-key budget when a key is present. */
+export async function checkSpendLimits(
+  tenantId: string,
+  apiKeyId?: string | null,
+): Promise<{ ok: true } | ({ ok: false } & SpendLimitFailure)> {
+  const tenant = await checkBudget(tenantId);
+  if (tenant?.exceeded) {
+    return { ok: false, level: 'tenant', status: tenant };
+  }
+
+  if (apiKeyId) {
+    const key = await checkKeyBudget(apiKeyId);
+    if (key?.exceeded) {
+      return { ok: false, level: 'key', status: key };
+    }
+  }
+
+  return { ok: true };
 }

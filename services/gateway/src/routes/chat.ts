@@ -11,7 +11,7 @@ import { planAllowsModel, tierForModel } from '../services/plans';
 import { startSpan, endSpan, flushSpans } from '../services/tracer';
 import { query, pool } from '../db/client';
 import { checkSemanticCache, storeInSemanticCache } from '../services/semanticCache';
-import { checkBudget } from '../services/budget';
+import { checkSpendLimits } from '../services/budget';
 import { writeAudit } from '../services/audit';
 import { loadSession, saveSession } from '../services/conversationMemory';
 import { QUEUES, type EvalJobData, type Citation } from '@sentinelai/shared';
@@ -84,13 +84,14 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
 
     const safeMessages = guardrailResult.sanitized_messages ?? messages;
 
-    // ── 1b. Budget check ──────────────────────────────────────────────────
-    const budget = await checkBudget(request.tenantId);
-    if (budget?.exceeded) {
+    // ── 1b. Budget check (tenant + API key) ───────────────────────────────
+    const spend = await checkSpendLimits(request.tenantId, request.apiKeyId);
+    if (!spend.ok) {
+      const label = spend.level === 'key' ? 'API key monthly spend budget exceeded' : 'Monthly spend budget exceeded';
       return reply.status(402).send({
-        error: 'Monthly spend budget exceeded',
-        spent_usd: budget.spent_usd,
-        budget_usd: budget.monthly_budget_usd,
+        error: label,
+        spent_usd: spend.status.spent_usd,
+        budget_usd: spend.status.monthly_budget_usd,
         trace_id: traceId,
       });
     }
@@ -313,6 +314,7 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
     spans.push(llmSpan);
 
     const costUsd = estimateCost(usedRoute.model, llmResult.prompt_tokens, llmResult.completion_tokens);
+    const requestMode = rag?.enabled ? 'rag' : 'chat';
 
     // Emit metrics
     llmRequestsTotal.inc({ provider: usedRoute.provider, model: usedRoute.model, status: 'success' });
@@ -328,8 +330,8 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
           routed_model, fallback_used, prompt_tokens, completion_tokens,
           total_tokens, cost_usd, latency_ms, ttfb_ms,
           guardrail_triggered, guardrail_action, guardrail_reasons, http_status, metadata)
-       VALUES ($1,$2,$3,$4,$5,'chat','success',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,200,$21)`,
-      [requestId, request.tenantId, request.apiKeyId, traceId, session_id ?? null,
+       VALUES ($1,$2,$3,$4,$5,$6,'success',$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,200,$21)`,
+      [requestId, request.tenantId, request.apiKeyId, traceId, session_id ?? null, requestMode,
        safeMessages[safeMessages.length - 1]?.content.slice(0, 500), llmResult.content.slice(0, 500),
        model ?? null, usedRoute.provider, usedRoute.model, fallbackUsed,
        llmResult.prompt_tokens, llmResult.completion_tokens, llmResult.total_tokens,

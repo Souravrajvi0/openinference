@@ -2,7 +2,10 @@ import { randomUUID } from 'crypto';
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { requireScope } from '../plugins/auth';
-import { runAgent } from '../services/agentRuntime';
+import { checkGuardrails } from '../services/guardrails';
+import { checkSpendLimits } from '../services/budget';
+import { planAllowsModel, tierForModel } from '../services/plans';
+import { isModelAllowedForAgent, resolveAgentModel } from '../services/agentPolicy';
 import { query, pool } from '../db/client';
 import { writeAudit } from '../services/audit';
 import { config } from '../config';
@@ -39,6 +42,50 @@ const agentRoute: FastifyPluginAsync = async (_fastify) => {
     const requestId = randomUUID();
     const start = Date.now();
 
+    // ── Guardrails ─────────────────────────────────────────────────────────
+    const guardrailResult = await checkGuardrails(
+      [{ role: 'user', content: goal }],
+      request.tenantId,
+    );
+    if (!guardrailResult.passed) {
+      await query(
+        `INSERT INTO llm_requests
+           (id, tenant_id, api_key_id, trace_id, session_id, mode, status,
+            guardrail_triggered, guardrail_action, guardrail_reasons, routed_provider, routed_model)
+         VALUES ($1,$2,$3,$4,$5,'agent','filtered',TRUE,$6,$7,$8,$9)`,
+        [requestId, request.tenantId, request.apiKeyId, traceId, session_id ?? null,
+         guardrailResult.action, guardrailResult.reasons,
+         config.DEFAULT_PROVIDER, config.DEFAULT_MODEL]
+      );
+      writeAudit({
+        tenant_id: request.tenantId,
+        actor_type: 'api_key',
+        actor_id: request.apiKeyId,
+        action: 'request.filtered',
+        resource_id: requestId,
+        details: { reasons: guardrailResult.reasons, mode: 'agent' },
+      });
+      return reply.status(400).send({
+        error: 'Request blocked by content policy',
+        reasons: guardrailResult.reasons,
+        trace_id: traceId,
+      });
+    }
+
+    const safeGoal = guardrailResult.sanitized_messages?.[0]?.content ?? goal;
+
+    // ── Spend limits (tenant + API key) ────────────────────────────────────
+    const spend = await checkSpendLimits(request.tenantId, request.apiKeyId);
+    if (!spend.ok) {
+      const label = spend.level === 'key' ? 'API key monthly spend budget exceeded' : 'Monthly spend budget exceeded';
+      return reply.status(402).send({
+        error: label,
+        spent_usd: spend.status.spent_usd,
+        budget_usd: spend.status.monthly_budget_usd,
+        trace_id: traceId,
+      });
+    }
+
     // ── Agent registry lookup ──────────────────────────────────────────────
     let agentConfig: AgentRow | null = null;
 
@@ -53,7 +100,6 @@ const agentRoute: FastifyPluginAsync = async (_fastify) => {
       }
       agentConfig = agentResult.rows[0]!;
 
-      // Monthly budget check
       if (agentConfig.monthly_budget_usd) {
         const spendResult = await query<{ spent: string }>(
           `SELECT COALESCE(SUM(cost_usd), 0)::text AS spent
@@ -62,22 +108,51 @@ const agentRoute: FastifyPluginAsync = async (_fastify) => {
              AND DATE_TRUNC('month', started_at) = DATE_TRUNC('month', NOW())`,
           [agent_id]
         );
-        const spent = parseFloat(spendResult.rows[0]?.spent ?? '0');
-        const budget = parseFloat(agentConfig.monthly_budget_usd);
-        if (spent >= budget) {
+        const spentUsd = parseFloat(spendResult.rows[0]?.spent ?? '0');
+        const budgetUsd = parseFloat(agentConfig.monthly_budget_usd);
+        if (spentUsd >= budgetUsd) {
           return reply.status(402).send({
             error: 'Agent monthly budget exhausted',
-            spent_usd: spent,
-            budget_usd: budget,
+            spent_usd: spentUsd,
+            budget_usd: budgetUsd,
+            trace_id: traceId,
           });
         }
       }
     }
 
+    const effectiveModel = resolveAgentModel(model, agentConfig);
+
+    if (!isModelAllowedForAgent(model, agentConfig)) {
+      return reply.status(403).send({
+        error: `Model ${model} is not allowed for agent ${agentConfig.id}`,
+        allowed_models: agentConfig.allowed_models,
+        trace_id: traceId,
+      });
+    }
+
+    if (!planAllowsModel(request.plan, effectiveModel)) {
+      return reply.status(403).send({
+        error: `Your plan (${request.plan}) cannot access model ${effectiveModel} (tier: ${tierForModel(effectiveModel)})`,
+        trace_id: traceId,
+      });
+    }
+
     const effectiveMaxSteps = agentConfig?.max_steps ?? max_steps;
     const systemPrompt = agentConfig?.system_prompt ?? undefined;
     const allowedTools = agentConfig?.allowed_tools?.length ? agentConfig.allowed_tools : undefined;
-    const effectiveModel = model ?? config.DEFAULT_MODEL;
+
+    const runOpts = {
+      goal: safeGoal,
+      model: effectiveModel,
+      maxSteps: effectiveMaxSteps,
+      tenantId: request.tenantId,
+      pool,
+      systemPrompt,
+      allowedTools,
+      agentId: agent_id,
+      traceId,
+    };
 
     // ── Streaming path ─────────────────────────────────────────────────────
     if (stream) {
@@ -89,15 +164,7 @@ const agentRoute: FastifyPluginAsync = async (_fastify) => {
       });
 
       const result = await runAgent({
-        goal,
-        model: effectiveModel,
-        maxSteps: effectiveMaxSteps,
-        tenantId: request.tenantId,
-        pool,
-        systemPrompt,
-        allowedTools,
-        agentId: agent_id,
-        traceId,
+        ...runOpts,
         onStep: (step) => {
           reply.raw.write(`data: ${JSON.stringify({ type: 'step', step })}\n\n`);
         },
@@ -118,7 +185,7 @@ const agentRoute: FastifyPluginAsync = async (_fastify) => {
             total_tokens, cost_usd, latency_ms, http_status, agent_id)
          VALUES ($1,$2,$3,$4,$5,'agent','success',$6,$7,$8,$9,$10,$11,$12,200,$13)`,
         [requestId, request.tenantId, request.apiKeyId, traceId, session_id ?? null,
-         goal.slice(0, 500), result.answer.slice(0, 500),
+         safeGoal.slice(0, 500), result.answer.slice(0, 500),
          config.DEFAULT_PROVIDER, effectiveModel,
          result.total_tokens, result.total_cost_usd, latencyMs, agent_id ?? null]
       ).then(() => {
@@ -127,7 +194,7 @@ const agentRoute: FastifyPluginAsync = async (_fastify) => {
             `INSERT INTO agent_runs
                (agent_id, request_id, tenant_id, goal, status, steps_used, total_tokens, cost_usd, completed_at)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())`,
-            [agentConfig.id, requestId, request.tenantId, goal.slice(0, 2000),
+            [agentConfig.id, requestId, request.tenantId, safeGoal.slice(0, 2000),
              runStatus, result.steps.length, result.total_tokens, result.total_cost_usd]
           );
         }
@@ -138,17 +205,7 @@ const agentRoute: FastifyPluginAsync = async (_fastify) => {
     }
 
     // ── Non-streaming path ─────────────────────────────────────────────────
-    const result = await runAgent({
-      goal,
-      model: effectiveModel,
-      maxSteps: effectiveMaxSteps,
-      tenantId: request.tenantId,
-      pool,
-      systemPrompt,
-      allowedTools,
-      agentId: agent_id,
-      traceId,
-    });
+    const result = await runAgent(runOpts);
 
     const latencyMs = Date.now() - start;
     const runStatus = result.approval_required ? 'pending_approval' : 'completed';
@@ -160,7 +217,7 @@ const agentRoute: FastifyPluginAsync = async (_fastify) => {
           total_tokens, cost_usd, latency_ms, http_status, agent_id)
        VALUES ($1,$2,$3,$4,$5,'agent','success',$6,$7,$8,$9,$10,$11,$12,200,$13)`,
       [requestId, request.tenantId, request.apiKeyId, traceId, session_id ?? null,
-       goal.slice(0, 500), result.answer.slice(0, 500),
+       safeGoal.slice(0, 500), result.answer.slice(0, 500),
        config.DEFAULT_PROVIDER, effectiveModel,
        result.total_tokens, result.total_cost_usd, latencyMs, agent_id ?? null]
     );
@@ -170,7 +227,7 @@ const agentRoute: FastifyPluginAsync = async (_fastify) => {
         `INSERT INTO agent_runs
            (agent_id, request_id, tenant_id, goal, status, steps_used, total_tokens, cost_usd, completed_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())`,
-        [agentConfig.id, requestId, request.tenantId, goal.slice(0, 2000),
+        [agentConfig.id, requestId, request.tenantId, safeGoal.slice(0, 2000),
          runStatus, result.steps.length, result.total_tokens, result.total_cost_usd]
       ).catch(() => {});
     }

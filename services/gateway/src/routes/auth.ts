@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { query } from '../db/client';
 import { writeAudit } from '../services/audit';
 import { config } from '../config';
+import { storeOAuthCode, exchangeOAuthCode } from '../services/oauthCodes';
 
 type Role = 'free' | 'pro' | 'admin';
 
@@ -143,6 +144,44 @@ const authRoute: FastifyPluginAsync = async (fastify) => {
     }
   });
 
+  // POST /v1/auth/oauth/exchange — redeem a one-time Google OAuth code for a JWT
+  fastify.post('/oauth/exchange', async (request, reply) => {
+    const schema = z.object({ code: z.string().min(1) });
+    const body = schema.safeParse(request.body);
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+
+    const jwt = await exchangeOAuthCode(body.data.code);
+    if (!jwt) {
+      return reply.status(401).send({ error: 'Invalid or expired OAuth code' });
+    }
+
+    try {
+      const payload = fastify.jwt.verify<{
+        sub: string;
+        email: string;
+        tenantId: string;
+        role?: string;
+        scopes?: string[];
+      }>(jwt);
+      const scopes = payload.scopes ?? [];
+      const role = payload.role ?? (scopes.includes('admin') ? 'admin' : scopes.includes('pro') ? 'pro' : 'free');
+      return reply.send({
+        token: jwt,
+        user: {
+          id: payload.sub,
+          email: payload.email,
+          tenant_id: payload.tenantId,
+          role,
+          scopes,
+          is_admin: scopes.includes('admin'),
+          is_pro: scopes.includes('pro') || scopes.includes('admin'),
+        },
+      });
+    } catch {
+      return reply.status(401).send({ error: 'Invalid OAuth session' });
+    }
+  });
+
   // GET /v1/auth/google — redirect to Google OAuth consent screen
   fastify.get('/google', async (request, reply) => {
     if (!config.GOOGLE_CLIENT_ID) {
@@ -233,10 +272,9 @@ const authRoute: FastifyPluginAsync = async (fastify) => {
       }
 
       const token = sign(fastify, userRow);
-      // Admins land on the admin console; everyone else goes to the playground,
-      // which they actually have scopes for (otherwise the console 403s on load).
       const dest = normalizeRole(userRow.role, userRow.email) === 'admin' ? '/admin' : '/playground';
-      return reply.redirect(`${config.APP_URL}${dest}?token=${token}`);
+      const code = await storeOAuthCode(token);
+      return reply.redirect(`${config.APP_URL}${dest}?code=${code}`);
     } catch (err) {
       fastify.log.error(err, 'Google OAuth callback error');
       return reply.redirect(`${config.APP_URL}/admin?error=google_failed`);
