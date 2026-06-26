@@ -13,11 +13,14 @@ export type AuditAction =
   | 'approval_policy.created'
   | 'key_budget.set'
   | 'mcp_server.created'
-  | 'test_suite.created' | 'test_run.completed';
+  | 'test_suite.created' | 'test_run.completed'
+  | 'org.created' | 'org.switched'
+  | 'member.role_changed' | 'member.removed'
+  | 'invite.created' | 'invite.revoked' | 'invite.accepted';
 
 export interface AuditEntry {
   tenant_id: string;
-  actor_type: 'api_key' | 'system' | 'admin';
+  actor_type: 'api_key' | 'system' | 'admin' | 'user';
   actor_id?: string | null;
   action: AuditAction;
   resource_type?: string;
