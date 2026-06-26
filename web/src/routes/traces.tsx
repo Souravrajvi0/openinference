@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { fmtTime } from "@/lib/utils";
 import { Badge, Button, Card, Select } from "@/components/ui/primitives";
 import { AuthScreen } from "@/components/AuthScreen";
+import { PageHeader } from "@/components/marketing/shared";
 
 type TraceSpan = {
   id: string;
@@ -74,17 +75,14 @@ export function Traces() {
 
   return (
     <div className="bg-cream text-ink">
-      {/* Header */}
-      <section className="border-b border-border bg-ink px-6 py-12 text-cream md:px-10">
-        <div className="mb-3 text-[10px] uppercase tracking-[0.25em] text-cream/50">Observability</div>
-        <h1 className="text-4xl font-medium tracking-tight md:text-5xl">Traces &amp; Requests</h1>
-        <p className="mt-3 max-w-xl text-sm leading-relaxed text-cream/70">
-          Every request produces an OTel-style trace. Click a row to drill into its spans — auth, guardrails, retrieval, LLM call — with timing and cost at each stage.
-        </p>
-      </section>
+      <PageHeader
+        kicker="Observability"
+        title="Traces & Requests"
+        description="Every request produces an OTel-style trace. Click a row to drill into its spans — auth, guardrails, retrieval, LLM call — with timing and cost at each stage."
+      />
 
       {/* Split layout */}
-      <div className="flex flex-col lg:flex-row" style={{ minHeight: "calc(100vh - 280px)" }}>
+      <div className="flex flex-col lg:flex-row" style={{ minHeight: "calc(100vh - 220px)" }}>
         {/* Request list — left panel */}
         <div className="flex flex-col border-b border-border lg:w-[42%] lg:border-b-0 lg:border-r">
           {/* Filter bar */}

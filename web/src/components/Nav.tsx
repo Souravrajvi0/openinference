@@ -6,37 +6,40 @@ import { api } from "@/lib/api";
 import { type AuthUser, type Membership, switchOrg, createOrg } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { PixelLogo } from "@/components/pixel/icons";
+import { CtaButton } from "@/components/marketing/shared";
 
 type NavItem = { to: string; label: string; exact?: boolean; pro?: boolean; admin?: boolean; manage?: boolean };
 type NavGroup = { label: string; items: NavItem[]; pro?: boolean; admin?: boolean; manage?: boolean };
 type NavEntry = NavItem | NavGroup;
 
-const NAV: NavEntry[] = [
-  { to: "/",           label: "Overview",   exact: true },
+const PRIMARY_NAV: NavEntry[] = [
+  { to: "/", label: "Overview", exact: true },
   { to: "/playground", label: "Playground" },
-  { to: "/inference",  label: "Inference" },
-  { to: "/models",     label: "Models" },
-  { to: "/docs",       label: "Docs" },
+  { to: "/inference", label: "Inference" },
+  { to: "/models", label: "Models" },
+  { to: "/docs", label: "Docs" },
+];
+
+const PRO_NAV: NavEntry[] = [
   {
     label: "Monitor",
     pro: true,
     items: [
-      { to: "/traces",   label: "Traces" },
+      { to: "/traces", label: "Traces" },
       { to: "/sessions", label: "Sessions" },
     ],
   },
   {
     label: "Build",
     pro: true,
-    items: [
-      { to: "/agent", label: "Agent runner" },
-    ],
+    items: [{ to: "/agent", label: "Agent runner" }],
   },
   {
     label: "Agents",
     pro: true,
     items: [
-      { to: "/agents",    label: "Registry" },
+      { to: "/agents", label: "Registry" },
       { to: "/approvals", label: "Approvals" },
     ],
   },
@@ -45,8 +48,8 @@ const NAV: NavEntry[] = [
     pro: true,
     items: [
       { to: "/guardrails", label: "Guardrails" },
-      { to: "/budgets",    label: "Budgets" },
-      { to: "/mcp",        label: "MCP" },
+      { to: "/budgets", label: "Budgets" },
+      { to: "/mcp", label: "MCP" },
       { to: "/regression", label: "Regression" },
     ],
   },
@@ -68,6 +71,33 @@ function canSee(
   return true;
 }
 
+function NavLink({
+  to,
+  label,
+  exact,
+  className,
+}: {
+  to: string;
+  label: string;
+  exact?: boolean;
+  className?: string;
+}) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const active = exact ? pathname === to : pathname.startsWith(to);
+  return (
+    <Link
+      to={to}
+      className={cn(
+        "flex h-full items-center px-4 text-sm font-medium transition",
+        active ? "bg-ink text-cream" : "text-ink/70 hover:bg-muted/60 hover:text-ink",
+        className,
+      )}
+    >
+      {label}
+    </Link>
+  );
+}
+
 function Dropdown({ group }: { group: NavGroup }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -85,20 +115,20 @@ function Dropdown({ group }: { group: NavGroup }) {
   useEffect(() => { setOpen(false); }, [pathname]);
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative h-full border-r border-border">
       <button
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "flex items-center gap-1 px-3 py-1.5 text-xs uppercase tracking-[0.15em] transition cursor-pointer",
-          activeInGroup ? "bg-ink text-cream" : "text-ink/70 hover:text-ink",
+          "flex h-full items-center gap-1.5 px-4 text-sm font-medium transition cursor-pointer",
+          activeInGroup ? "bg-ink text-cream" : "text-ink/70 hover:bg-muted/60 hover:text-ink",
         )}
       >
         {group.label}
-        <ChevronDown className={cn("h-3 w-3 transition-transform", open && "rotate-180")} />
+        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-px min-w-[160px] border border-border bg-cream shadow-lg">
+        <div className="absolute left-0 top-full z-50 min-w-[180px] border border-border bg-cream shadow-lg rounded-b-md overflow-hidden">
           {group.items.map((item) => {
             const active = pathname.startsWith(item.to);
             return (
@@ -106,7 +136,7 @@ function Dropdown({ group }: { group: NavGroup }) {
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  "flex items-center px-4 py-2.5 text-xs uppercase tracking-[0.15em] transition",
+                  "flex items-center px-4 py-2.5 text-sm transition",
                   active ? "bg-ink text-cream" : "text-ink/70 hover:bg-surface hover:text-ink",
                 )}
               >
@@ -114,6 +144,64 @@ function Dropdown({ group }: { group: NavGroup }) {
               </Link>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StartBuildingDropdown() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  useEffect(() => { setOpen(false); }, [pathname]);
+
+  const links = [
+    { to: "/playground", label: "Playground" },
+    { to: "/docs", label: "Knowledge base" },
+    { to: "/models", label: "Model catalogue" },
+    { href: "/api-docs", label: "API reference" },
+  ];
+
+  return (
+    <div ref={ref} className="relative hidden h-full border-l border-border sm:block">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex h-full items-center gap-1.5 px-4 text-sm font-medium text-ink/70 transition hover:bg-muted/60 hover:text-ink cursor-pointer"
+      >
+        Get started
+        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-50 min-w-[200px] border border-border bg-cream shadow-lg rounded-b-md overflow-hidden">
+          {links.map((link) =>
+            "to" in link && link.to ? (
+              <Link
+                key={link.label}
+                to={link.to}
+                className="block px-4 py-2.5 text-sm text-ink/70 transition hover:bg-surface hover:text-ink"
+              >
+                {link.label}
+              </Link>
+            ) : (
+              <a
+                key={link.label}
+                href={link.href}
+                className="block px-4 py-2.5 text-sm text-ink/70 transition hover:bg-surface hover:text-ink"
+              >
+                {link.label}
+              </a>
+            ),
+          )}
         </div>
       )}
     </div>
@@ -177,28 +265,28 @@ function OrgSwitcher({
   if (!active && memberships.length === 0) return null;
 
   return (
-    <div ref={ref} className="relative hidden sm:block">
+    <div ref={ref} className="relative hidden lg:block">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex max-w-[180px] items-center gap-1.5 border border-border px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] text-ink/80 transition hover:text-ink cursor-pointer"
+        className="flex max-w-[160px] items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-ink/80 transition hover:bg-muted cursor-pointer"
         title="Switch workspace"
       >
-        <Building2 className="h-3 w-3 shrink-0" />
+        <Building2 className="h-3.5 w-3.5 shrink-0" />
         <span className="truncate">{active?.name ?? "Workspace"}</span>
         <ChevronDown className={cn("h-3 w-3 shrink-0 transition-transform", open && "rotate-180")} />
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-px min-w-[220px] border border-border bg-cream shadow-lg">
+        <div className="absolute right-0 top-full z-50 mt-1 min-w-[220px] rounded-md border border-border bg-cream shadow-lg">
           {memberships.map((m) => (
             <button
               key={m.tenant_id}
               onClick={() => handleSwitch(m.tenant_id)}
-              className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-xs transition hover:bg-surface cursor-pointer"
+              className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-sm transition hover:bg-surface cursor-pointer"
             >
               <span className="truncate">
                 <span className="font-medium">{m.name}</span>
-                <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">{m.role}</span>
+                <span className="ml-1.5 text-xs text-muted-foreground">{m.role}</span>
               </span>
               {m.tenant_id === activeOrgId && <Check className="h-3.5 w-3.5 shrink-0 text-good" />}
             </button>
@@ -210,18 +298,18 @@ function OrgSwitcher({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Workspace name"
-                  className="w-full border border-border bg-surface px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-flame-red"
+                  className="w-full rounded-md border border-border bg-surface px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-flame-red"
                   onKeyDown={(e) => e.key === "Enter" && handleCreate()}
                 />
                 <div className="flex gap-1">
-                  <button onClick={handleCreate} className="flex-1 bg-ink px-2 py-1 text-[10px] uppercase tracking-wider text-cream cursor-pointer">Create</button>
-                  <button onClick={() => setCreating(false)} className="flex-1 border border-border px-2 py-1 text-[10px] uppercase tracking-wider cursor-pointer">Cancel</button>
+                  <button onClick={handleCreate} className="flex-1 rounded-md bg-ink px-2 py-1 text-xs font-medium text-cream cursor-pointer">Create</button>
+                  <button onClick={() => setCreating(false)} className="flex-1 rounded-md border border-border px-2 py-1 text-xs cursor-pointer">Cancel</button>
                 </div>
               </div>
             ) : (
               <button
                 onClick={() => setCreating(true)}
-                className="flex w-full items-center gap-2 px-2 py-1.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground transition hover:text-ink cursor-pointer"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition hover:text-ink cursor-pointer"
               >
                 <Plus className="h-3 w-3" /> Create workspace
               </button>
@@ -230,23 +318,6 @@ function OrgSwitcher({
         </div>
       )}
     </div>
-  );
-}
-
-function Logo() {
-  return (
-    <Link to="/" className="flex items-center gap-2.5 shrink-0">
-      <span className="flex h-7 w-7 items-center justify-center bg-ink text-cream">
-        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="currentColor" aria-label="OpenInference">
-          <rect x="1" y="3" width="2" height="10" />
-          <rect x="4" y="6" width="2" height="7" />
-          <rect x="7" y="3" width="2" height="10" />
-          <rect x="10" y="6" width="2" height="7" />
-          <rect x="13" y="3" width="2" height="10" />
-        </svg>
-      </span>
-      <span className="text-sm font-semibold tracking-tight">OpenInference</span>
-    </Link>
   );
 }
 
@@ -272,26 +343,18 @@ export function Nav({
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  const adminEntry: NavItem = user
-    ? { to: "/admin", label: isPlatformAdmin ? "Admin" : "Account" }
-    : { to: "/admin", label: "Sign in" };
+  const proNav = PRO_NAV
+    .filter((e) => canSee(e, isPro, isPlatformAdmin, canManage))
+    .map((e) =>
+      isGroup(e)
+        ? { ...e, items: e.items.filter((i) => canSee(i, isPro, isPlatformAdmin, canManage)) }
+        : e,
+    )
+    .filter((e) => !isGroup(e) || e.items.length > 0);
 
-  const membersEntry: NavItem | null = user && canManage
-    ? { to: "/members", label: "Members", manage: true }
-    : null;
-
-  const visibleNav: NavEntry[] = [
-    ...NAV
-      .filter((e) => canSee(e, isPro, isPlatformAdmin, canManage))
-      .map((e) =>
-        isGroup(e)
-          ? { ...e, items: e.items.filter((i) => canSee(i, isPro, isPlatformAdmin, canManage)) }
-          : e,
-      )
-      .filter((e) => !isGroup(e) || e.items.length > 0),
-    ...(membersEntry ? [membersEntry] : []),
-    adminEntry,
-  ];
+  const membersLink = user && canManage ? { to: "/members", label: "Members" } : null;
+  const consoleLabel = user ? (isPlatformAdmin ? "Admin" : "Account") : "Sign in";
+  const consoleTo = "/admin";
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
@@ -305,72 +368,96 @@ export function Nav({
 
   return (
     <>
-      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-cream/90 px-6 py-2 backdrop-blur">
-        <div className="flex items-center gap-6">
-          <Logo />
-          <nav className="hidden items-center md:flex">
-            {visibleNav.map((entry, i) =>
-              isGroup(entry) ? (
-                <Dropdown key={i} group={entry} />
-              ) : (
-                <Link
-                  key={entry.to}
-                  to={entry.to}
-                  className={cn(
-                    "px-3 py-1.5 text-xs uppercase tracking-[0.15em] transition",
-                    (entry.exact ? pathname === entry.to : pathname.startsWith(entry.to))
-                      ? "bg-ink text-cream"
-                      : "text-ink/70 hover:text-ink",
-                  )}
-                >
-                  {entry.label}
-                </Link>
-              ),
-            )}
-          </nav>
-        </div>
+      <header className="sticky top-0 z-40 border-b border-border bg-cream/95 backdrop-blur">
+        <div className="flex h-12 items-stretch justify-between">
+          {/* Logo + primary nav */}
+          <div className="flex min-w-0 flex-1 items-stretch">
+            <Link
+              to="/"
+              className="flex shrink-0 items-center gap-2.5 border-r border-border px-4 transition hover:bg-muted/40"
+            >
+              <PixelLogo size={18} />
+              <span className="hidden text-sm font-semibold tracking-tight sm:inline">OpenInference</span>
+            </Link>
 
-        <div className="flex items-center gap-3">
-          {user && (
-            <OrgSwitcher
-              memberships={memberships}
-              activeOrgId={activeOrg?.id ?? user.tenant_id}
-              onSwitched={() => onOrgChange?.()}
-            />
-          )}
-
-          <div className="hidden items-center gap-2 text-[9px] uppercase tracking-[0.2em] text-muted-foreground sm:flex">
-            <span className={cn(
-              "inline-block h-1.5 w-1.5 rounded-full",
-              health === "ok" ? "bg-good" : health === "down" ? "bg-bad" : "bg-muted-foreground",
-            )} />
-            {health === "ok" ? "Online" : health === "down" ? "Down" : "…"}
+            <nav className="hidden min-w-0 items-stretch overflow-x-auto md:flex">
+              {PRIMARY_NAV.map((entry) =>
+                isGroup(entry) ? null : (
+                  <div key={entry.to} className="h-full shrink-0 border-r border-border">
+                    <NavLink to={entry.to} label={entry.label} exact={entry.exact} className="h-12" />
+                  </div>
+                ),
+              )}
+              {proNav.map((entry, i) =>
+                isGroup(entry) ? (
+                  <Dropdown key={i} group={entry} />
+                ) : (
+                  <div key={entry.to} className="h-full shrink-0 border-r border-border">
+                    <NavLink to={entry.to} label={entry.label} exact={entry.exact} className="h-12" />
+                  </div>
+                ),
+              )}
+              {membersLink && (
+                <div className="h-full shrink-0 border-r border-border">
+                  <NavLink to={membersLink.to} label={membersLink.label} className="h-12" />
+                </div>
+              )}
+            </nav>
           </div>
 
-          <button
-            onClick={toggle}
-            className="flex h-7 w-7 items-center justify-center border border-border-strong text-muted-foreground transition hover:bg-muted hover:text-ink cursor-pointer"
-            title="Toggle theme"
-          >
-            {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-          </button>
+          {/* Right actions */}
+          <div className="flex shrink-0 items-stretch">
+            <StartBuildingDropdown />
 
-          <button
-            onClick={() => setMobileOpen((o) => !o)}
-            className="flex h-7 w-7 items-center justify-center border border-border-strong text-muted-foreground transition hover:bg-muted hover:text-ink cursor-pointer md:hidden"
-          >
-            {mobileOpen ? <X className="h-3.5 w-3.5" /> : <Menu className="h-3.5 w-3.5" />}
-          </button>
+            <div className="hidden items-center gap-2 border-l border-border px-3 sm:flex">
+              {user && (
+                <OrgSwitcher
+                  memberships={memberships}
+                  activeOrgId={activeOrg?.id ?? user.tenant_id}
+                  onSwitched={() => onOrgChange?.()}
+                />
+              )}
+              <span
+                className={cn(
+                  "inline-block h-1.5 w-1.5 rounded-full",
+                  health === "ok" ? "bg-good" : health === "down" ? "bg-bad" : "bg-muted-foreground",
+                )}
+                title={health === "ok" ? "Gateway online" : health === "down" ? "Gateway down" : "Checking…"}
+              />
+              <button
+                onClick={toggle}
+                className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-ink cursor-pointer"
+                title="Toggle theme"
+              >
+                {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </button>
+            </div>
+
+            <Link
+              to={consoleTo}
+              className="flex items-center gap-1.5 border-l border-border bg-ink px-4 text-sm font-medium text-cream transition hover:opacity-90"
+            >
+              {consoleLabel}
+              <span aria-hidden>›</span>
+            </Link>
+
+            <button
+              onClick={() => setMobileOpen((o) => !o)}
+              className="flex items-center justify-center border-l border-border px-3 text-muted-foreground transition hover:bg-muted md:hidden cursor-pointer"
+            >
+              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
         </div>
       </header>
 
       {mobileOpen && (
-        <div className="sticky top-[45px] z-30 border-b border-border bg-cream/95 backdrop-blur md:hidden">
+        <div className="sticky top-12 z-30 max-h-[70vh] overflow-y-auto border-b border-border bg-cream md:hidden">
           <nav className="flex flex-col py-1">
-            {visibleNav.map((entry, i) =>
+            {[...PRIMARY_NAV, ...proNav, ...(membersLink ? [membersLink] : [])].map((entry, i) =>
               isGroup(entry) ? (
                 <div key={i}>
-                  <div className="px-6 pt-3 pb-1 text-[9px] uppercase tracking-[0.25em] text-muted-foreground">
+                  <div className="px-5 pt-3 pb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     {entry.label}
                   </div>
                   {entry.items.map((item) => {
@@ -380,8 +467,8 @@ export function Nav({
                         key={item.to}
                         to={item.to}
                         className={cn(
-                          "flex items-center px-8 py-2 text-xs uppercase tracking-[0.15em] transition",
-                          active ? "bg-ink text-cream" : "text-ink/70 hover:bg-surface hover:text-ink",
+                          "flex items-center px-7 py-2.5 text-sm transition",
+                          active ? "bg-ink text-cream" : "text-ink/70 hover:bg-surface",
                         )}
                       >
                         {item.label}
@@ -394,16 +481,19 @@ export function Nav({
                   key={entry.to}
                   to={entry.to}
                   className={cn(
-                    "flex items-center px-6 py-2 text-xs uppercase tracking-[0.15em] transition",
-                    (entry.exact ? pathname === entry.to : pathname.startsWith(entry.to))
+                    "flex items-center px-5 py-2.5 text-sm transition",
+                    ("exact" in entry && entry.exact ? pathname === entry.to : pathname.startsWith(entry.to))
                       ? "bg-ink text-cream"
-                      : "text-ink/70 hover:bg-surface hover:text-ink",
+                      : "text-ink/70 hover:bg-surface",
                   )}
                 >
                   {entry.label}
                 </Link>
               ),
             )}
+            <div className="border-t border-border p-4">
+              <CtaButton to={consoleTo} className="w-full justify-center">{consoleLabel} →</CtaButton>
+            </div>
           </nav>
         </div>
       )}

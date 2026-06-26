@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { PixelLogo } from "@/components/pixel/icons";
 import { toast } from "sonner";
 import { api, authHeaders, MODEL_CATALOG } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -52,9 +53,9 @@ const CLOUD_META: Record<string, {
 };
 
 const TIER_STYLE: Record<string, string> = {
-  small:    "border-green-400/40 text-green-700 bg-green-50",
-  standard: "border-blue-400/40 text-blue-700 bg-blue-50",
-  frontier: "border-amber-400/40 text-amber-700 bg-amber-50",
+  small:    "border-good/40 text-good bg-good/10",
+  standard: "border-flame-orange/40 text-flame-deep bg-flame-orange/10",
+  frontier: "border-flame-amber/40 text-flame-deep bg-flame-amber/10",
 };
 
 // ── picker tasks ──────────────────────────────────────────────────────────────
@@ -184,10 +185,13 @@ function HeroSection() {
   });
 
   return (
-    <section className="flex min-h-[55vh] flex-col justify-between bg-ink px-8 py-16 text-cream md:px-16">
+    <section className="flex min-h-[55vh] flex-col justify-between border-b border-border bg-navy px-8 py-16 text-cream md:px-16">
       <div>
-        <div className="text-[11px] uppercase tracking-[0.18em] text-cream/30">OpenInference · Models</div>
-        <h1 className="mt-3 text-[clamp(48px,7vw,88px)] font-medium leading-[1.02] tracking-[-0.03em]">
+        <div className="mb-6 flex items-center gap-3">
+          <PixelLogo size={22} />
+          <span className="text-sm font-medium text-cream/50">OpenInference · Models</span>
+        </div>
+        <h1 className="text-[clamp(2.75rem,7vw,5.5rem)] font-semibold leading-[1.02] tracking-[-0.03em]">
           Model catalogue.
         </h1>
         <p className="mt-4 max-w-lg text-sm leading-relaxed text-cream/50">

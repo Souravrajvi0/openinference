@@ -49,9 +49,9 @@ function RootLayout() {
         position="bottom-center"
         toastOptions={{
           style: {
-            borderRadius: 0,
-            fontFamily: "var(--font-mono)",
-            fontSize: "13px",
+            borderRadius: "6px",
+            fontFamily: "var(--font-sans)",
+            fontSize: "14px",
           },
         }}
       />

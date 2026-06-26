@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { authHeaders } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { AuthScreen } from "@/components/AuthScreen";
+import { PageHeader } from "@/components/marketing/shared";
 import { Badge, Button, Card, Label, Select, Textarea } from "@/components/ui/primitives";
 
 type AgentStep = {
@@ -121,19 +122,18 @@ export function Agent() {
 
   return (
     <div className="bg-cream text-ink">
-      {/* Header */}
-      <section className="border-b border-border bg-ink px-6 py-12 text-cream md:px-10">
-        <div className="mb-3 text-[10px] uppercase tracking-[0.25em] text-cream/50">Agentic mode</div>
-        <h1 className="text-4xl font-medium tracking-tight md:text-5xl">Agent runner</h1>
-        <p className="mt-3 max-w-xl text-sm leading-relaxed text-cream/70">
-          Give the agent a goal. It reasons step-by-step and calls tools — document retrieval and a calculator — until it reaches an answer or hits the step limit.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
+      <PageHeader
+        kicker="Agentic mode"
+        title="Agent runner"
+        description="Give the agent a goal. It reasons step-by-step and calls tools — document retrieval and a calculator — until it reaches an answer or hits the step limit."
+      />
+      <div className="border-b border-border px-6 py-3 md:px-10">
+        <div className="mx-auto flex max-w-4xl flex-wrap gap-2">
           {["retrieve_documents", "calculate"].map((t) => (
-            <span key={t} className="border border-cream/20 px-2 py-1 font-mono text-[10px] text-cream/60">{t}</span>
+            <span key={t} className="rounded-sm border border-border bg-muted px-2 py-1 font-mono text-xs text-muted-foreground">{t}</span>
           ))}
         </div>
-      </section>
+      </div>
 
       <div className="mx-auto max-w-4xl px-6 py-8 md:px-10">
         {/* Config */}

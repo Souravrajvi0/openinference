@@ -3,7 +3,8 @@ import { toast } from "sonner";
 import { Copy, Square } from "lucide-react";
 import { getKey, setKey, getToken, authHeaders, MODEL_CATALOG, type ChatResponse } from "@/lib/api";
 import { fmtTime, mdToHtml } from "@/lib/utils";
-import { Button, Card, Input, Kicker, Label, Select, Textarea } from "@/components/ui/primitives";
+import { Button, Card, Input, Label, Select, Textarea } from "@/components/ui/primitives";
+import { PageHeader } from "@/components/marketing/shared";
 
 interface Msg { role: "user" | "assistant"; content: string; ts: number; }
 interface LastUsage { prompt_tokens: number; completion_tokens: number; cost_usd: number; }
@@ -122,17 +123,15 @@ export function Playground() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-10">
-      <div className="mb-8">
-        <Kicker>Playground</Kicker>
-        <h1 className="mt-2 text-4xl font-medium tracking-tight md:text-5xl">Route a request.</h1>
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Authenticate with a key, pick any provider or self-hosted model, and watch it flow through
-          guardrails, routing and metering.
-        </p>
-      </div>
+    <div className="bg-cream text-ink">
+      <PageHeader
+        kicker="Playground"
+        title="Route a request"
+        description="Authenticate with a key, pick any provider or self-hosted model, and watch it flow through guardrails, routing and metering."
+      />
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.7fr_1fr]">
+      <div className="mx-auto max-w-6xl px-6 py-8 md:px-10">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.7fr_1fr]">
         <div>
           <Card className="overflow-hidden">
             <div className="flex items-center gap-2 border-b border-border bg-muted px-4 py-3">
@@ -237,6 +236,7 @@ export function Playground() {
             <Textarea value={sys} onChange={(e) => persistSys(e.target.value)} placeholder="You are a helpful assistant…" className="min-h-20 text-xs" />
             <p className="mt-2 text-[11px] text-muted-foreground">Prepended as a system message on each call.</p>
           </Card>
+        </div>
         </div>
       </div>
     </div>

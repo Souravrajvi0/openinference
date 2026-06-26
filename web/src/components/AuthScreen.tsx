@@ -28,11 +28,12 @@ export function AuthScreen({ onAuthed }: { onAuthed: (u: AuthUser) => void }) {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-57px)] items-center justify-center px-6 py-16">
-      <Card className="w-full max-w-sm">
-        <div className="flex flex-col items-center gap-3 border-b border-border bg-ink px-8 py-8 text-cream">
-          <Lock className="h-6 w-6" />
-          <div className="text-xs uppercase tracking-[0.2em]">OpenInference</div>
+    <div className="flex min-h-[calc(100vh-49px)] items-center justify-center bg-cream px-6 py-16">
+      <Card className="w-full max-w-sm overflow-hidden">
+        <div className="flex flex-col items-center gap-3 border-b border-border bg-muted/50 px-8 py-8">
+          <Lock className="h-6 w-6 text-flame-red" />
+          <div className="text-sm font-semibold">OpenInference</div>
+          <p className="text-center text-sm text-muted-foreground">Sign in to access traces, agents, and governance tools.</p>
         </div>
         <div className="p-8">
           <div className="mb-6 flex gap-1 border-b border-border">

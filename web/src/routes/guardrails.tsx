@@ -4,6 +4,7 @@ import { Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { AuthScreen } from "@/components/AuthScreen";
+import { PageHeader } from "@/components/marketing/shared";
 import { Badge, Button, Card, Input, Label, Select, Textarea } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 
@@ -135,14 +136,11 @@ export function Guardrails() {
 
   return (
     <div className="bg-cream text-ink">
-      {/* Header */}
-      <section className="border-b border-border bg-ink px-6 py-12 text-cream md:px-10">
-        <div className="mb-3 text-[10px] uppercase tracking-[0.25em] text-cream/50">Security</div>
-        <h1 className="text-4xl font-medium tracking-tight md:text-5xl">Guardrails</h1>
-        <p className="mt-3 max-w-xl text-sm leading-relaxed text-cream/70">
-          Test prompts against the gateway's guardrail layer and manage custom tenant policies.
-        </p>
-      </section>
+      <PageHeader
+        kicker="Security"
+        title="Guardrails"
+        description="Test prompts against the gateway's guardrail layer and manage custom tenant policies."
+      />
 
       {/* Tabs */}
       <div className="flex border-b border-border">

@@ -4,6 +4,7 @@ import { Trash2, ExternalLink } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { AuthScreen } from "@/components/AuthScreen";
+import { PageHeader } from "@/components/marketing/shared";
 import { Badge, Button, Card, Input, Label, Select, Textarea } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 
@@ -73,14 +74,11 @@ function McpPage() {
 
   return (
     <div className="bg-cream text-ink">
-      {/* Header */}
-      <section className="border-b border-border bg-ink px-6 py-12 text-cream md:px-10">
-        <div className="mb-3 text-[10px] uppercase tracking-[0.25em] text-cream/50">Integrations</div>
-        <h1 className="text-4xl font-medium tracking-tight md:text-5xl">MCP Traffic Governance</h1>
-        <p className="mt-3 max-w-xl text-sm leading-relaxed text-cream/70">
-          Register Model Context Protocol servers, set allow/deny policies per tool, rate-limit calls, and audit all traffic.
-        </p>
-      </section>
+      <PageHeader
+        kicker="Integrations"
+        title="MCP Traffic Governance"
+        description="Register Model Context Protocol servers, set allow/deny policies per tool, rate-limit calls, and audit all traffic."
+      />
 
       {/* Tabs */}
       <div className="flex border-b border-border">

@@ -10,10 +10,10 @@ import { cn } from "@/lib/utils";
 /* ---------- Button ---------- */
 type Variant = "solid" | "outline" | "ghost" | "danger";
 const variants: Record<Variant, string> = {
-  solid: "bg-ink text-cream hover:opacity-90 border border-ink",
-  outline: "border border-border-strong bg-surface hover:bg-muted",
-  ghost: "border border-transparent hover:bg-muted",
-  danger: "border border-transparent text-bad hover:bg-bad/10",
+  solid: "bg-ink text-cream hover:opacity-90 border border-ink rounded-md",
+  outline: "border border-border-strong bg-surface hover:bg-muted rounded-md",
+  ghost: "border border-transparent hover:bg-muted rounded-md",
+  danger: "border border-transparent text-bad hover:bg-bad/10 rounded-md",
 };
 export function Button({
   variant = "solid",
@@ -23,7 +23,7 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 px-4 py-2 text-xs uppercase tracking-[0.15em] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer",
+        "inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer",
         variants[variant],
         className,
       )}
@@ -35,14 +35,14 @@ export function Button({
 /* ---------- Card ---------- */
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
   return (
-    <div className={cn("border border-border bg-surface", className)}>{children}</div>
+    <div className={cn("border border-border bg-surface rounded-md", className)}>{children}</div>
   );
 }
 
 /* ---------- Label ---------- */
 export function Label({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <label className={cn("block text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-2", className)}>
+    <label className={cn("block text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground mb-2", className)}>
       {children}
     </label>
   );
@@ -53,7 +53,7 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
   return (
     <input
       className={cn(
-        "w-full bg-surface border border-border-strong px-3 py-2 text-sm outline-none transition focus:border-flame-red",
+        "w-full bg-surface border border-border-strong rounded-md px-3 py-2 text-sm outline-none transition focus:border-flame-red",
         className,
       )}
       {...props}
@@ -66,7 +66,7 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
   return (
     <textarea
       className={cn(
-        "w-full bg-surface border border-border-strong px-3 py-2 text-sm outline-none transition focus:border-flame-red resize-y",
+        "w-full bg-surface border border-border-strong rounded-md px-3 py-2 text-sm outline-none transition focus:border-flame-red resize-y",
         className,
       )}
       {...props}
@@ -79,7 +79,7 @@ export function Select({ className, children, ...props }: SelectHTMLAttributes<H
   return (
     <select
       className={cn(
-        "bg-surface border border-border-strong px-3 py-2 text-sm outline-none transition focus:border-flame-red cursor-pointer",
+        "bg-surface border border-border-strong rounded-md px-3 py-2 text-sm outline-none transition focus:border-flame-red cursor-pointer",
         className,
       )}
       {...props}
@@ -108,7 +108,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] border",
+        "inline-flex items-center px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.1em] border rounded-sm",
         tones[tone],
         className,
       )}
@@ -118,11 +118,5 @@ export function Badge({
   );
 }
 
-/* ---------- Kicker (tiny uppercase label) ---------- */
-export function Kicker({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <div className={cn("text-[10px] uppercase tracking-[0.25em] text-muted-foreground", className)}>
-      {children}
-    </div>
-  );
-}
+/* ---------- Kicker (re-export from marketing for app pages) ---------- */
+export { Kicker } from "@/components/marketing/shared";

@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { fmtDate } from "@/lib/utils";
 import { Badge, Button, Card, Input, Label } from "@/components/ui/primitives";
 import { Modal } from "@/components/ui/overlay";
+import { PageHeader } from "@/components/marketing/shared";
 
 type DocRow = {
   id: string;
@@ -102,26 +103,18 @@ export function Docs() {
 
   return (
     <div className="bg-cream text-ink">
-      {/* Header */}
-      <section className="border-b border-border bg-ink px-6 py-12 text-cream md:px-10">
-        <div className="mb-3 text-[10px] uppercase tracking-[0.25em] text-cream/50">Knowledge base</div>
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <h1 className="text-4xl font-medium tracking-tight md:text-5xl">Documents &amp; Retrieval</h1>
-            <p className="mt-3 max-w-xl text-sm leading-relaxed text-cream/70">
-              Upload text to build your knowledge base. OpenInference chunks, embeds, and indexes documents automatically — ready for hybrid vector + keyword search in every RAG request.
-            </p>
-          </div>
-          {user && (
-            <Button
-              onClick={() => setUploading(true)}
-              className="shrink-0 border-cream bg-cream text-ink hover:bg-cream/90"
-            >
+      <PageHeader
+        kicker="Knowledge base"
+        title="Documents & Retrieval"
+        description="Upload text to build your knowledge base. OpenInference chunks, embeds, and indexes documents automatically — ready for hybrid vector + keyword search in every RAG request."
+        action={
+          user ? (
+            <Button onClick={() => setUploading(true)}>
               <Plus className="h-3 w-3" /> Upload
             </Button>
-          )}
-        </div>
-      </section>
+          ) : undefined
+        }
+      />
 
       {/* Stats strip */}
       <section className="border-b border-border">

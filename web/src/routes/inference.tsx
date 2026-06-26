@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { PixelLogo } from "@/components/pixel/icons";
 import { toast } from "sonner";
 import { api, authHeaders, MODEL_CATALOG } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -52,15 +53,15 @@ export function Inference() {
 function BentoSection() {
   return (
     <section className="flex min-h-screen flex-col bg-surface">
-      {/* Header */}
-      <div className="px-8 pb-12 pt-16 md:px-16">
-        <div className="mb-4 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-          OpenInference · Inference
+      <div className="border-b border-border px-8 pb-12 pt-16 md:px-16">
+        <div className="mb-6 flex items-center gap-3">
+          <PixelLogo size={22} />
+          <span className="text-sm font-medium text-muted-foreground">OpenInference · Inference</span>
         </div>
-        <h1 className="text-[clamp(48px,7vw,88px)] font-medium leading-[1.02] tracking-[-0.03em]">
+        <h1 className="text-[clamp(2.75rem,7vw,5.5rem)] font-semibold leading-[1.02] tracking-[-0.03em]">
           CPU inference.<br />Open source models.
         </h1>
-        <p className="mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">
+        <p className="mt-4 max-w-md text-base leading-relaxed text-muted-foreground">
           Route to self-hosted models for batch work, private data, and zero-cost pipelines —
           without changing your API.
         </p>
