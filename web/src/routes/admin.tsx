@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Plus, Trash2, ShieldOff } from "lucide-react";
+import { Plus, Trash2, Check, Crown, ArrowRight } from "lucide-react";
 import {
   api,
   type AuditRow,
@@ -23,7 +23,7 @@ const TABS = ["Metrics", "Keys", "Budget", "Experiments", "Cache", "Evals", "Doc
 type Tab = (typeof TABS)[number];
 
 export function Admin() {
-  const { user, loading, isAdmin, refresh, setUser } = useAuth();
+  const { user, loading, isAdmin, isPro, refresh, setUser } = useAuth();
   const [tab, setTab] = useState<Tab>("Metrics");
 
   if (loading) {
@@ -35,30 +35,10 @@ export function Admin() {
     return <AuthScreen onAuthed={() => refresh()} />;
   }
 
-  // Signed in, but not on the admin allow-list — the panels below would 403 on
-  // every call, so show a clear message instead of a wall of error toasts.
+  // Signed in, but not an admin — the console panels below would 403 on every
+  // call. Show the user's own account page (plan + upgrade) instead.
   if (!isAdmin) {
-    return (
-      <div className="flex min-h-[calc(100vh-57px)] items-center justify-center px-6 py-16">
-        <div className="w-full max-w-sm border border-border bg-surface p-8 text-center">
-          <ShieldOff className="mx-auto mb-4 h-8 w-8 text-muted-foreground" />
-          <div className="text-sm font-medium">Admin access required</div>
-          <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
-            You’re signed in as <span className="text-ink">{user.email}</span>, but this account
-            doesn’t have admin access. Head to the Playground to start using the gateway.
-          </p>
-          <div className="mt-6 flex flex-col gap-2">
-            <Link
-              to="/playground"
-              className="flex w-full items-center justify-center border border-flame-red px-4 py-2.5 text-xs uppercase tracking-[0.12em] text-flame-red transition hover:bg-flame-red hover:text-cream"
-            >
-              Go to Playground →
-            </Link>
-            <Button variant="outline" onClick={() => { logout(); setUser(null); }}>Sign out</Button>
-          </div>
-        </div>
-      </div>
-    );
+    return <Account email={user.email} isPro={isPro} onSignOut={() => { logout(); setUser(null); }} />;
   }
 
   return (
@@ -101,6 +81,113 @@ export function Admin() {
         {tab === "Documents" && <DocumentsPanel />}
         {tab === "Requests" && <RequestsPanel />}
         {tab === "Audit" && <AuditPanel />}
+      </div>
+    </div>
+  );
+}
+
+/* ───────────── Account (free / pro users) ───────────── */
+const FREE_FEATURES = [
+  "Interactive Playground",
+  "Browse Inference & Models",
+  "API & integration docs",
+];
+const PRO_FEATURES = [
+  "Everything in Free",
+  "Traces & session monitoring",
+  "Agent runner & registry",
+  "Guardrails, budgets & MCP governance",
+  "Regression testing",
+];
+const QUICK_LINKS = [
+  { to: "/playground", label: "Playground", desc: "Chat with the gateway" },
+  { to: "/inference", label: "Inference", desc: "Run a single request" },
+  { to: "/models", label: "Models", desc: "Browse available models" },
+  { to: "/docs", label: "Docs", desc: "API reference & guides" },
+];
+
+function Account({ email, isPro, onSignOut }: { email: string; isPro: boolean; onSignOut: () => void }) {
+  const plan = isPro ? "Pro" : "Free";
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="flex flex-wrap items-center gap-4 border-b border-border bg-surface px-6 py-5">
+        <div className="flex h-9 w-9 items-center justify-center bg-ink text-cream">
+          <span className="text-sm font-semibold">{email.charAt(0).toUpperCase()}</span>
+        </div>
+        <div>
+          <div className="flex items-center gap-2 text-sm font-medium">
+            Account <Badge tone={isPro ? "good" : "default"}>{plan} plan</Badge>
+          </div>
+          <div className="text-[11px] text-muted-foreground">{email}</div>
+        </div>
+        <Button variant="outline" className="ml-auto" onClick={onSignOut}>Sign out</Button>
+      </div>
+
+      <div className="mx-auto max-w-4xl px-6 py-8">
+        {/* Plan cards */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          {/* Current (Free) */}
+          <Card className={"p-6 " + (!isPro ? "border-flame-red" : "")}>
+            <div className="mb-1 flex items-center justify-between">
+              <h3 className="text-sm font-medium">Free</h3>
+              {!isPro && <Badge tone="good">Current</Badge>}
+            </div>
+            <div className="mb-4 text-2xl font-medium tracking-tight">$0<span className="text-sm text-muted-foreground">/mo</span></div>
+            <ul className="space-y-2 text-[13px]">
+              {FREE_FEATURES.map((f) => (
+                <li key={f} className="flex items-start gap-2">
+                  <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-good" /> {f}
+                </li>
+              ))}
+            </ul>
+          </Card>
+
+          {/* Pro */}
+          <Card className={"p-6 " + (isPro ? "border-flame-red" : "")}>
+            <div className="mb-1 flex items-center justify-between">
+              <h3 className="flex items-center gap-1.5 text-sm font-medium"><Crown className="h-3.5 w-3.5 text-flame-red" /> Pro</h3>
+              {isPro && <Badge tone="good">Current</Badge>}
+            </div>
+            <div className="mb-4 text-2xl font-medium tracking-tight">$29<span className="text-sm text-muted-foreground">/mo</span></div>
+            <ul className="mb-5 space-y-2 text-[13px]">
+              {PRO_FEATURES.map((f) => (
+                <li key={f} className="flex items-start gap-2">
+                  <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-flame-red" /> {f}
+                </li>
+              ))}
+            </ul>
+            {isPro ? (
+              <div className="text-center text-xs text-muted-foreground">You’re on Pro — thanks for the support.</div>
+            ) : (
+              <Button
+                className="w-full"
+                onClick={() => toast("Pro upgrade is coming soon — hang tight!")}
+              >
+                <Crown className="h-3 w-3" /> Upgrade to Pro
+              </Button>
+            )}
+          </Card>
+        </div>
+
+        {/* Quick links */}
+        <h3 className="mb-3 mt-8 text-sm font-medium">Start using the gateway</h3>
+        <div className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2">
+          {QUICK_LINKS.map((l) => (
+            <Link
+              key={l.to}
+              to={l.to}
+              className="group flex items-center justify-between bg-surface p-4 transition hover:bg-muted"
+            >
+              <div>
+                <div className="text-sm font-medium">{l.label}</div>
+                <div className="text-[11px] text-muted-foreground">{l.desc}</div>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-flame-red" />
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   );
