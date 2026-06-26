@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, ShieldOff } from "lucide-react";
 import {
   api,
   type AuditRow,
@@ -22,7 +23,7 @@ const TABS = ["Metrics", "Keys", "Budget", "Experiments", "Cache", "Evals", "Doc
 type Tab = (typeof TABS)[number];
 
 export function Admin() {
-  const { user, loading, setUser } = useAuth();
+  const { user, loading, isAdmin, refresh, setUser } = useAuth();
   const [tab, setTab] = useState<Tab>("Metrics");
 
   if (loading) {
@@ -30,7 +31,34 @@ export function Admin() {
   }
 
   if (!user) {
-    return <AuthScreen onAuthed={(u) => setUser(u)} />;
+    // After auth, refresh from /v1/auth/me so scopes (and the admin flag) load.
+    return <AuthScreen onAuthed={() => refresh()} />;
+  }
+
+  // Signed in, but not on the admin allow-list — the panels below would 403 on
+  // every call, so show a clear message instead of a wall of error toasts.
+  if (!isAdmin) {
+    return (
+      <div className="flex min-h-[calc(100vh-57px)] items-center justify-center px-6 py-16">
+        <div className="w-full max-w-sm border border-border bg-surface p-8 text-center">
+          <ShieldOff className="mx-auto mb-4 h-8 w-8 text-muted-foreground" />
+          <div className="text-sm font-medium">Admin access required</div>
+          <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
+            You’re signed in as <span className="text-ink">{user.email}</span>, but this account
+            doesn’t have admin access. Head to the Playground to start using the gateway.
+          </p>
+          <div className="mt-6 flex flex-col gap-2">
+            <Link
+              to="/playground"
+              className="flex w-full items-center justify-center border border-flame-red px-4 py-2.5 text-xs uppercase tracking-[0.12em] text-flame-red transition hover:bg-flame-red hover:text-cream"
+            >
+              Go to Playground →
+            </Link>
+            <Button variant="outline" onClick={() => { logout(); setUser(null); }}>Sign out</Button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

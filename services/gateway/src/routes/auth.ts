@@ -105,8 +105,17 @@ const authRoute: FastifyPluginAsync = async (fastify) => {
   // GET /v1/auth/me — current user from the bearer token
   fastify.get('/me', async (request, reply) => {
     try {
-      const payload = await request.jwtVerify<{ sub: string; email: string; tenantId: string }>();
-      return reply.send({ user: { id: payload.sub, email: payload.email, tenant_id: payload.tenantId } });
+      const payload = await request.jwtVerify<{ sub: string; email: string; tenantId: string; scopes?: string[] }>();
+      const scopes = payload.scopes ?? [];
+      return reply.send({
+        user: {
+          id: payload.sub,
+          email: payload.email,
+          tenant_id: payload.tenantId,
+          scopes,
+          is_admin: scopes.includes('admin'),
+        },
+      });
     } catch {
       return reply.status(401).send({ error: 'Not authenticated' });
     }
@@ -202,7 +211,10 @@ const authRoute: FastifyPluginAsync = async (fastify) => {
       }
 
       const token = sign(fastify, userRow);
-      return reply.redirect(`${config.APP_URL}/admin?token=${token}`);
+      // Admins land on the admin console; everyone else goes to the playground,
+      // which they actually have scopes for (otherwise the console 403s on load).
+      const dest = isAdminEmail(userRow.email) ? '/admin' : '/playground';
+      return reply.redirect(`${config.APP_URL}${dest}?token=${token}`);
     } catch (err) {
       fastify.log.error(err, 'Google OAuth callback error');
       return reply.redirect(`${config.APP_URL}/admin?error=google_failed`);

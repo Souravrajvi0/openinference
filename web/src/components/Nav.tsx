@@ -8,11 +8,12 @@ import { cn } from "@/lib/utils";
 
 // ── Structure ──────────────────────────────────────────────────────────────────
 
-type NavItem = { to: string; label: string; exact?: boolean; auth?: boolean };
-type NavGroup = { label: string; items: NavItem[]; auth?: boolean };
+type NavItem = { to: string; label: string; exact?: boolean; auth?: boolean; admin?: boolean };
+type NavGroup = { label: string; items: NavItem[]; auth?: boolean; admin?: boolean };
 type NavEntry = NavItem | NavGroup;
 
-// auth: true → only shown when signed in
+// auth: true → only shown when signed in. admin: true → only shown to admins
+// (the underlying endpoints require the 'admin' scope, so non-admins would 403).
 const NAV: NavEntry[] = [
   { to: "/",           label: "Overview",   exact: true },
   { to: "/playground", label: "Playground" },
@@ -23,7 +24,7 @@ const NAV: NavEntry[] = [
     label: "Monitor",
     auth: true,
     items: [
-      { to: "/traces",   label: "Traces" },
+      { to: "/traces",   label: "Traces", admin: true },
       { to: "/sessions", label: "Sessions" },
     ],
   },
@@ -36,7 +37,7 @@ const NAV: NavEntry[] = [
   },
   {
     label: "Agents",
-    auth: true,
+    admin: true,
     items: [
       { to: "/agents",    label: "Registry" },
       { to: "/approvals", label: "Approvals" },
@@ -44,7 +45,7 @@ const NAV: NavEntry[] = [
   },
   {
     label: "Govern",
-    auth: true,
+    admin: true,
     items: [
       { to: "/guardrails", label: "Guardrails" },
       { to: "/budgets",    label: "Budgets" },
@@ -56,6 +57,13 @@ const NAV: NavEntry[] = [
 
 function isGroup(e: NavEntry): e is NavGroup {
   return "items" in e;
+}
+
+// Whether an entry is visible given the current session.
+function canSee(e: { auth?: boolean; admin?: boolean }, user: unknown, isAdmin: boolean): boolean {
+  if (e.admin) return isAdmin;
+  if (e.auth) return !!user;
+  return true;
 }
 
 // ── Dropdown group ─────────────────────────────────────────────────────────────
@@ -135,17 +143,29 @@ function Logo() {
 
 // ── Nav ────────────────────────────────────────────────────────────────────────
 
-export function Nav({ user }: { user?: AuthUser | null }) {
+export function Nav({ user, isAdmin = false }: { user?: AuthUser | null; isAdmin?: boolean }) {
   const { theme, toggle } = useTheme();
   const [health, setHealth] = useState<"checking" | "ok" | "down">("checking");
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
+  // Admins get the full console; logged-out users get a sign-in entry; signed-in
+  // non-admins get their account/sign-out screen, also at /admin.
   const adminEntry: NavItem = user
-    ? { to: "/admin", label: "Admin" }
+    ? { to: "/admin", label: isAdmin ? "Admin" : "Account" }
     : { to: "/admin", label: "Sign in" };
 
-  const visibleNav = [...NAV.filter((e) => !e.auth || user), adminEntry];
+  const visibleNav: NavEntry[] = [
+    ...NAV
+      .filter((e) => canSee(e, user, isAdmin))
+      .map((e) =>
+        isGroup(e)
+          ? { ...e, items: e.items.filter((i) => canSee(i, user, isAdmin)) }
+          : e,
+      )
+      .filter((e) => !isGroup(e) || e.items.length > 0),
+    adminEntry,
+  ];
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 

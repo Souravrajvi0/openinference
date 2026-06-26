@@ -5,6 +5,8 @@ export interface AuthUser {
   email: string;
   tenant_id?: string;
   id?: string;
+  scopes?: string[];
+  is_admin?: boolean;
 }
 
 export async function signup(email: string, password: string): Promise<AuthUser> {
@@ -73,5 +75,5 @@ export function useAuth() {
     return () => window.removeEventListener("auth:expired", onExpired);
   }, []);
 
-  return { user, loading, refresh, setUser };
+  return { user, loading, refresh, setUser, isAdmin: !!user?.is_admin };
 }
