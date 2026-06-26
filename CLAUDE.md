@@ -108,3 +108,16 @@ curl -X POST http://localhost:3000/v1/chat \
 ```
 
 API docs auto-generated at `http://localhost:3000/api-docs`.
+
+## Branches & Deployment
+
+Three branches: **`dev`** (active work) → **`main`** (integration/staging) → **`production`** (live releases). Promote with merges in that order.
+
+**CI/CD is in place — do NOT manually SSH to deploy.** `.github/workflows/deploy.yml` auto-deploys on every push to `production`: it SSHes to the droplet, resets to `origin/production`, rebuilds the Docker images, restarts nginx, and health-checks the gateway. So the deploy flow is just:
+
+```bash
+# from production branch, after merging main → production
+git push origin production    # GitHub Actions deploys automatically
+```
+
+`dev` and `main` do not deploy anything. Manual SSH to the droplet (`root@64.227.178.3`, checkout at `/opt/sentinelai/SentinelAI`) is reserved for **emergencies only** — e.g. the pipeline is broken, the site is down and you need to inspect logs/containers, or you must roll back faster than a revert+push. In normal operation, pushing to `production` handles everything.
