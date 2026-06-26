@@ -1,4 +1,4 @@
-// Thin client over the SentinelAI gateway API (all under /v1, auth via X-Api-Key).
+// Thin client over the OpenInference gateway API (all under /v1, auth via X-Api-Key).
 // Same-origin in prod; Vite proxies to :3000 in dev.
 
 const LS_KEY = "sentinel_key";

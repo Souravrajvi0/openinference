@@ -1,4 +1,4 @@
-# SentinelAI
+# OpenInference (SentinelAI)
 
 A self-hosted AI gateway and observability platform. Routes requests to LLMs, enforces security policies, retrieves enterprise documents (RAG), runs agent workflows, and records full traces — all in one deployable stack.
 

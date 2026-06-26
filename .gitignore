@@ -2,6 +2,7 @@ node_modules/
 images/
 dist/
 .env
+client_secret_*.json
 *.local
 *.log
 .DS_Store

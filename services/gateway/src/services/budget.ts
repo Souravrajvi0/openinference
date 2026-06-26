@@ -1,4 +1,4 @@
-import { pool } from '../db/client';
+import { query } from '../db/client';
 import { writeAudit } from './audit';
 import { getRedis } from './redis';
 
@@ -58,7 +58,7 @@ function buildBudgetStatus(row: BudgetRow, tenantId: string, notify: boolean): B
 }
 
 export async function checkBudget(tenantId: string): Promise<BudgetStatus | null> {
-  const result = await pool.query<BudgetRow>(
+  const result = await query<BudgetRow>(
     `SELECT b.monthly_budget_usd, b.alert_threshold_pct, b.alert_webhook_url,
             COALESCE(SUM(r.cost_usd), 0) AS spent_usd
      FROM tenant_budgets b
@@ -76,7 +76,7 @@ export async function checkBudget(tenantId: string): Promise<BudgetStatus | null
 }
 
 export async function checkKeyBudget(apiKeyId: string): Promise<BudgetStatus | null> {
-  const result = await pool.query<BudgetRow & { tenant_id: string }>(
+  const result = await query<BudgetRow & { tenant_id: string }>(
     `SELECT kb.monthly_budget_usd, kb.alert_threshold_pct, kb.alert_webhook_url,
             kb.tenant_id,
             COALESCE(SUM(r.cost_usd), 0) AS spent_usd

@@ -4,6 +4,7 @@ import OpenAI from 'openai';
 import pino from 'pino';
 import { z } from 'zod';
 import { QUEUES, type EvalJobData } from '@sentinelai/shared';
+import { withTenantDb } from '../db/tenantContext';
 
 const log = pino({ level: process.env.LOG_LEVEL ?? 'info' });
 
@@ -69,20 +70,22 @@ export function startEvalWorker(opts: {
         return;
       }
 
-      await opts.pool.query(
-        `INSERT INTO eval_results
-           (request_id, tenant_id, faithfulness_score, relevance_score, coherence_score,
-            hallucination_detected, eval_model, eval_latency_ms, raw_eval_output)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-         ON CONFLICT (request_id) DO NOTHING`,
-        [
-          request_id, tenant_id,
-          scores.faithfulness_score, scores.relevance_score, scores.coherence_score,
-          scores.hallucination_detected, opts.evalModel,
-          Date.now() - start,
-          JSON.stringify({ scores, reasoning: scores.reasoning }),
-        ]
-      );
+      await withTenantDb(opts.pool, tenant_id, async (client) => {
+        await client.query(
+          `INSERT INTO eval_results
+             (request_id, tenant_id, faithfulness_score, relevance_score, coherence_score,
+              hallucination_detected, eval_model, eval_latency_ms, raw_eval_output)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+           ON CONFLICT (request_id) DO NOTHING`,
+          [
+            request_id, tenant_id,
+            scores.faithfulness_score, scores.relevance_score, scores.coherence_score,
+            scores.hallucination_detected, opts.evalModel,
+            Date.now() - start,
+            JSON.stringify({ scores, reasoning: scores.reasoning }),
+          ],
+        );
+      });
 
       log.info({ request_id, faithfulness: scores.faithfulness_score, hallucination: scores.hallucination_detected }, 'Eval complete');
     },

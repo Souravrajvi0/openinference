@@ -1,4 +1,4 @@
-import { pool } from '../db/client';
+import { queryAsSystem } from '../db/client';
 
 export type AuditAction =
   | 'request.created' | 'request.filtered' | 'request.error'
@@ -28,7 +28,7 @@ export interface AuditEntry {
 }
 
 export function writeAudit(entry: AuditEntry): void {
-  pool.query(
+  queryAsSystem(
     `INSERT INTO audit_logs
        (tenant_id, actor_type, actor_id, action, resource_type, resource_id,
         ip_address, user_agent, details)

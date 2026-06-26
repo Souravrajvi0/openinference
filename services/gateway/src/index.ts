@@ -1,9 +1,14 @@
 import { buildApp } from './app';
 import { config } from './config';
 import { pool } from './db/client';
+import { reencryptPlaintextMcpSecrets } from './services/mcpSecretsMaintenance';
 
 async function main() {
   const app = await buildApp();
+
+  reencryptPlaintextMcpSecrets()
+    .then((n) => { if (n > 0) app.log.info({ count: n }, 'Encrypted legacy MCP secrets'); })
+    .catch((err) => app.log.warn({ err }, 'MCP secret re-encryption skipped'));
 
   try {
     await app.listen({ port: config.GATEWAY_PORT, host: config.GATEWAY_HOST });

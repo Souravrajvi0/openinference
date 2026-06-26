@@ -1,5 +1,5 @@
 import { config } from '../config';
-import { pool } from '../db/client';
+import { query } from '../db/client';
 import type { Provider } from '@sentinelai/shared';
 
 export interface RouteDecision {
@@ -64,7 +64,7 @@ export function estimateTokens(text: string): number {
 }
 
 export async function getAbRoute(tenantId: string): Promise<RouteDecision | null> {
-  const result = await pool.query<{
+  const result = await query<{
     id: string;
     traffic_split: number;
     control_provider: string;

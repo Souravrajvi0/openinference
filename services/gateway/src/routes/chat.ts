@@ -2,14 +2,14 @@ import { randomUUID } from 'crypto';
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { Queue } from 'bullmq';
-import OpenAI from 'openai';
 import { requireScope } from '../plugins/auth';
 import { checkGuardrails } from '../services/guardrails';
 import { routeRequest, getAbRoute, getFallbackRoute, estimateTokens } from '../services/router';
 import { callLLM, streamLLM, estimateCost } from '../services/llm';
 import { planAllowsModel, tierForModel } from '../services/plans';
 import { startSpan, endSpan, flushSpans } from '../services/tracer';
-import { query, pool } from '../db/client';
+import { query } from '../db/client';
+import { searchDocuments } from '../services/retrieval';
 import { checkSemanticCache, storeInSemanticCache } from '../services/semanticCache';
 import { checkSpendLimits } from '../services/budget';
 import { writeAudit } from '../services/audit';
@@ -166,39 +166,12 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
       const userQuery = activeMessages[activeMessages.length - 1]?.content ?? '';
       const ragSpan = startSpan(traceId, 'retrieval.search', { parentId: routeSpan.id });
       try {
-        const mistral = new OpenAI({
-          apiKey: config.MISTRAL_API_KEY!,
-          baseURL: 'https://api.mistral.ai/v1',
-        });
-        const embRes = await mistral.embeddings.create({
-          model: config.MISTRAL_EMBEDDING_MODEL,
-          input: userQuery,
-        });
-        const embedding = embRes.data[0]?.embedding;
-        if (embedding) {
-          const topK = rag.top_k ?? 5;
-          const chunks = await query<{
-            id: string; document_id: string; content: string;
-            score: number; doc_title: string | null;
-          }>(
-            `SELECT c.id, c.document_id, c.content,
-                    1 - (c.embedding <=> $1::vector) AS score,
-                    d.title AS doc_title
-             FROM document_chunks c
-             JOIN documents d ON c.document_id = d.id
-             WHERE c.tenant_id = $2
-               AND 1 - (c.embedding <=> $1::vector) >= 0.7
-             ORDER BY c.embedding <=> $1::vector
-             LIMIT $3`,
-            [`[${embedding.join(',')}]`, request.tenantId, topK]
-          );
-          retrievedChunks = chunks.rows.map((r) => ({
-            chunk_id: r.id,
-            document_id: r.document_id,
-            document_title: r.doc_title ?? undefined,
-            content_preview: r.content.slice(0, 300),
-            score: parseFloat(r.score as unknown as string),
-          }));
+        if (config.MISTRAL_API_KEY) {
+          const hits = await searchDocuments(request.tenantId, userQuery, {
+            top_k: rag.top_k ?? 5,
+            hybrid: true,
+          });
+          retrievedChunks = hits.map((h) => h.citation);
         }
         endSpan(ragSpan, 'ok');
       } catch (err) {

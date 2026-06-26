@@ -1,7 +1,7 @@
 import { createHash } from 'crypto';
 import { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import fp from 'fastify-plugin';
-import { query } from '../db/client';
+import { queryAsSystem } from '../db/client';
 
 interface ApiKeyRow {
   id: string;
@@ -33,7 +33,7 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
     if (authz && authz.startsWith('Bearer ')) {
       try {
         const payload = await request.jwtVerify<{ tenantId: string; scopes?: string[] }>();
-        const t = await query<{ plan: string }>('SELECT plan FROM tenants WHERE id = $1', [payload.tenantId]);
+        const t = await queryAsSystem<{ plan: string }>('SELECT plan FROM tenants WHERE id = $1', [payload.tenantId]);
         request.tenantId = payload.tenantId;
         request.apiKeyId = null;
         request.scopes = payload.scopes ?? [];
@@ -55,7 +55,7 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
 
     const keyHash = createHash('sha256').update(header).digest('hex');
 
-    const result = await query<ApiKeyRow>(
+    const result = await queryAsSystem<ApiKeyRow>(
       `SELECT k.id, k.tenant_id, k.scopes, k.rate_limit_rpm, k.rate_limit_tpm, t.plan
        FROM api_keys k
        JOIN tenants t ON t.id = k.tenant_id

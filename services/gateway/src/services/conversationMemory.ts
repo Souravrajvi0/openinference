@@ -1,4 +1,4 @@
-import { pool } from '../db/client';
+import { query } from '../db/client';
 import { callLLM } from './llm';
 import { estimateTokens } from './router';
 import type { Message } from '@sentinelai/shared';
@@ -37,7 +37,7 @@ export async function loadSession(
   newUserMessage: Message,
   model: string
 ): Promise<LoadedSession> {
-  const result = await pool.query<{
+  const result = await query<{
     messages: Message[];
     summary: string | null;
     turn_count: number;
@@ -112,7 +112,7 @@ export async function saveSession(
   const updated = [...freshMessages, { role: 'assistant' as const, content: assistantContent }];
   const tokenCount = estimateTokens(updated.map((m) => m.content).join(' '));
 
-  await pool.query(
+  await query(
     `INSERT INTO conversation_sessions
        (tenant_id, session_id, messages, summary, token_count, turn_count)
      VALUES ($1, $2, $3::jsonb, $4, $5, 1)
@@ -127,7 +127,7 @@ export async function saveSession(
 }
 
 export async function getSession(tenantId: string, sessionId: string) {
-  const result = await pool.query(
+  const result = await query(
     `SELECT session_id, messages, summary, token_count, turn_count, created_at, updated_at
      FROM conversation_sessions
      WHERE tenant_id = $1 AND session_id = $2`,
@@ -137,7 +137,7 @@ export async function getSession(tenantId: string, sessionId: string) {
 }
 
 export async function listSessions(tenantId: string, limit: number, offset: number) {
-  const result = await pool.query(
+  const result = await query(
     `SELECT session_id, turn_count, token_count, created_at, updated_at
      FROM conversation_sessions
      WHERE tenant_id = $1
@@ -149,7 +149,7 @@ export async function listSessions(tenantId: string, limit: number, offset: numb
 }
 
 export async function deleteSession(tenantId: string, sessionId: string): Promise<boolean> {
-  const result = await pool.query(
+  const result = await query(
     `DELETE FROM conversation_sessions
      WHERE tenant_id = $1 AND session_id = $2 RETURNING id`,
     [tenantId, sessionId]

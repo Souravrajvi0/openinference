@@ -3,6 +3,8 @@ import OpenAI from 'openai';
 import { config } from '../config';
 import { estimateCost } from './llm';
 import { mcpAuthHeaders } from './mcpAuth';
+import { query } from '../db/client';
+import { searchDocuments } from './retrieval';
 import type { AgentStep } from '@sentinelai/shared';
 
 // ── Tool definitions ──────────────────────────────────────────────────────────
@@ -43,34 +45,14 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
 async function executeRetrieve(
   args: { query: string; top_k?: number | string },
   tenantId: string,
-  pool: import('pg').Pool
 ): Promise<string> {
   try {
-    const OpenAIClient = new OpenAI({
-      apiKey: config.MISTRAL_API_KEY,
-      baseURL: 'https://api.mistral.ai/v1',
-    });
+    const topK = parseInt(String(args.top_k ?? 3));
+    const hits = await searchDocuments(tenantId, args.query, { top_k: topK, hybrid: true });
+    if (hits.length === 0) return 'No relevant documents found.';
 
-    const embRes = await OpenAIClient.embeddings.create({
-      model: config.MISTRAL_EMBEDDING_MODEL,
-      input: args.query,
-    });
-    const embedding = embRes.data[0]?.embedding;
-    if (!embedding) throw new Error('No embedding');
-
-    const result = await pool.query<{ content: string; doc_title: string; score: number }>(
-      `SELECT c.content, d.title AS doc_title, 1 - (c.embedding <=> $1::vector) AS score
-       FROM document_chunks c JOIN documents d ON c.document_id = d.id
-       WHERE c.tenant_id = $2
-       ORDER BY c.embedding <=> $1::vector
-       LIMIT $3`,
-      [`[${embedding.join(',')}]`, tenantId, parseInt(String(args.top_k ?? 3))]
-    );
-
-    if (result.rows.length === 0) return 'No relevant documents found.';
-
-    return result.rows
-      .map((r, i) => `[${i + 1}] (${r.doc_title ?? 'Untitled'}, score: ${r.score.toFixed(3)})\n${r.content}`)
+    return hits
+      .map((h, i) => `[${i + 1}] (${h.citation.document_title ?? 'Untitled'}, score: ${h.citation.score.toFixed(3)})\n${h.content}`)
       .join('\n\n');
   } catch {
     return 'Document retrieval unavailable.';
@@ -110,7 +92,6 @@ async function executeMcpTool(
   server: McpServer,
   toolName: string,
   toolInput: Record<string, unknown>,
-  pool: import('pg').Pool,
   tenantId: string,
   agentId: string | undefined,
 ): Promise<string> {
@@ -144,7 +125,7 @@ async function executeMcpTool(
     errorMsg = (err as Error).message;
   }
 
-  pool.query(
+  query(
     `INSERT INTO mcp_call_logs (tenant_id, server_id, agent_id, tool_name, input, output, status, latency_ms, error)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
     [tenantId, server.id, agentId ?? null, toolName, JSON.stringify(toolInput), output, callStatus, Date.now() - start, errorMsg]
@@ -172,7 +153,6 @@ export interface AgentRunOptions {
   model: string;
   maxSteps: number;
   tenantId: string;
-  pool: import('pg').Pool;
   onStep?: (step: AgentStep) => void;
   systemPrompt?: string;
   allowedTools?: string[];
@@ -208,14 +188,14 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
   const mcpServers: McpServer[] = [];
   const mcpPoliciesByServer = new Map<string, McpPolicy[]>();
   try {
-    const serverResult = await opts.pool.query<McpServer>(
+    const serverResult = await query<McpServer>(
       `SELECT id, name, url, auth_type, auth_header, auth_value
        FROM mcp_servers WHERE tenant_id = $1 AND is_active = TRUE`,
       [opts.tenantId]
     );
     for (const srv of serverResult.rows) {
       mcpServers.push(srv);
-      const polResult = await opts.pool.query<McpPolicy>(
+      const polResult = await query<McpPolicy>(
         `SELECT tool_pattern, action, rate_limit FROM mcp_policies WHERE server_id = $1 AND tenant_id = $2`,
         [srv.id, opts.tenantId]
       );
@@ -244,7 +224,7 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
   // Load approval policies once before the loop (fail open on DB error)
   let approvalPolicies: ApprovalPolicy[] = [];
   try {
-    const polResult = await opts.pool.query<ApprovalPolicy>(
+    const polResult = await query<ApprovalPolicy>(
       `SELECT tool_pattern, require_approval FROM approval_policies WHERE tenant_id = $1`,
       [opts.tenantId]
     );
@@ -301,7 +281,7 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
           opts.onStep?.(approvalStep);
 
           // Write the pending approval row (best-effort)
-          await opts.pool.query(
+          await query(
             `INSERT INTO agent_approvals
                (id, tenant_id, agent_id, trace_id, step_index, tool_name, tool_input, goal)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
@@ -333,7 +313,7 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
 
         let toolResult: string;
         if (call.function.name === 'retrieve_documents') {
-          toolResult = await executeRetrieve(args, opts.tenantId, opts.pool);
+          toolResult = await executeRetrieve(args, opts.tenantId);
         } else if (call.function.name === 'calculate') {
           toolResult = executeCalculate(args);
         } else if (call.function.name.startsWith('mcp__')) {
@@ -358,7 +338,6 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
                   srv,
                   toolNameArg,
                   (args.arguments as Record<string, unknown>) ?? {},
-                  opts.pool,
                   opts.tenantId,
                   opts.agentId,
                 );

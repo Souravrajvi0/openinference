@@ -4,6 +4,7 @@ import pino from 'pino';
 import { QUEUES, type IngestJobData } from '@sentinelai/shared';
 import { chunkText } from '../services/chunker';
 import { Embedder } from '../services/embedder';
+import { withTenantDb } from '../db/tenantContext';
 
 const log = pino({ level: process.env.LOG_LEVEL ?? 'info' });
 
@@ -28,10 +29,12 @@ export function startIngestWorker(opts: {
 
       log.info({ document_id }, 'Starting ingestion');
 
-      await opts.pool.query(
-        `UPDATE documents SET status = 'processing' WHERE id = $1`,
-        [document_id]
-      );
+      await withTenantDb(opts.pool, tenant_id, async (client) => {
+        await client.query(
+          `UPDATE documents SET status = 'processing' WHERE id = $1`,
+          [document_id],
+        );
+      });
 
       try {
         const text = raw_text ?? '';
@@ -49,9 +52,7 @@ export function startIngestWorker(opts: {
           await job.updateProgress(20 + Math.floor((i / chunks.length) * 60));
         }
 
-        const client = await opts.pool.connect();
-        try {
-          await client.query('BEGIN');
+        await withTenantDb(opts.pool, tenant_id, async (client) => {
           await client.query('DELETE FROM document_chunks WHERE document_id = $1', [document_id]);
 
           for (let i = 0; i < chunks.length; i++) {
@@ -65,29 +66,25 @@ export function startIngestWorker(opts: {
                 document_id, tenant_id, chunk.chunk_index,
                 chunk.content, chunk.token_estimate,
                 `[${embedding.join(',')}]`,
-              ]
+              ],
             );
           }
 
           await client.query(
             `UPDATE documents SET status = 'indexed', chunk_count = $2, indexed_at = NOW() WHERE id = $1`,
-            [document_id, chunks.length]
+            [document_id, chunks.length],
           );
-          await client.query('COMMIT');
-        } catch (err) {
-          await client.query('ROLLBACK');
-          throw err;
-        } finally {
-          client.release();
-        }
+        });
 
         await job.updateProgress(100);
         log.info({ document_id, chunk_count: chunks.length }, 'Ingestion complete');
       } catch (err) {
-        await opts.pool.query(
-          `UPDATE documents SET status = 'failed', error_message = $2 WHERE id = $1`,
-          [document_id, (err as Error).message]
-        );
+        await withTenantDb(opts.pool, tenant_id, async (client) => {
+          await client.query(
+            `UPDATE documents SET status = 'failed', error_message = $2 WHERE id = $1`,
+            [document_id, (err as Error).message],
+          );
+        });
         throw err;
       }
     },

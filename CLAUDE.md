@@ -16,7 +16,7 @@ npm install
 npm run dev -w @sentinelai/gateway
 npm run dev -w @sentinelai/ingestion-worker
 npm run dev -w @sentinelai/eval-worker
-npm run dev -w maas-gateway-web   # Vite dev server for the dashboard
+npm run dev -w @openinference/web   # Vite dev server for the dashboard
 
 # Apply pending DB migrations (also runs automatically on gateway container start)
 npm run migrate -w @sentinelai/gateway

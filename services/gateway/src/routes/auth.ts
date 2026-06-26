@@ -2,7 +2,7 @@ import { randomBytes } from 'crypto';
 import { FastifyPluginAsync } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { query } from '../db/client';
+import { query, queryAsSystem } from '../db/client';
 import { writeAudit } from '../services/audit';
 import { config } from '../config';
 import { storeOAuthCode, exchangeOAuthCode } from '../services/oauthCodes';
@@ -83,7 +83,7 @@ const authRoute: FastifyPluginAsync = async (fastify) => {
     const passwordHash = await bcrypt.hash(body.data.password, 10);
 
     // Each signup gets its own tenant (free plan) and admin role over it.
-    const tenant = await query<{ id: string }>(
+    const tenant = await queryAsSystem<{ id: string }>(
       `INSERT INTO tenants (name, slug, plan) VALUES ($1, $2, 'free') RETURNING id`,
       [email, makeSlug(email)],
     );

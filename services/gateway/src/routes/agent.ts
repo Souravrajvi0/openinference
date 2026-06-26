@@ -6,7 +6,7 @@ import { checkGuardrails } from '../services/guardrails';
 import { checkSpendLimits } from '../services/budget';
 import { planAllowsModel, tierForModel } from '../services/plans';
 import { isModelAllowedForAgent, resolveAgentModel } from '../services/agentPolicy';
-import { query, pool } from '../db/client';
+import { query } from '../db/client';
 import { writeAudit } from '../services/audit';
 import { config } from '../config';
 
@@ -147,7 +147,6 @@ const agentRoute: FastifyPluginAsync = async (_fastify) => {
       model: effectiveModel,
       maxSteps: effectiveMaxSteps,
       tenantId: request.tenantId,
-      pool,
       systemPrompt,
       allowedTools,
       agentId: agent_id,

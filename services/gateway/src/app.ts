@@ -9,6 +9,7 @@ import fastifySwaggerUi from '@fastify/swagger-ui';
 import Redis from 'ioredis';
 import { config } from './config';
 import authPlugin from './plugins/auth';
+import tenantContextPlugin from './plugins/tenantContext';
 import authRoute from './routes/auth';
 import healthRoute from './routes/health';
 import chatRoute from './routes/chat';
@@ -73,6 +74,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(
     async (api) => {
       api.addHook('preHandler', app.verifyApiKey);
+      await api.register(tenantContextPlugin);
       await api.register(chatRoute);
       await api.register(retrieveRoute);
       await api.register(documentsRoute);

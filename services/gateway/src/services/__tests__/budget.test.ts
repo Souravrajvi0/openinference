@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../../db/client', () => ({
+  query: vi.fn(),
   pool: { query: vi.fn() },
 }));
 
@@ -8,10 +9,10 @@ vi.mock('../audit', () => ({
   writeAudit: vi.fn(),
 }));
 
-import { pool } from '../../db/client';
+import { query } from '../../db/client';
 import { checkSpendLimits, checkKeyBudget, checkBudget } from '../budget';
 
-const mockQuery = pool.query as ReturnType<typeof vi.fn>;
+const mockQuery = query as ReturnType<typeof vi.fn>;
 
 describe('checkSpendLimits', () => {
   beforeEach(() => {
