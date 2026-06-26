@@ -26,6 +26,7 @@ import approvalsRoute from './routes/approvals';
 import regressionRoute from './routes/regression';
 import budgetsRoute from './routes/budgets';
 import mcpRoute from './routes/mcp';
+import orgsRoute, { publicInvitesRoute } from './routes/orgs';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -69,6 +70,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(healthRoute);
   await app.register(promMetricsRoute);
   await app.register(authRoute, { prefix: '/v1/auth' });
+  await app.register(publicInvitesRoute, { prefix: '/v1' });
 
   // Authenticated routes under /v1
   await app.register(
@@ -88,6 +90,7 @@ export async function buildApp(): Promise<FastifyInstance> {
       await api.register(regressionRoute);
       await api.register(budgetsRoute);
       await api.register(mcpRoute);
+      await api.register(orgsRoute);
     },
     { prefix: '/v1' }
   );

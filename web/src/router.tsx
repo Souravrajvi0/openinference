@@ -23,13 +23,23 @@ import { Approvals } from "@/routes/approvals";
 import { Regression } from "@/routes/regression";
 import { Budgets } from "@/routes/budgets";
 import { Mcp } from "@/routes/mcp";
+import { Members } from "@/routes/members";
+import { InviteAccept } from "@/routes/invite";
 
 function RootLayout() {
-  const { user, loading, isPro, isAdmin } = useAuth();
+  const { user, loading, isPro, isPlatformAdmin, canManage, memberships, activeOrg, refresh } = useAuth();
 
   return (
     <div className="min-h-screen">
-      <Nav user={user} isPro={isPro} isAdmin={isAdmin} />
+      <Nav
+        user={user}
+        memberships={memberships}
+        activeOrg={activeOrg}
+        isPro={isPro}
+        isPlatformAdmin={isPlatformAdmin}
+        canManage={canManage}
+        onOrgChange={refresh}
+      />
       {loading ? (
         <div className="px-6 py-20 text-center text-sm text-muted-foreground">Checking session…</div>
       ) : (
@@ -66,8 +76,10 @@ const approvalsRoute   = createRoute({ getParentRoute: () => rootRoute, path: "/
 const regressionRoute  = createRoute({ getParentRoute: () => rootRoute, path: "/regression",    component: Regression });
 const budgetsRoute     = createRoute({ getParentRoute: () => rootRoute, path: "/budgets",        component: Budgets });
 const mcpRoute         = createRoute({ getParentRoute: () => rootRoute, path: "/mcp",            component: Mcp });
+const membersRoute     = createRoute({ getParentRoute: () => rootRoute, path: "/members",        component: Members });
+const inviteRoute      = createRoute({ getParentRoute: () => rootRoute, path: "/invite",         component: InviteAccept });
 
-const routeTree = rootRoute.addChildren([overviewRoute, playgroundRoute, adminRoute, inferenceRoute, modelsRoute, docsRoute, tracesRoute, sessionsRoute, agentRoute, guardrailsRoute, agentsRoute, approvalsRoute, regressionRoute, budgetsRoute, mcpRoute]);
+const routeTree = rootRoute.addChildren([overviewRoute, playgroundRoute, adminRoute, inferenceRoute, modelsRoute, docsRoute, tracesRoute, sessionsRoute, agentRoute, guardrailsRoute, agentsRoute, approvalsRoute, regressionRoute, budgetsRoute, mcpRoute, membersRoute, inviteRoute]);
 
 // Browser history gives clean URLs (/playground, /admin) with no "#". The gateway
 // owns the API under /v1 (so /admin here never collides with /v1/admin) and serves

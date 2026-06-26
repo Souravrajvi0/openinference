@@ -2,6 +2,7 @@ import { randomBytes, createHash } from 'crypto';
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { requireScope } from '../plugins/auth';
+import { requireOrgRole } from '../services/orgAuth';
 import { query } from '../db/client';
 import { getCacheStats } from '../services/semanticCache';
 import { checkBudget } from '../services/budget';
@@ -14,6 +15,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
   // POST /v1/admin/keys — create a new API key (raw key returned once)
   fastify.post('/admin/keys', async (request, reply) => {
     requireScope(request, 'admin');
+    requireOrgRole(request, 'admin');
 
     const schema = z.object({
       name: z.string().min(1).max(255),
@@ -59,6 +61,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
   // DELETE /v1/admin/keys/:id — revoke API key
   fastify.delete<{ Params: { id: string } }>('/admin/keys/:id', async (request, reply) => {
     requireScope(request, 'admin');
+    requireOrgRole(request, 'admin');
 
     const result = await query(
       `UPDATE api_keys SET is_active = FALSE WHERE id = $1 AND tenant_id = $2 RETURNING id`,
@@ -77,6 +80,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
   // POST /v1/admin/budget — set or update monthly budget
   fastify.post('/admin/budget', async (request, reply) => {
     requireScope(request, 'pro');
+    requireOrgRole(request, 'admin');
 
     const schema = z.object({
       monthly_budget_usd: z.number().positive(),
@@ -115,6 +119,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
   // POST /v1/admin/experiments — create experiment
   fastify.post('/admin/experiments', async (request, reply) => {
     requireScope(request, 'admin');
+    requireOrgRole(request, 'admin');
 
     const schema = z.object({
       name: z.string().min(1).max(100),
@@ -146,6 +151,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
   // GET /v1/admin/experiments — list experiments
   fastify.get('/admin/experiments', async (request, reply) => {
     requireScope(request, 'admin');
+    requireOrgRole(request, 'admin');
 
     const result = await query(
       `SELECT id, name, is_active, traffic_split,
@@ -160,6 +166,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
   // PATCH /v1/admin/experiments/:id — stop or update experiment
   fastify.patch<{ Params: { id: string } }>('/admin/experiments/:id', async (request, reply) => {
     requireScope(request, 'admin');
+    requireOrgRole(request, 'admin');
 
     const schema = z.object({ is_active: z.boolean(), traffic_split: z.number().int().min(1).max(99).optional() });
     const body = schema.safeParse(request.body);
@@ -233,6 +240,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
   // POST /v1/admin/inference/pull — stream Ollama model pull progress
   fastify.post<{ Body: { model: string } }>('/admin/inference/pull', async (request, reply) => {
     requireScope(request, 'admin');
+    requireOrgRole(request, 'admin');
 
     const { model } = request.body as { model: string };
     if (!model?.trim()) return reply.status(400).send({ error: 'model is required' });
@@ -286,6 +294,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
     '/admin/inference/benchmark',
     async (request, reply) => {
       requireScope(request, 'admin');
+    requireOrgRole(request, 'admin');
 
       const { model, provider, runs = 5 } = request.body as { model: string; provider: string; runs?: number };
       const n = Math.min(Math.max(1, runs), 10);
@@ -352,6 +361,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
   // GET /v1/admin/evals — recent eval results with request context
   fastify.get<{ Querystring: { limit?: string; offset?: string } }>('/admin/evals', async (request, reply) => {
     requireScope(request, 'admin');
+    requireOrgRole(request, 'admin');
     const limit = Math.min(parseInt(request.query.limit ?? '50'), 200);
     const offset = parseInt(request.query.offset ?? '0');
 
@@ -400,6 +410,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
   // POST /v1/admin/guardrail-policies — create policy
   fastify.post('/admin/guardrail-policies', async (request, reply) => {
     requireScope(request, 'pro');
+    requireOrgRole(request, 'admin');
     const schema = z.object({
       name: z.string().min(1).max(255),
       type: z.enum(['regex', 'keyword', 'llm_classifier']),
@@ -424,6 +435,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
   // PATCH /v1/admin/guardrail-policies/:id — update / toggle
   fastify.patch<{ Params: { id: string } }>('/admin/guardrail-policies/:id', async (request, reply) => {
     requireScope(request, 'pro');
+    requireOrgRole(request, 'admin');
     const schema = z.object({
       name:      z.string().min(1).max(255).optional(),
       is_active: z.boolean().optional(),
@@ -455,6 +467,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
   // DELETE /v1/admin/guardrail-policies/:id — remove policy
   fastify.delete<{ Params: { id: string } }>('/admin/guardrail-policies/:id', async (request, reply) => {
     requireScope(request, 'pro');
+    requireOrgRole(request, 'admin');
     const result = await query(
       `DELETE FROM guardrail_policies WHERE id = $1 AND tenant_id = $2 RETURNING id`,
       [request.params.id, request.tenantId]
@@ -477,6 +490,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
   // GET /v1/admin/cache/stats — cache statistics
   fastify.get('/admin/cache/stats', async (request, reply) => {
     requireScope(request, 'admin');
+    requireOrgRole(request, 'admin');
     const stats = await getCacheStats(request.tenantId);
     return reply.send(stats);
   });
@@ -484,6 +498,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
   // DELETE /v1/admin/cache — clear all cached entries for this tenant
   fastify.delete('/admin/cache', async (request, reply) => {
     requireScope(request, 'admin');
+    requireOrgRole(request, 'admin');
     const result = await query(
       `DELETE FROM semantic_cache WHERE tenant_id = $1 RETURNING id`,
       [request.tenantId]

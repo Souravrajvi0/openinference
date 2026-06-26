@@ -1,6 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { requireScope } from '../plugins/auth';
+import { requireOrgRole } from '../services/orgAuth';
 import { query } from '../db/client';
 import { checkBudget } from '../services/budget';
 import { writeAudit } from '../services/audit';
@@ -10,6 +11,7 @@ const budgetsRoute: FastifyPluginAsync = async (fastify) => {
 
   fastify.delete('/admin/budget', async (request, reply) => {
     requireScope(request, 'pro');
+    requireOrgRole(request, 'admin');
     await query(`DELETE FROM tenant_budgets WHERE tenant_id = $1`, [request.tenantId]);
     return reply.status(204).send();
   });
@@ -100,6 +102,7 @@ const budgetsRoute: FastifyPluginAsync = async (fastify) => {
 
   fastify.post('/admin/key-budgets', async (request, reply) => {
     requireScope(request, 'pro');
+    requireOrgRole(request, 'admin');
 
     const schema = z.object({
       api_key_id:          z.string().uuid(),
@@ -134,6 +137,7 @@ const budgetsRoute: FastifyPluginAsync = async (fastify) => {
 
   fastify.delete<{ Params: { keyId: string } }>('/admin/key-budgets/:keyId', async (request, reply) => {
     requireScope(request, 'pro');
+    requireOrgRole(request, 'admin');
     await query(
       `DELETE FROM key_budgets WHERE api_key_id = $1 AND tenant_id = $2`,
       [request.params.keyId, request.tenantId]
@@ -145,6 +149,7 @@ const budgetsRoute: FastifyPluginAsync = async (fastify) => {
 
   fastify.patch<{ Params: { agentId: string } }>('/admin/agents/:agentId/budget', async (request, reply) => {
     requireScope(request, 'pro');
+    requireOrgRole(request, 'admin');
 
     const schema = z.object({
       monthly_budget_usd: z.number().positive().nullable(),

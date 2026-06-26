@@ -3,6 +3,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { Queue } from 'bullmq';
 import { requireScope } from '../plugins/auth';
+import { requireOrgRole } from '../services/orgAuth';
 import { query } from '../db/client';
 import { QUEUES, type IngestJobData } from '@sentinelai/shared';
 import { config } from '../config';
@@ -22,6 +23,7 @@ const documentsRoute: FastifyPluginAsync = async (_fastify) => {
   // POST /v1/documents — ingest a document
   _fastify.post('/documents', async (request, reply) => {
     requireScope(request, 'retrieve');
+    requireOrgRole(request, 'admin');
 
     const body = createBodySchema.safeParse(request.body);
     if (!body.success) {
@@ -121,6 +123,7 @@ const documentsRoute: FastifyPluginAsync = async (_fastify) => {
     '/documents/:id',
     async (request, reply) => {
       requireScope(request, 'retrieve');
+      requireOrgRole(request, 'admin');
 
       const result = await query(
         `DELETE FROM documents WHERE id = $1 AND tenant_id = $2 RETURNING id`,

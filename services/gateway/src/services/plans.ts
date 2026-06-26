@@ -61,3 +61,7 @@ export function getPlan(plan: string | undefined): Plan {
 export function planAllowsModel(plan: string | undefined, model: string): boolean {
   return getPlan(plan).allowedTiers.includes(tierForModel(model));
 }
+
+export function isProPlan(plan: string | undefined): boolean {
+  return plan === 'pro' || plan === 'enterprise';
+}

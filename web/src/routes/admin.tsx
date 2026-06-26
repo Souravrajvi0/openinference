@@ -12,7 +12,7 @@ import {
   type MetricsResponse,
   type RequestRow,
 } from "@/lib/api";
-import { logout, useAuth } from "@/lib/auth";
+import { logout, useAuth, type ActiveOrg, type Membership, type OrgRole, switchOrg, createOrg } from "@/lib/auth";
 import { fmtDate, fmtNum, fmtTime } from "@/lib/utils";
 import { Badge, Button, Card, Input, Label, Select } from "@/components/ui/primitives";
 import { Modal } from "@/components/ui/overlay";
@@ -23,7 +23,7 @@ const TABS = ["Metrics", "Keys", "Budget", "Experiments", "Cache", "Evals", "Doc
 type Tab = (typeof TABS)[number];
 
 export function Admin() {
-  const { user, loading, isAdmin, isPro, refresh, setUser } = useAuth();
+  const { user, loading, isPlatformAdmin, canManage, isPro, activeOrg, orgRole, memberships, refresh, setUser } = useAuth();
   const [tab, setTab] = useState<Tab>("Metrics");
 
   if (loading) {
@@ -31,14 +31,21 @@ export function Admin() {
   }
 
   if (!user) {
-    // After auth, refresh from /v1/auth/me so scopes (and the admin flag) load.
     return <AuthScreen onAuthed={() => refresh()} />;
   }
 
-  // Signed in, but not an admin — the console panels below would 403 on every
-  // call. Show the user's own account page (plan + upgrade) instead.
-  if (!isAdmin) {
-    return <Account email={user.email} isPro={isPro} onSignOut={() => { logout(); setUser(null); }} />;
+  if (!isPlatformAdmin && !canManage) {
+    return (
+      <Account
+        email={user.email}
+        isPro={isPro}
+        activeOrg={activeOrg}
+        orgRole={orgRole}
+        memberships={memberships}
+        onSignOut={() => { logout(); setUser(null); }}
+        onOrgChange={refresh}
+      />
+    );
   }
 
   return (
@@ -106,12 +113,54 @@ const QUICK_LINKS = [
   { to: "/docs", label: "Docs", desc: "API reference & guides" },
 ];
 
-function Account({ email, isPro, onSignOut }: { email: string; isPro: boolean; onSignOut: () => void }) {
-  const plan = isPro ? "Pro" : "Free";
+function Account({
+  email,
+  isPro,
+  activeOrg,
+  orgRole,
+  memberships,
+  onSignOut,
+  onOrgChange,
+}: {
+  email: string;
+  isPro: boolean;
+  activeOrg: ActiveOrg | null;
+  orgRole: OrgRole | null;
+  memberships: Membership[];
+  onSignOut: () => void;
+  onOrgChange: () => void;
+}) {
+  const plan = isPro ? "Pro" : (activeOrg?.plan === "enterprise" ? "Enterprise" : "Free");
+  const [creating, setCreating] = useState(false);
+  const [orgName, setOrgName] = useState("");
+
+  async function handleSwitch(tenantId: string) {
+    try {
+      await switchOrg(tenantId);
+      onOrgChange();
+      toast.success("Workspace switched");
+      window.location.reload();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to switch");
+    }
+  }
+
+  async function handleCreate() {
+    if (!orgName.trim()) return toast.error("Name required");
+    try {
+      await createOrg(orgName.trim());
+      setCreating(false);
+      setOrgName("");
+      onOrgChange();
+      toast.success("Workspace created");
+      window.location.reload();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to create");
+    }
+  }
 
   return (
     <div>
-      {/* Header */}
       <div className="flex flex-wrap items-center gap-4 border-b border-border bg-surface px-6 py-5">
         <div className="flex h-9 w-9 items-center justify-center bg-ink text-cream">
           <span className="text-sm font-semibold">{email.charAt(0).toUpperCase()}</span>
@@ -121,12 +170,43 @@ function Account({ email, isPro, onSignOut }: { email: string; isPro: boolean; o
             Account <Badge tone={isPro ? "good" : "default"}>{plan} plan</Badge>
           </div>
           <div className="text-[11px] text-muted-foreground">{email}</div>
+          {activeOrg && (
+            <div className="mt-0.5 text-[11px] text-muted-foreground">
+              {activeOrg.name} · {orgRole ?? "member"}
+            </div>
+          )}
         </div>
         <Button variant="outline" className="ml-auto" onClick={onSignOut}>Sign out</Button>
       </div>
 
       <div className="mx-auto max-w-4xl px-6 py-8">
-        {/* Plan cards */}
+        {memberships.length > 0 && (
+          <Card className="mb-6 p-5">
+            <h3 className="mb-3 text-sm font-medium">Your workspaces</h3>
+            <ul className="space-y-2 text-sm">
+              {memberships.map((m) => (
+                <li key={m.tenant_id} className="flex items-center justify-between border border-border p-3">
+                  <span>
+                    {m.name} <Badge className="ml-2">{m.role}</Badge>
+                    {m.tenant_id === activeOrg?.id && <Badge tone="good" className="ml-1">active</Badge>}
+                  </span>
+                  {m.tenant_id !== activeOrg?.id && (
+                    <Button variant="outline" onClick={() => handleSwitch(m.tenant_id)}>Switch</Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {creating ? (
+              <div className="mt-3 flex gap-2">
+                <Input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Workspace name" />
+                <Button onClick={handleCreate}>Create</Button>
+                <Button variant="outline" onClick={() => setCreating(false)}>Cancel</Button>
+              </div>
+            ) : (
+              <Button variant="outline" className="mt-3" onClick={() => setCreating(true)}>Create workspace</Button>
+            )}
+          </Card>
+        )}
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           {/* Current (Free) */}
           <Card className={"p-6 " + (!isPro ? "border-flame-red" : "")}>
