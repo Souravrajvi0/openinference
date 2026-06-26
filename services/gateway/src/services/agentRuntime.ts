@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import OpenAI from 'openai';
 import { config } from '../config';
 import { estimateCost } from './llm';
+import { mcpAuthHeaders } from './mcpAuth';
 import type { AgentStep } from '@sentinelai/shared';
 
 // ── Tool definitions ──────────────────────────────────────────────────────────
@@ -119,16 +120,9 @@ async function executeMcpTool(
   let errorMsg: string | null = null;
 
   try {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (server.auth_type === 'bearer' && server.auth_value) {
-      headers['Authorization'] = `Bearer ${server.auth_value}`;
-    } else if (server.auth_type === 'api_key' && server.auth_header && server.auth_value) {
-      headers[server.auth_header] = server.auth_value;
-    }
-
     const res = await fetch(server.url, {
       method: 'POST',
-      headers,
+      headers: mcpAuthHeaders(server),
       body: JSON.stringify({
         jsonrpc: '2.0',
         method: 'tools/call',

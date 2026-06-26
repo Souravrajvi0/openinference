@@ -2,6 +2,11 @@ import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../config';
 import type { Message, Provider } from '@sentinelai/shared';
+import {
+  assertCircuitClosed,
+  recordProviderFailure,
+  recordProviderSuccess,
+} from './circuitBreaker';
 
 export type ExtendedProvider = Provider | 'mistral' | 'cerebras';
 
@@ -71,9 +76,13 @@ export async function callLLM(
   messages: Message[],
   systemPrompt?: string
 ): Promise<LLMResult> {
+  await assertCircuitClosed(provider);
   const start = Date.now();
 
-  if (provider === 'anthropic') {
+  try {
+    let result: LLMResult;
+
+    if (provider === 'anthropic') {
     const client = anthropicClient();
     const anthropicMessages = messages
       .filter((m) => m.role !== 'system')
@@ -90,32 +99,38 @@ export async function callLLM(
     const block = res.content[0];
     if (!block || block.type !== 'text') throw new Error('Empty response from Anthropic');
 
-    return {
+    result = {
       content: block.text,
       prompt_tokens: res.usage.input_tokens,
       completion_tokens: res.usage.output_tokens,
       total_tokens: res.usage.input_tokens + res.usage.output_tokens,
       ttfb_ms: Date.now() - start,
     };
+  } else {
+    const client = openaiCompatClient(provider);
+    const allMessages: OpenAI.ChatCompletionMessageParam[] = [];
+    if (systemPrompt) allMessages.push({ role: 'system', content: systemPrompt });
+    allMessages.push(...messages.map((m) => ({ role: m.role, content: m.content })));
+
+    const res = await withRetry(() => client.chat.completions.create({ model, messages: allMessages }));
+    const choice = res.choices[0];
+    if (!choice?.message?.content) throw new Error(`Empty response from ${provider}`);
+
+    result = {
+      content: choice.message.content,
+      prompt_tokens: res.usage?.prompt_tokens ?? 0,
+      completion_tokens: res.usage?.completion_tokens ?? 0,
+      total_tokens: res.usage?.total_tokens ?? 0,
+      ttfb_ms: Date.now() - start,
+    };
   }
 
-  // All OpenAI-compatible providers
-  const client = openaiCompatClient(provider);
-  const allMessages: OpenAI.ChatCompletionMessageParam[] = [];
-  if (systemPrompt) allMessages.push({ role: 'system', content: systemPrompt });
-  allMessages.push(...messages.map((m) => ({ role: m.role, content: m.content })));
-
-  const res = await withRetry(() => client.chat.completions.create({ model, messages: allMessages }));
-  const choice = res.choices[0];
-  if (!choice?.message?.content) throw new Error(`Empty response from ${provider}`);
-
-  return {
-    content: choice.message.content,
-    prompt_tokens: res.usage?.prompt_tokens ?? 0,
-    completion_tokens: res.usage?.completion_tokens ?? 0,
-    total_tokens: res.usage?.total_tokens ?? 0,
-    ttfb_ms: Date.now() - start,
-  };
+    await recordProviderSuccess(provider);
+    return result;
+  } catch (err) {
+    await recordProviderFailure(provider);
+    throw err;
+  }
 }
 
 // Cost per 1M tokens (prompt / completion) — free tier providers show $0
@@ -144,56 +159,62 @@ export async function* streamLLM(
   model: string,
   messages: Message[],
 ): AsyncGenerator<StreamEvent> {
-  if (provider === 'anthropic') {
-    const client = anthropicClient();
-    const anthropicMessages = messages
-      .filter((m) => m.role !== 'system')
-      .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
-    const systemMsg = messages.find((m) => m.role === 'system')?.content;
+  await assertCircuitClosed(provider);
+  try {
+    if (provider === 'anthropic') {
+      const client = anthropicClient();
+      const anthropicMessages = messages
+        .filter((m) => m.role !== 'system')
+        .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+      const systemMsg = messages.find((m) => m.role === 'system')?.content;
 
-    const stream = client.messages.stream({
-      model,
-      max_tokens: 4096,
-      ...(systemMsg ? { system: systemMsg } : {}),
-      messages: anthropicMessages,
-    });
+      const stream = client.messages.stream({
+        model,
+        max_tokens: 4096,
+        ...(systemMsg ? { system: systemMsg } : {}),
+        messages: anthropicMessages,
+      });
 
-    for await (const event of stream) {
-      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-        yield { type: 'delta', content: event.delta.text };
+      for await (const event of stream) {
+        if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+          yield { type: 'delta', content: event.delta.text };
+        }
       }
+      const msg = await stream.finalMessage();
+      yield { type: 'done', prompt_tokens: msg.usage.input_tokens, completion_tokens: msg.usage.output_tokens };
+    } else {
+      const client = openaiCompatClient(provider);
+      const allMessages: OpenAI.ChatCompletionMessageParam[] = messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      const streamRes = await client.chat.completions.create({
+        model,
+        messages: allMessages,
+        stream: true,
+        stream_options: { include_usage: true },
+      });
+
+      let promptTokens = 0;
+      let completionTokens = 0;
+
+      for await (const chunk of streamRes) {
+        const delta = chunk.choices[0]?.delta?.content ?? '';
+        if (delta) yield { type: 'delta', content: delta };
+        if (chunk.usage) {
+          promptTokens = chunk.usage.prompt_tokens ?? 0;
+          completionTokens = chunk.usage.completion_tokens ?? 0;
+        }
+      }
+
+      yield { type: 'done', prompt_tokens: promptTokens, completion_tokens: completionTokens };
     }
-    const msg = await stream.finalMessage();
-    yield { type: 'done', prompt_tokens: msg.usage.input_tokens, completion_tokens: msg.usage.output_tokens };
-    return;
+    await recordProviderSuccess(provider);
+  } catch (err) {
+    await recordProviderFailure(provider);
+    throw err;
   }
-
-  const client = openaiCompatClient(provider);
-  const allMessages: OpenAI.ChatCompletionMessageParam[] = messages.map((m) => ({
-    role: m.role,
-    content: m.content,
-  }));
-
-  const streamRes = await client.chat.completions.create({
-    model,
-    messages: allMessages,
-    stream: true,
-    stream_options: { include_usage: true },
-  });
-
-  let promptTokens = 0;
-  let completionTokens = 0;
-
-  for await (const chunk of streamRes) {
-    const delta = chunk.choices[0]?.delta?.content ?? '';
-    if (delta) yield { type: 'delta', content: delta };
-    if (chunk.usage) {
-      promptTokens = chunk.usage.prompt_tokens ?? 0;
-      completionTokens = chunk.usage.completion_tokens ?? 0;
-    }
-  }
-
-  yield { type: 'done', prompt_tokens: promptTokens, completion_tokens: completionTokens };
 }
 
 export function estimateCost(model: string, promptTokens: number, completionTokens: number): number {

@@ -3,6 +3,9 @@ import { z } from 'zod';
 import { requireScope } from '../plugins/auth';
 import { query } from '../db/client';
 import { writeAudit } from '../services/audit';
+import { encryptSecret } from '../services/secrets';
+import { mcpAuthHeaders } from '../services/mcpAuth';
+import { checkMcpRateLimit } from '../services/mcpRateLimit';
 
 // ── Pattern matching (same logic as agentRuntime) ─────────────────────────────
 
@@ -11,23 +14,6 @@ function matchesPattern(toolName: string, pattern: string): boolean {
   if (pattern.endsWith('_*')) return toolName.startsWith(pattern.slice(0, -1));
   if (pattern.endsWith('.*')) return toolName.startsWith(pattern.slice(0, -2));
   return toolName === pattern;
-}
-
-// ── Rate-limit tracker (in-memory, per server per minute) ─────────────────────
-
-const rateCounts = new Map<string, { count: number; resetAt: number }>();
-
-function checkRateLimit(serverId: string, limit: number): boolean {
-  const now = Date.now();
-  const key = serverId;
-  const entry = rateCounts.get(key);
-  if (!entry || entry.resetAt < now) {
-    rateCounts.set(key, { count: 1, resetAt: now + 60_000 });
-    return true;
-  }
-  if (entry.count >= limit) return false;
-  entry.count++;
-  return true;
 }
 
 // ── Route ─────────────────────────────────────────────────────────────────────
@@ -67,15 +53,18 @@ const mcpRoute: FastifyPluginAsync = async (fastify) => {
     const body = schema.safeParse(request.body);
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
 
+    const encryptedAuth = encryptSecret(body.data.auth_value);
+
     const result = await query<{ id: string }>(
       `INSERT INTO mcp_servers (tenant_id, name, url, description, auth_type, auth_header, auth_value)
        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
       [request.tenantId, body.data.name, body.data.url, body.data.description ?? null,
-       body.data.auth_type, body.data.auth_header ?? null, body.data.auth_value ?? null]
+       body.data.auth_type, body.data.auth_header ?? null, encryptedAuth]
     );
 
     writeAudit({ tenant_id: request.tenantId, actor_type: 'admin', actor_id: request.apiKeyId, action: 'mcp_server.created', resource_id: result.rows[0]!.id, details: { name: body.data.name, url: body.data.url } });
-    return reply.status(201).send({ id: result.rows[0]!.id, ...body.data });
+    const { auth_value: _omit, ...safe } = body.data;
+    return reply.status(201).send({ id: result.rows[0]!.id, ...safe, auth_value_set: !!body.data.auth_value });
   });
 
   fastify.patch<{ Params: { id: string } }>('/admin/mcp-servers/:id', async (request, reply) => {
@@ -93,6 +82,10 @@ const mcpRoute: FastifyPluginAsync = async (fastify) => {
     const body = schema.safeParse(request.body);
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
 
+    const authValueForDb = body.data.auth_value !== undefined && body.data.auth_value !== null
+      ? encryptSecret(body.data.auth_value)
+      : body.data.auth_value ?? null;
+
     const result = await query(
       `UPDATE mcp_servers
        SET name        = COALESCE($3, name),
@@ -107,7 +100,7 @@ const mcpRoute: FastifyPluginAsync = async (fastify) => {
        RETURNING id, name, url, is_active`,
       [request.params.id, request.tenantId,
        body.data.name ?? null, body.data.url ?? null, body.data.description ?? null,
-       body.data.auth_type ?? null, body.data.auth_header ?? null, body.data.auth_value ?? null,
+       body.data.auth_type ?? null, body.data.auth_header ?? null, authValueForDb,
        body.data.is_active ?? null]
     );
     if (result.rows.length === 0) return reply.status(404).send({ error: 'Server not found' });
@@ -252,7 +245,7 @@ const mcpRoute: FastifyPluginAsync = async (fastify) => {
       return reply.status(403).send({ error: 'Tool call denied by policy' });
     }
 
-    if (effectiveRateLimit !== null && !checkRateLimit(body.data.server_id, effectiveRateLimit)) {
+    if (effectiveRateLimit !== null && !(await checkMcpRateLimit(body.data.server_id, effectiveRateLimit))) {
       return reply.status(429).send({ error: 'Rate limit exceeded for this MCP server' });
     }
 
@@ -263,16 +256,9 @@ const mcpRoute: FastifyPluginAsync = async (fastify) => {
     let errorMsg: string | null = null;
 
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (server.auth_type === 'bearer' && server.auth_value) {
-        headers['Authorization'] = `Bearer ${server.auth_value}`;
-      } else if (server.auth_type === 'api_key' && server.auth_header && server.auth_value) {
-        headers[server.auth_header] = server.auth_value;
-      }
-
       const res = await fetch(server.url, {
         method: 'POST',
-        headers,
+        headers: mcpAuthHeaders(server),
         body: JSON.stringify({
           jsonrpc: '2.0',
           method: 'tools/call',

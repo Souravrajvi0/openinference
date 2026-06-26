@@ -4,12 +4,12 @@ const mockSet = vi.fn();
 const mockGet = vi.fn();
 const mockDel = vi.fn();
 
-vi.mock('ioredis', () => ({
-  default: vi.fn(() => ({
+vi.mock('../redis', () => ({
+  getRedis: () => ({
     set: mockSet,
     get: mockGet,
     del: mockDel,
-  })),
+  }),
 }));
 
 vi.mock('../../config', () => ({

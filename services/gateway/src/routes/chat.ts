@@ -231,29 +231,63 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
       let fullContent = '';
       let promptTokens = 0;
       let completionTokens = 0;
+      let usedProvider = routeDecision.provider;
+      let usedModel = routeDecision.model;
+      let streamFailed = false;
 
-      for await (const event of streamLLM(routeDecision.provider, routeDecision.model, contextMessages)) {
-        if (event.type === 'delta') {
-          fullContent += event.content;
-          reply.raw.write(`data: ${JSON.stringify({ content: event.content, trace_id: traceId })}\n\n`);
+      const pumpStream = async (provider: typeof routeDecision.provider, model: string) => {
+        for await (const event of streamLLM(provider, model, contextMessages)) {
+          if (event.type === 'delta') {
+            fullContent += event.content;
+            reply.raw.write(`data: ${JSON.stringify({ content: event.content, trace_id: traceId })}\n\n`);
+          } else {
+            promptTokens = event.prompt_tokens;
+            completionTokens = event.completion_tokens;
+          }
+        }
+      };
+
+      try {
+        await pumpStream(routeDecision.provider, routeDecision.model);
+      } catch (primaryErr) {
+        const fallback = getFallbackRoute();
+        if (fallback) {
+          try {
+            fullContent = '';
+            promptTokens = 0;
+            completionTokens = 0;
+            usedProvider = fallback.provider;
+            usedModel = fallback.model;
+            _fastify.log.warn({ primaryErr }, 'Primary stream failed, trying fallback');
+            await pumpStream(fallback.provider, fallback.model);
+          } catch (fallbackErr) {
+            streamFailed = true;
+            reply.raw.write(`data: ${JSON.stringify({ error: (fallbackErr as Error).message, trace_id: traceId })}\n\n`);
+          }
         } else {
-          promptTokens = event.prompt_tokens;
-          completionTokens = event.completion_tokens;
+          streamFailed = true;
+          reply.raw.write(`data: ${JSON.stringify({ error: (primaryErr as Error).message, trace_id: traceId })}\n\n`);
         }
       }
 
       reply.raw.write('data: [DONE]\n\n');
       reply.raw.end();
 
+      if (streamFailed) {
+        flushSpans(spans, request.tenantId, requestId);
+        return;
+      }
+
       const latencyMs = Date.now() - start;
-      const costUsd = estimateCost(routeDecision.model, promptTokens, completionTokens);
+      const costUsd = estimateCost(usedModel, promptTokens, completionTokens);
+      const streamMode = rag?.enabled ? 'rag' : 'chat';
 
       // Emit metrics
-      llmRequestsTotal.inc({ provider: routeDecision.provider, model: routeDecision.model, status: 'success' });
-      llmLatencySeconds.observe({ provider: routeDecision.provider, model: routeDecision.model }, latencyMs / 1000);
-      llmTokensTotal.inc({ provider: routeDecision.provider, model: routeDecision.model, type: 'prompt' }, promptTokens);
-      llmTokensTotal.inc({ provider: routeDecision.provider, model: routeDecision.model, type: 'completion' }, completionTokens);
-      llmCostUsdTotal.inc({ provider: routeDecision.provider, model: routeDecision.model }, costUsd);
+      llmRequestsTotal.inc({ provider: usedProvider, model: usedModel, status: 'success' });
+      llmLatencySeconds.observe({ provider: usedProvider, model: usedModel }, latencyMs / 1000);
+      llmTokensTotal.inc({ provider: usedProvider, model: usedModel, type: 'prompt' }, promptTokens);
+      llmTokensTotal.inc({ provider: usedProvider, model: usedModel, type: 'completion' }, completionTokens);
+      llmCostUsdTotal.inc({ provider: usedProvider, model: usedModel }, costUsd);
 
       // Persist async
       query(
@@ -263,9 +297,9 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
             prompt_tokens, completion_tokens, total_tokens, cost_usd, latency_ms, http_status, metadata)
          VALUES ($1,$2,$3,$4,$5,$6,'success',$7,$8,$9,$10,$11,$12,$13,$14,$15,200,$16)`,
         [requestId, request.tenantId, request.apiKeyId, traceId, session_id ?? null,
-         rag?.enabled ? 'rag' : 'chat',
+         streamMode,
          safeMessages[safeMessages.length - 1]?.content.slice(0, 500), fullContent.slice(0, 500),
-         routeDecision.provider, routeDecision.model,
+         usedProvider, usedModel,
          promptTokens, completionTokens, promptTokens + completionTokens,
          costUsd, latencyMs, JSON.stringify(metadata ?? {})]
       ).catch(() => {});

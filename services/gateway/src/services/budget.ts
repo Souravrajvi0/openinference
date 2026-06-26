@@ -1,5 +1,6 @@
 import { pool } from '../db/client';
 import { writeAudit } from './audit';
+import { getRedis } from './redis';
 
 export interface BudgetStatus {
   monthly_budget_usd: number;
@@ -27,17 +28,22 @@ function buildBudgetStatus(row: BudgetRow, tenantId: string, notify: boolean): B
 
   if (notify && (near_limit || exceeded) && row.alert_webhook_url) {
     const event = exceeded ? 'budget.exceeded' : 'budget.alert';
-    fetch(row.alert_webhook_url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event, tenant_id: tenantId, spent_usd: spent, budget_usd: budget, pct_used: pct }),
-    }).catch(() => {});
-    writeAudit({
-      tenant_id: tenantId,
-      actor_type: 'system',
-      action: exceeded ? 'budget.exceeded' : 'budget.alert',
-      details: { spent_usd: spent, budget_usd: budget, pct_used: pct },
-    });
+    const monthKey = new Date().toISOString().slice(0, 7);
+    const dedupeKey = `budget:notify:${tenantId}:${event}:${monthKey}`;
+    const shouldNotify = await getRedis().set(dedupeKey, '1', 'EX', 3600, 'NX');
+    if (shouldNotify === 'OK') {
+      fetch(row.alert_webhook_url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event, tenant_id: tenantId, spent_usd: spent, budget_usd: budget, pct_used: pct }),
+      }).catch(() => {});
+      writeAudit({
+        tenant_id: tenantId,
+        actor_type: 'system',
+        action: exceeded ? 'budget.exceeded' : 'budget.alert',
+        details: { spent_usd: spent, budget_usd: budget, pct_used: pct },
+      });
+    }
   }
 
   return {

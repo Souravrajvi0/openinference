@@ -82,7 +82,9 @@ export async function checkGuardrails(messages: Message[], tenantId: string): Pr
       [tenantId]
     );
     policies = result.rows;
-  } catch { /* fall through */ }
+  } catch {
+    return { passed: false, action: 'blocked', reasons: ['policy_load_failed'] };
+  }
 
   let currentMessages = messages;
 

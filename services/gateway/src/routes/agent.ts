@@ -168,7 +168,16 @@ const agentRoute: FastifyPluginAsync = async (_fastify) => {
         onStep: (step) => {
           reply.raw.write(`data: ${JSON.stringify({ type: 'step', step })}\n\n`);
         },
+      }).catch((err: Error) => {
+        reply.raw.write(`data: ${JSON.stringify({ type: 'error', error: err.message, trace_id: traceId })}\n\n`);
+        return null;
       });
+
+      if (!result) {
+        reply.raw.write('data: [DONE]\n\n');
+        reply.raw.end();
+        return;
+      }
 
       if (result.approval_required) {
         reply.raw.write(`data: ${JSON.stringify({ type: 'approval_required', approval_id: result.approval_id, tool_name: result.approval_tool })}\n\n`);

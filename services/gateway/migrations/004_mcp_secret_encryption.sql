@@ -1,0 +1,2 @@
+-- MCP server auth_value values are encrypted at the application layer (AES-256-GCM).
+-- Existing plaintext rows remain readable via decryptSecret() until rotated via PATCH.

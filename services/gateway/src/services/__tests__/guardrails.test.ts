@@ -6,7 +6,10 @@ vi.mock('../../db/client', () => ({
   pool: { query: vi.fn().mockResolvedValue({ rows: [] }) },
 }));
 
+import { query } from '../../db/client';
 import { checkGuardrails } from '../guardrails';
+
+const mockQuery = query as ReturnType<typeof vi.fn>;
 
 describe('checkGuardrails — built-in injection patterns', () => {
   it('blocks "ignore all previous instructions"', async () => {
@@ -89,5 +92,17 @@ describe('checkGuardrails — dangerous content', () => {
       'tenant-1'
     );
     expect(result.passed).toBe(false);
+  });
+});
+
+describe('checkGuardrails — tenant policy load', () => {
+  it('fails closed when policy DB query errors', async () => {
+    mockQuery.mockRejectedValueOnce(new Error('connection refused'));
+    const result = await checkGuardrails(
+      [{ role: 'user', content: 'What is the weather today?' }],
+      'tenant-1'
+    );
+    expect(result.passed).toBe(false);
+    expect(result.reasons).toContain('policy_load_failed');
   });
 });
