@@ -2,7 +2,7 @@ name: Deploy to DigitalOcean
 
 on:
   push:
-    branches: [main]
+    branches: [production]
 
 jobs:
   deploy:
@@ -24,9 +24,9 @@ jobs:
             set -e
             cd /opt/sentinelai/SentinelAI
 
-            # Pull latest code from GitHub
-            git fetch origin main
-            git reset --hard origin/main
+            # Pull latest code from GitHub (production is the live release branch)
+            git fetch origin production
+            git reset --hard origin/production
 
             # Rebuild only changed service images, restart in place
             docker compose up -d --build --remove-orphans
