@@ -273,8 +273,8 @@ const authRoute: FastifyPluginAsync = async (fastify) => {
 
       const token = sign(fastify, userRow);
       const dest = normalizeRole(userRow.role, userRow.email) === 'admin' ? '/admin' : '/playground';
-      const code = await storeOAuthCode(token);
-      return reply.redirect(`${config.APP_URL}${dest}?code=${code}`);
+      const oauthCode = await storeOAuthCode(token);
+      return reply.redirect(`${config.APP_URL}${dest}?code=${oauthCode}`);
     } catch (err) {
       fastify.log.error(err, 'Google OAuth callback error');
       return reply.redirect(`${config.APP_URL}/admin?error=google_failed`);

@@ -7,6 +7,7 @@ import { checkSpendLimits } from '../services/budget';
 import { planAllowsModel, tierForModel } from '../services/plans';
 import { isModelAllowedForAgent, resolveAgentModel } from '../services/agentPolicy';
 import { query } from '../db/client';
+import { runAgent } from '../services/agentRuntime';
 import { writeAudit } from '../services/audit';
 import { config } from '../config';
 
@@ -125,8 +126,8 @@ const agentRoute: FastifyPluginAsync = async (_fastify) => {
 
     if (!isModelAllowedForAgent(model, agentConfig)) {
       return reply.status(403).send({
-        error: `Model ${model} is not allowed for agent ${agentConfig.id}`,
-        allowed_models: agentConfig.allowed_models,
+        error: `Model ${model} is not allowed for agent ${agentConfig?.id}`,
+        allowed_models: agentConfig?.allowed_models,
         trace_id: traceId,
       });
     }

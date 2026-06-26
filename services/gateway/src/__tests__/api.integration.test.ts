@@ -12,8 +12,8 @@ vi.mock('ioredis', () => ({
   })),
 }));
 
-vi.mock('../../db/client', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../db/client')>();
+vi.mock('../db/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../db/client')>();
   return {
     ...actual,
     queryAsSystem: vi.fn().mockResolvedValue({ rows: [] }),
@@ -22,8 +22,8 @@ vi.mock('../../db/client', async (importOriginal) => {
   };
 });
 
-import { buildApp } from '../../app';
-import { pool } from '../../db/client';
+import { buildApp } from '../app';
+import { pool } from '../db/client';
 
 describe('API auth integration', () => {
   let app: Awaited<ReturnType<typeof buildApp>>;

@@ -19,7 +19,7 @@ type BudgetRow = {
   spent_usd: string;
 };
 
-function buildBudgetStatus(row: BudgetRow, tenantId: string, notify: boolean): BudgetStatus {
+async function buildBudgetStatus(row: BudgetRow, tenantId: string, notify: boolean): Promise<BudgetStatus> {
   const budget = parseFloat(row.monthly_budget_usd);
   const spent = parseFloat(row.spent_usd);
   const pct = budget > 0 ? Math.round((spent / budget) * 100) : 0;
@@ -93,7 +93,7 @@ export async function checkKeyBudget(apiKeyId: string): Promise<BudgetStatus | n
   if (result.rows.length === 0) return null;
   const row = result.rows[0]!;
   // Key-budget webhooks audit under the owning tenant.
-  return buildBudgetStatus(row, row.tenant_id, true);
+  return await buildBudgetStatus(row, row.tenant_id, true);
 }
 
 export type SpendLimitFailure = { level: 'tenant' | 'key'; status: BudgetStatus };

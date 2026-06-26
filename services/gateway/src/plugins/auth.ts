@@ -78,7 +78,7 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
     request.rateLimitTpm = key.rate_limit_tpm;
     request.plan = key.plan;
 
-    query('UPDATE api_keys SET last_used_at = NOW() WHERE id = $1', [key.id]).catch(() => {});
+    queryAsSystem('UPDATE api_keys SET last_used_at = NOW() WHERE id = $1', [key.id]).catch(() => {});
   });
 };
 
