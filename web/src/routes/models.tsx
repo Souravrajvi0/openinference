@@ -410,8 +410,16 @@ function ModelGrid({ models, runningNames, stats }: {
   stats: Record<string, number>;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-px bg-border border border-border sm:grid-cols-2 lg:grid-cols-3">
-      {models.map((m) => {
+    <div className="grid grid-cols-1 gap-px border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
+      {models.map((m, i) => {
+        const isLast = i === models.length - 1;
+        const rem3 = models.length % 3;
+        const rem2 = models.length % 2;
+        const span = [
+          isLast && rem3 === 2 ? "lg:col-span-2" : "",
+          isLast && rem3 === 1 ? "lg:col-span-3" : "",
+          isLast && rem2 === 1 ? "sm:col-span-2 lg:col-span-auto" : "",
+        ].filter(Boolean).join(" ");
         const isLoaded = runningNames.has(m.name);
         const meta     = MODEL_META[m.name];
         const realTps  = stats[m.name];
@@ -424,7 +432,7 @@ function ModelGrid({ models, runningNames, stats }: {
         );
 
         return (
-          <div key={m.name} className="flex flex-col bg-surface p-7">
+          <div key={m.name} className={`flex flex-col bg-surface p-7 ${span}`}>
             <div className="mb-4 flex items-center gap-2">
               <span className={`inline-block h-2 w-2 rounded-full ${isLoaded ? "bg-green-500" : "bg-muted-foreground/25"}`} />
               <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">

@@ -52,7 +52,7 @@ export function Inference() {
 
 function BentoSection() {
   return (
-    <section className="flex min-h-screen flex-col bg-surface">
+    <section className="flex flex-col bg-surface">
       <div className="border-b border-border px-8 pb-12 pt-16 md:px-16">
         <div className="mb-6 flex items-center gap-3">
           <PixelLogo size={22} />
@@ -67,8 +67,8 @@ function BentoSection() {
         </p>
       </div>
 
-      {/* Bento grid */}
-      <div className="flex-1 grid grid-cols-2 gap-px border-t border-border bg-border md:grid-cols-4">
+      {/* Bento grid — 4×2, every cell filled */}
+      <div className="grid grid-cols-2 gap-px border-t border-border bg-border md:grid-cols-4">
 
         {/* Big dark tile — $0 */}
         <div className="relative col-span-2 row-span-2 flex min-h-[280px] flex-col justify-end overflow-hidden bg-ink p-9 text-cream">
@@ -137,8 +137,8 @@ function BentoSection() {
           </div>
         </div>
 
-        {/* Hybrid routing */}
-        <div className="flex flex-col justify-end bg-surface p-7">
+        {/* Hybrid routing — spans remaining bottom row */}
+        <div className="col-span-2 flex flex-col justify-end bg-surface p-7 md:col-span-3">
           <div className="mb-auto flex h-9 w-9 items-center justify-center bg-ink">
             <svg viewBox="0 0 18 18" className="h-4 w-4 fill-none stroke-cream stroke-[1.5]">
               <path d="M2 9h14M9 2l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
@@ -147,6 +147,19 @@ function BentoSection() {
           <div className="mt-6 text-base font-medium">Hybrid routing</div>
           <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
             CPU for cost-sensitive tasks. Cloud GPU for latency-critical ones. One gateway.
+          </div>
+        </div>
+
+        {/* Semantic cache */}
+        <div className="flex flex-col justify-end bg-muted p-7">
+          <div className="mb-auto flex h-9 w-9 items-center justify-center bg-flame-orange">
+            <svg viewBox="0 0 18 18" className="h-4 w-4 fill-none stroke-white stroke-[1.5]">
+              <path d="M3 9h12M9 3v12" strokeLinecap="round" />
+            </svg>
+          </div>
+          <div className="mt-6 text-base font-medium">Semantic cache</div>
+          <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            Repeat prompts hit cache — skip the model call entirely.
           </div>
         </div>
       </div>

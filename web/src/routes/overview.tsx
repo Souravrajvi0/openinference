@@ -22,8 +22,7 @@ const BENTO = [
     title: "Gateway",
     copy: "Route, cache, and fallback across every provider.",
     icon: PixelGateway,
-    accent: "var(--flame-orange)",
-    span: "col-span-1 row-span-2",
+    area: "gateway",
     href: "/playground",
   },
   {
@@ -31,8 +30,7 @@ const BENTO = [
     title: "Agents",
     copy: "Multi-step runtime with MCP tools and human approvals.",
     icon: PixelAgent,
-    accent: "var(--flame-red)",
-    span: "col-span-1 row-span-1",
+    area: "agents",
     href: "/agent",
   },
   {
@@ -40,36 +38,48 @@ const BENTO = [
     title: "Guardrails",
     copy: "Injection detection and PII redaction before the model sees a prompt.",
     icon: PixelShield,
-    accent: "var(--flame-deep)",
-    span: "col-span-1 row-span-1",
+    area: "guard",
     href: "/guardrails",
-  },
-  {
-    id: "observe",
-    title: "Observe",
-    copy: "OTel spans, async evals, Prometheus metrics.",
-    icon: PixelTrace,
-    accent: "var(--flame-bright)",
-    span: "col-span-2 row-span-1",
-    href: "/traces",
   },
   {
     id: "rag",
     title: "RAG",
     copy: "Hybrid vector + keyword search wired into every agent call.",
     icon: PixelRAG,
-    accent: "#3B82F6",
-    span: "col-span-1 row-span-1",
+    area: "rag",
     href: "/docs",
+  },
+  {
+    id: "observe",
+    title: "Observe",
+    copy: "OTel spans, async evals, Prometheus metrics.",
+    icon: PixelTrace,
+    area: "observe",
+    href: "/traces",
+  },
+  {
+    id: "mcp",
+    title: "MCP",
+    copy: "Govern agent tool calls through audited MCP proxies.",
+    icon: PixelMCP,
+    area: "mcp",
+    href: "/mcp",
   },
   {
     id: "govern",
     title: "Govern",
     copy: "Budgets, regression suites, append-only audit trail.",
     icon: PixelBudget,
-    accent: "var(--flame-amber)",
-    span: "col-span-1 row-span-1",
+    area: "govern",
     href: "/budgets",
+  },
+  {
+    id: "approvals",
+    title: "Approvals",
+    copy: "Human-in-the-loop review before sensitive tool calls run.",
+    icon: PixelAgent,
+    area: "approvals",
+    href: "/approvals",
   },
 ];
 
@@ -188,14 +198,24 @@ export function Overview() {
           action={<CtaButton to="/playground" variant="light">Open playground →</CtaButton>}
           className="mb-12"
         />
-        <div className="grid grid-cols-2 gap-px bg-border md:grid-cols-4 md:grid-rows-3">
+        <div
+          className="grid gap-px bg-border md:grid-cols-4"
+          style={{
+            gridTemplateAreas: `
+              "gateway agents guard rag"
+              "gateway observe observe mcp"
+              "govern approvals playground playground"
+            `,
+          }}
+        >
           {BENTO.map((item) => {
             const Icon = item.icon;
             return (
               <Link
                 key={item.id}
                 to={item.href}
-                className={`group flex flex-col justify-between bg-surface p-8 transition hover:bg-muted/50 ${item.span}`}
+                className="group flex flex-col justify-between bg-surface p-8 transition hover:bg-muted/50"
+                style={{ gridArea: item.area }}
               >
                 <Icon size={24} className="mb-6" />
                 <div>
@@ -205,9 +225,18 @@ export function Overview() {
               </Link>
             );
           })}
-          <div className="col-span-1 row-span-1 hidden items-center justify-center bg-muted/30 md:flex" aria-hidden>
-            <div className="h-10 w-10 rotate-45 border border-border" />
-          </div>
+          <Link
+            to="/playground"
+            className="group col-span-full flex flex-col justify-center bg-flame-red/5 p-8 transition hover:bg-flame-red/10 sm:col-span-2 md:col-span-auto"
+            style={{ gridArea: "playground" }}
+          >
+            <div className="text-xl font-semibold tracking-tight group-hover:text-flame-red transition">
+              Open playground →
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Route a live request through the gateway.
+            </p>
+          </Link>
         </div>
       </section>
 
