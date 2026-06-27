@@ -359,6 +359,11 @@ export function Nav({
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   useEffect(() => {
+    document.body.style.overflow = mobileOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [mobileOpen]);
+
+  useEffect(() => {
     let alive = true;
     api("/health")
       .then(() => alive && setHealth("ok"))
@@ -409,7 +414,7 @@ export function Nav({
           <div className="flex shrink-0 items-stretch">
             <StartBuildingDropdown />
 
-            <div className="hidden items-center gap-2 border-l border-border px-3 sm:flex">
+            <div className="flex items-center gap-1 border-l border-border px-2 sm:gap-2 sm:px-3 md:border-l">
               {user && (
                 <OrgSwitcher
                   memberships={memberships}
@@ -419,14 +424,14 @@ export function Nav({
               )}
               <span
                 className={cn(
-                  "inline-block h-1.5 w-1.5 rounded-full",
+                  "hidden h-1.5 w-1.5 rounded-full sm:inline-block",
                   health === "ok" ? "bg-good" : health === "down" ? "bg-bad" : "bg-muted-foreground",
                 )}
                 title={health === "ok" ? "Gateway online" : health === "down" ? "Gateway down" : "Checking…"}
               />
               <button
                 onClick={toggle}
-                className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-ink cursor-pointer"
+                className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-ink cursor-pointer"
                 title="Toggle theme"
               >
                 {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -435,7 +440,7 @@ export function Nav({
 
             <Link
               to={consoleTo}
-              className="flex items-center gap-1.5 border-l border-border bg-ink px-4 text-sm font-medium text-cream transition hover:opacity-90"
+              className="hidden items-center gap-1.5 border-l border-border bg-ink px-4 text-sm font-medium text-cream transition hover:opacity-90 md:flex"
             >
               {consoleLabel}
               <span aria-hidden>›</span>
@@ -443,7 +448,8 @@ export function Nav({
 
             <button
               onClick={() => setMobileOpen((o) => !o)}
-              className="flex items-center justify-center border-l border-border px-3 text-muted-foreground transition hover:bg-muted md:hidden cursor-pointer"
+              className="flex h-12 w-12 items-center justify-center border-l border-border text-muted-foreground transition hover:bg-muted md:hidden cursor-pointer"
+              aria-label={mobileOpen ? "Close menu" : "Open menu"}
             >
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
@@ -452,8 +458,35 @@ export function Nav({
       </header>
 
       {mobileOpen && (
-        <div className="sticky top-12 z-30 max-h-[70vh] overflow-y-auto border-b border-border bg-cream md:hidden">
-          <nav className="flex flex-col py-1">
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-40 bg-ink/30 backdrop-blur-[2px] md:hidden"
+            aria-label="Close menu"
+            onClick={() => setMobileOpen(false)}
+          />
+          <div className="fixed inset-x-0 top-12 z-50 max-h-[calc(100dvh-3rem)] overflow-y-auto border-b border-border bg-cream shadow-lg md:hidden">
+          <nav className="flex flex-col py-2">
+            <div className="px-5 pb-2 pt-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Get started
+            </div>
+            {[
+              { to: "/playground", label: "Playground" },
+              { to: "/docs", label: "Knowledge base" },
+              { to: "/models", label: "Model catalogue" },
+            ].map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                className="px-5 py-2.5 text-sm text-ink/80 transition hover:bg-surface"
+              >
+                {link.label}
+              </Link>
+            ))}
+            <a href="/api-docs" className="px-5 py-2.5 text-sm text-ink/80 transition hover:bg-surface">
+              API reference
+            </a>
+            <div className="my-2 border-t border-border" />
             {[...PRIMARY_NAV, ...proNav, ...(membersLink ? [membersLink] : [])].map((entry, i) =>
               isGroup(entry) ? (
                 <div key={i}>
@@ -496,6 +529,7 @@ export function Nav({
             </div>
           </nav>
         </div>
+        </>
       )}
     </>
   );

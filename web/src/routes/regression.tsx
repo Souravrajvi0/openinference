@@ -448,8 +448,8 @@ function AddCaseForm({ suiteId, onCreated }: { suiteId: string; onCreated: (tc: 
             <p className="text-[11px] text-muted-foreground">No assertions — the case will pass as long as the LLM responds without error.</p>
           )}
           {assertions.map((a, i) => (
-            <div key={i} className="flex gap-2 mb-2 items-start">
-              <Select value={a.type} onChange={(e) => updateAssertion(i, "type", e.target.value)} className="w-36 shrink-0 text-xs py-1.5">
+            <div key={i} className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start">
+              <Select value={a.type} onChange={(e) => updateAssertion(i, "type", e.target.value)} className="w-full shrink-0 text-xs py-1.5 sm:w-36">
                 <option value="contains">contains</option>
                 <option value="not_contains">not contains</option>
                 <option value="regex">regex</option>
@@ -510,9 +510,9 @@ function RunsTab({ suiteId, caseCount }: { suiteId: string; caseCount: number })
     r.total_cases > 0 ? Math.round((r.passed / r.total_cases) * 100) : 0;
 
   return (
-    <div className="flex flex-1 overflow-hidden">
+    <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
       {/* Run list */}
-      <div className="w-80 shrink-0 border-r border-border overflow-y-auto">
+      <div className="w-full shrink-0 overflow-y-auto border-b border-border lg:w-80 lg:border-b-0 lg:border-r">
         <div className="border-b border-border p-4 space-y-3">
           <div>
             <Label>Model override (optional)</Label>

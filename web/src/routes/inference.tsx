@@ -53,12 +53,12 @@ export function Inference() {
 function BentoSection() {
   return (
     <section className="flex flex-col bg-surface">
-      <div className="border-b border-border px-8 pb-12 pt-16 md:px-16">
-        <div className="mb-6 flex items-center gap-3">
+      <div className="border-b border-border px-4 pb-10 pt-12 sm:px-8 sm:pb-12 sm:pt-16 md:px-16">
+        <div className="mb-4 flex items-center gap-3 sm:mb-6">
           <PixelLogo size={22} />
-          <span className="text-sm font-medium text-muted-foreground">OpenInference · Inference</span>
+          <span className="text-xs font-medium text-muted-foreground sm:text-sm">OpenInference · Inference</span>
         </div>
-        <h1 className="text-[clamp(2.75rem,7vw,5.5rem)] font-semibold leading-[1.02] tracking-[-0.03em]">
+        <h1 className="text-[clamp(2rem,8vw,5.5rem)] font-semibold leading-[1.02] tracking-[-0.03em]">
           CPU inference.<br />Open source models.
         </h1>
         <p className="mt-4 max-w-md text-base leading-relaxed text-muted-foreground">
@@ -67,18 +67,18 @@ function BentoSection() {
         </p>
       </div>
 
-      {/* Bento grid — 4×2, every cell filled */}
-      <div className="grid grid-cols-2 gap-px border-t border-border bg-border md:grid-cols-4">
+      {/* Bento grid — 1 col mobile, 2 col sm, 4 col md */}
+      <div className="grid grid-cols-1 gap-px border-t border-border bg-border sm:grid-cols-2 md:grid-cols-4">
 
         {/* Big dark tile — $0 */}
-        <div className="relative col-span-2 row-span-2 flex min-h-[280px] flex-col justify-end overflow-hidden bg-ink p-9 text-cream">
+        <div className="relative col-span-1 flex min-h-[220px] flex-col justify-end overflow-hidden bg-ink p-6 text-cream sm:col-span-2 sm:row-span-2 sm:min-h-[280px] sm:p-9">
           <div className="absolute right-0 top-0 h-20 w-20 -translate-y-1/2 translate-x-1/2 rotate-45 border border-cream/10" />
           <div className="mb-auto flex h-9 w-9 items-center justify-center bg-flame-red">
             <svg viewBox="0 0 18 18" className="h-4 w-4 fill-none stroke-white stroke-[1.5]">
               <path d="M9 1v16M5 5h5.5a3.5 3.5 0 010 7H5M5 5H3M5 12H3" strokeLinecap="round" />
             </svg>
           </div>
-          <div className="text-[84px] font-semibold leading-none tracking-[-0.04em] text-flame-red">$0</div>
+          <div className="text-[clamp(3rem,18vw,5.25rem)] font-semibold leading-none tracking-[-0.04em] text-flame-red">$0</div>
           <div className="mt-2 text-base font-medium text-cream">Zero cost inference</div>
           <div className="mt-1.5 text-xs leading-relaxed text-cream/50">
             No per-token billing. Self-hosted Ollama on your own hardware. No surprises.
@@ -87,7 +87,7 @@ function BentoSection() {
         </div>
 
         {/* Privacy */}
-        <div className="relative flex flex-col justify-end overflow-hidden bg-surface p-7">
+        <div className="relative flex flex-col justify-end overflow-hidden bg-surface p-5 sm:p-7">
           <div className="absolute right-0 top-0 h-16 w-16 -translate-y-1/2 translate-x-1/2 rotate-45 border border-border" />
           <div className="mb-auto flex h-9 w-9 items-center justify-center bg-ink">
             <svg viewBox="0 0 18 18" className="h-4 w-4 fill-none stroke-cream stroke-[1.5]">
@@ -101,7 +101,7 @@ function BentoSection() {
         </div>
 
         {/* No rate limits */}
-        <div className="flex flex-col justify-end bg-flame-red p-7 text-cream">
+        <div className="flex flex-col justify-end bg-flame-red p-5 text-cream sm:p-7">
           <div className="mb-auto flex h-9 w-9 items-center justify-center bg-white/20">
             <svg viewBox="0 0 18 18" className="h-4 w-4 fill-none stroke-white stroke-[1.5]">
               <circle cx="9" cy="9" r="7" /><path d="M9 5v4l3 2" strokeLinecap="round" />
@@ -114,7 +114,7 @@ function BentoSection() {
         </div>
 
         {/* Batch pipelines */}
-        <div className="relative flex flex-col justify-end overflow-hidden bg-surface p-7">
+        <div className="relative flex flex-col justify-end overflow-hidden bg-surface p-5 sm:p-7">
           <div className="absolute bottom-3 right-3 h-12 w-12 rotate-45 border border-border" />
           <div className="mb-auto flex h-9 w-9 items-center justify-center" style={{ backgroundColor: "#F2C335" }}>
             <svg viewBox="0 0 18 18" className="h-4 w-4 fill-none stroke-ink stroke-[1.5]">
@@ -129,7 +129,7 @@ function BentoSection() {
         </div>
 
         {/* Open source */}
-        <div className="relative flex flex-col justify-end overflow-hidden bg-muted p-7">
+        <div className="relative flex flex-col justify-end overflow-hidden bg-muted p-5 sm:p-7">
           <div className="absolute right-0 top-0 h-20 w-20 -translate-y-1/2 translate-x-1/2 rotate-45 border border-border" />
           <div className="mt-16 text-base font-medium">Open source models</div>
           <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
@@ -138,7 +138,7 @@ function BentoSection() {
         </div>
 
         {/* Hybrid routing — spans remaining bottom row */}
-        <div className="col-span-2 flex flex-col justify-end bg-surface p-7 md:col-span-3">
+        <div className="col-span-1 flex flex-col justify-end bg-surface p-5 sm:col-span-2 sm:p-7 md:col-span-3">
           <div className="mb-auto flex h-9 w-9 items-center justify-center bg-ink">
             <svg viewBox="0 0 18 18" className="h-4 w-4 fill-none stroke-cream stroke-[1.5]">
               <path d="M2 9h14M9 2l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
@@ -151,7 +151,7 @@ function BentoSection() {
         </div>
 
         {/* Semantic cache */}
-        <div className="flex flex-col justify-end bg-muted p-7">
+        <div className="flex flex-col justify-end bg-muted p-5 sm:p-7">
           <div className="mb-auto flex h-9 w-9 items-center justify-center bg-flame-orange">
             <svg viewBox="0 0 18 18" className="h-4 w-4 fill-none stroke-white stroke-[1.5]">
               <path d="M3 9h12M9 3v12" strokeLinecap="round" />
@@ -171,13 +171,13 @@ function BentoSection() {
 
 function OrangeSection() {
   return (
-    <section className="relative flex min-h-[90vh] flex-col bg-flame-red px-8 py-16 text-cream md:px-16">
-      <a className="absolute right-8 top-16 text-[13px] text-cream/50 hover:text-cream transition md:right-16">
+    <section className="relative flex min-h-0 flex-col bg-flame-red px-4 py-12 text-cream sm:px-8 sm:py-16 md:px-16">
+      <a className="absolute right-4 top-12 text-xs text-cream/50 hover:text-cream transition sm:right-8 sm:top-16 sm:text-[13px] md:right-16">
         Discover Benchmark ›
       </a>
 
       <div className="text-[11px] uppercase tracking-[0.18em] text-cream/40">The economics</div>
-      <h2 className="mt-3 max-w-2xl text-[clamp(44px,6.5vw,80px)] font-medium leading-[1.05] tracking-[-0.03em]">
+      <h2 className="mt-3 max-w-2xl text-[clamp(1.75rem,7vw,5rem)] font-medium leading-[1.05] tracking-[-0.03em]">
         Your server.<br />Their model.<br />Your rules.
       </h2>
       <p className="mt-4 max-w-md text-sm leading-relaxed text-cream/60">
@@ -263,9 +263,9 @@ function DarkSection() {
   const maxW = Math.max(...displayCpu.map(r => r.w), ...displayCloud.map(r => r.w), 1);
 
   return (
-    <section className="flex min-h-screen flex-col bg-ink text-cream">
+    <section className="flex flex-col bg-ink text-cream">
       {/* Tag strip */}
-      <div className="overflow-hidden border-b border-cream/8 px-8 py-4 md:px-16">
+      <div className="overflow-hidden border-b border-cream/8 px-4 py-4 sm:px-8 md:px-16">
         <div className="whitespace-nowrap text-[11px] uppercase tracking-[0.16em] text-cream/25">
           {["SELF-HOSTED", "CPU INFERENCE", "ZERO COST", "PRIVATE DATA", "BATCH PIPELINES",
             "NO RATE LIMITS", "OPEN SOURCE MODELS", "HYBRID ROUTING", "ZERO VENDOR LOCK-IN",
@@ -275,10 +275,10 @@ function DarkSection() {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col px-8 py-16 md:px-16">
+      <div className="flex flex-1 flex-col px-4 py-12 sm:px-8 sm:py-16 md:px-16">
         <div className="text-[11px] uppercase tracking-[0.18em] text-cream/30">Real traffic</div>
         <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
-          <h2 className="text-[clamp(40px,6vw,72px)] font-medium leading-[1.05] tracking-[-0.03em]">
+          <h2 className="text-[clamp(1.75rem,6vw,4.5rem)] font-medium leading-[1.05] tracking-[-0.03em]">
             Performance from<br />your requests.
           </h2>
           {cpuReqs > 0 && (
@@ -297,7 +297,8 @@ function DarkSection() {
           {rows === null && " Loading…"}
         </p>
 
-        <div className="mt-12 flex-1">
+        <div className="table-scroll -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="mt-12 min-w-[520px] flex-1">
           {/* Column labels */}
           <div className="mb-3 grid grid-cols-[200px_1fr_80px_96px] gap-6 text-[10px] uppercase tracking-[0.15em] text-cream/25 md:grid-cols-[240px_1fr_80px_96px]">
             <span>Model</span><span>Tokens / sec</span>
@@ -336,6 +337,7 @@ function DarkSection() {
               </div>
             );
           })}
+        </div>
         </div>
       </div>
     </section>
@@ -471,10 +473,10 @@ function CostSection() {
   const MAX = 15;
 
   return (
-    <section className="min-h-screen bg-surface px-8 py-16 md:px-16">
+    <section className="bg-surface px-4 py-12 sm:px-8 sm:py-16 md:px-16">
       <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Cost reality</div>
       <div className="mt-3 mb-12 flex flex-wrap items-end justify-between gap-6">
-        <h2 className="text-[clamp(44px,6.5vw,80px)] font-medium leading-[1.05] tracking-[-0.03em]">
+        <h2 className="text-[clamp(1.75rem,6.5vw,5rem)] font-medium leading-[1.05] tracking-[-0.03em]">
           The numbers.
         </h2>
         <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
@@ -608,13 +610,13 @@ function CostSection() {
 function AmberSection() {
   return (
     <section
-      className="relative flex min-h-[90vh] flex-col px-8 py-16 md:px-16"
+      className="relative flex min-h-0 flex-col px-4 py-12 sm:px-8 sm:py-16 md:px-16"
       style={{ backgroundColor: "#F2C335" }}
     >
       <div className="text-[11px] uppercase tracking-[0.18em]" style={{ color: "rgba(20,18,16,0.45)" }}>
         Decision guide
       </div>
-      <h2 className="mt-3 max-w-lg text-[clamp(44px,6.5vw,80px)] font-medium leading-[1.05] tracking-[-0.03em] text-ink">
+      <h2 className="mt-3 max-w-lg text-[clamp(1.75rem,6.5vw,5rem)] font-medium leading-[1.05] tracking-[-0.03em] text-ink">
         Right model.<br />Right backend.
       </h2>
       <p className="mt-4 max-w-md text-sm leading-relaxed" style={{ color: "rgba(20,18,16,0.55)" }}>
@@ -728,9 +730,9 @@ function BenchmarkSection() {
   const maxResultTps = ok.length ? Math.max(...ok.map((r) => r.tokens_per_sec ?? 0), 1) : 1;
 
   return (
-    <section className="min-h-screen bg-surface px-8 py-16 md:px-16">
+    <section className="bg-surface px-4 py-12 sm:px-8 sm:py-16 md:px-16">
       <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Live test</div>
-      <h2 className="mt-3 mb-12 text-[clamp(44px,6.5vw,80px)] font-medium leading-[1.05] tracking-[-0.03em]">
+      <h2 className="mt-3 mb-12 text-[clamp(1.75rem,6.5vw,5rem)] font-medium leading-[1.05] tracking-[-0.03em]">
         Run a benchmark.
       </h2>
 

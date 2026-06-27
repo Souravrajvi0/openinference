@@ -54,26 +54,26 @@ export function SectionHeading({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-wrap items-end justify-between gap-6", className)}>
-      <div>
+    <div className={cn("flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-6", className)}>
+      <div className="min-w-0 flex-1">
         {kicker && (
           <Kicker className={dark ? "text-cream/40" : undefined}>{kicker}</Kicker>
         )}
         <h2
           className={cn(
-            "mt-3 max-w-3xl text-[clamp(2rem,5vw,3.5rem)] font-semibold leading-[1.05] tracking-[-0.03em]",
+            "mt-2 text-2xl font-semibold leading-[1.08] tracking-[-0.03em] sm:mt-3 sm:text-[clamp(1.75rem,5vw,3.5rem)]",
             dark && "text-cream",
           )}
         >
           {title}
         </h2>
         {description && (
-          <p className={cn("mt-4 max-w-xl text-base leading-relaxed", dark ? "text-cream/60" : "text-muted-foreground")}>
+          <p className={cn("mt-3 max-w-xl text-sm leading-relaxed sm:text-base", dark ? "text-cream/60" : "text-muted-foreground")}>
             {description}
           </p>
         )}
       </div>
-      {action}
+      {action && <div className="w-full shrink-0 sm:w-auto">{action}</div>}
     </div>
   );
 }
@@ -109,14 +109,14 @@ export function FeatureCard({
       <div>
         <h3 className="text-xl font-semibold leading-snug tracking-tight">{title}</h3>
         {description && (
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground group-hover:text-cream/70">{description}</p>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:opacity-100 group-hover:text-cream/70 max-sm:opacity-100">{description}</p>
         )}
       </div>
     </>
   );
 
   const cardClass = cn(
-    "group flex min-h-[200px] flex-col bg-surface p-8 transition hover:bg-ink hover:text-cream",
+    "group flex min-h-0 flex-col bg-surface p-5 transition hover:bg-ink hover:text-cream sm:min-h-[180px] sm:p-8",
     className,
   );
 
@@ -145,16 +145,16 @@ export function PageHeader({
 }) {
   return (
     <section className="border-b border-border bg-surface">
-      <div className={cn("mx-auto max-w-6xl px-6 md:px-10", compact ? "py-8" : "py-10")}>
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
+      <div className={cn("mx-auto max-w-6xl px-4 sm:px-6 md:px-10", compact ? "py-6 sm:py-8" : "py-8 sm:py-10")}>
+        <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+          <div className="min-w-0">
             {kicker && <Kicker>{kicker}</Kicker>}
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">{title}</h1>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">{title}</h1>
             {description && (
-              <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">{description}</p>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">{description}</p>
             )}
           </div>
-          {action}
+          {action && <div className="w-full shrink-0 sm:w-auto">{action}</div>}
         </div>
       </div>
     </section>

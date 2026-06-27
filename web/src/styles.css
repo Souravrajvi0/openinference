@@ -99,6 +99,46 @@
   }
 }
 
+/* ── Mobile foundations ── */
+html {
+  overflow-x: clip;
+}
+body {
+  overflow-x: clip;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Platform bento — single column on mobile, 4-col areas on md+ */
+.platform-bento {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1px;
+}
+@media (min-width: 768px) {
+  .platform-bento {
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-areas:
+      "gateway agents guard rag"
+      "gateway observe observe mcp"
+      "govern approvals playground playground";
+  }
+  .bento-gateway { grid-area: gateway; }
+  .bento-agents { grid-area: agents; }
+  .bento-guard { grid-area: guard; }
+  .bento-rag { grid-area: rag; }
+  .bento-observe { grid-area: observe; }
+  .bento-mcp { grid-area: mcp; }
+  .bento-govern { grid-area: govern; }
+  .bento-approvals { grid-area: approvals; }
+  .bento-playground { grid-area: playground; }
+}
+
+/* Horizontal scroll for wide data tables on small screens */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 @keyframes shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }

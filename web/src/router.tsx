@@ -30,7 +30,7 @@ function RootLayout() {
   const { user, loading, isPro, isPlatformAdmin, canManage, memberships, activeOrg, refresh } = useAuth();
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen overflow-x-clip">
       <Nav
         user={user}
         memberships={memberships}

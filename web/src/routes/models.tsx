@@ -185,13 +185,13 @@ function HeroSection() {
   });
 
   return (
-    <section className="flex min-h-[55vh] flex-col justify-between border-b border-border bg-navy px-8 py-16 text-cream md:px-16">
+    <section className="flex min-h-0 flex-col justify-between border-b border-border bg-navy px-4 py-12 text-cream sm:px-8 sm:py-16 md:px-16">
       <div>
         <div className="mb-6 flex items-center gap-3">
           <PixelLogo size={22} />
           <span className="text-sm font-medium text-cream/50">OpenInference · Models</span>
         </div>
-        <h1 className="text-[clamp(2.75rem,7vw,5.5rem)] font-semibold leading-[1.02] tracking-[-0.03em]">
+        <h1 className="text-[clamp(2rem,8vw,5.5rem)] font-semibold leading-[1.02] tracking-[-0.03em]">
           Model catalogue.
         </h1>
         <p className="mt-4 max-w-lg text-sm leading-relaxed text-cream/50">
@@ -200,7 +200,7 @@ function HeroSection() {
         </p>
       </div>
 
-      <div className="mt-12 grid grid-cols-2 gap-px bg-cream/8 sm:grid-cols-4">
+      <div className="mt-8 grid grid-cols-2 gap-px bg-cream/8 sm:mt-12 sm:grid-cols-4">
         {[
           { v: String(cpuModels.length),   l: "Self-hosted CPU models" },
           { v: String(sub1gb.length),      l: "Under 1 GB" },
@@ -228,9 +228,9 @@ function PickerSection() {
   }
 
   return (
-    <section className="bg-surface px-8 py-16 md:px-16">
+    <section className="bg-surface px-4 py-12 sm:px-8 sm:py-16 md:px-16">
       <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Model picker</div>
-      <h2 className="mt-3 mb-2 text-[clamp(36px,5vw,60px)] font-medium leading-[1.05] tracking-[-0.03em]">
+      <h2 className="mt-3 mb-2 text-[clamp(1.5rem,5vw,3.75rem)] font-medium leading-[1.05] tracking-[-0.03em]">
         What are you building?
       </h2>
       <p className="mb-10 text-sm text-muted-foreground">
@@ -238,7 +238,7 @@ function PickerSection() {
       </p>
 
       {/* Task grid */}
-      <div className="grid grid-cols-2 gap-px bg-border border border-border sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-px bg-border border border-border sm:grid-cols-2 lg:grid-cols-4">
         {PICK_TASKS.map((task) => {
           const active = selected?.label === task.label;
           return (
@@ -372,9 +372,9 @@ function SelfHostedSection() {
   const over1gb = sorted.filter((m) => m.size >= 1e9);
 
   return (
-    <section className="bg-muted/30 px-8 py-16 md:px-16">
+    <section className="bg-muted/30 px-4 py-12 sm:px-8 sm:py-16 md:px-16">
       <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">CPU · $0 / token</div>
-      <h2 className="mt-3 mb-10 text-[clamp(36px,5vw,60px)] font-medium leading-[1.05] tracking-[-0.03em]">
+      <h2 className="mt-3 mb-10 text-[clamp(1.5rem,5vw,3.75rem)] font-medium leading-[1.05] tracking-[-0.03em]">
         Self-hosted models.
       </h2>
 
@@ -488,7 +488,7 @@ function CloudSection() {
   return (
     <section className="bg-ink px-8 py-16 text-cream md:px-16">
       <div className="text-[11px] uppercase tracking-[0.18em] text-cream/30">Cloud · per token</div>
-      <h2 className="mt-3 mb-10 text-[clamp(36px,5vw,60px)] font-medium leading-[1.05] tracking-[-0.03em]">
+      <h2 className="mt-3 mb-10 text-[clamp(1.5rem,5vw,3.75rem)] font-medium leading-[1.05] tracking-[-0.03em]">
         Cloud models.
       </h2>
 
@@ -593,9 +593,9 @@ function PullSection() {
   const pct = latest?.total ? Math.round((latest.completed ?? 0) / latest.total * 100) : null;
 
   return (
-    <section className="min-h-[55vh] bg-surface px-8 py-16 md:px-16">
+    <section className="min-h-[55vh] bg-surface px-4 py-12 sm:px-8 sm:py-16 md:px-16">
       <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Ollama · pull</div>
-      <h2 className="mt-3 mb-10 text-[clamp(36px,5vw,60px)] font-medium leading-[1.05] tracking-[-0.03em]">
+      <h2 className="mt-3 mb-10 text-[clamp(1.5rem,5vw,3.75rem)] font-medium leading-[1.05] tracking-[-0.03em]">
         Add a model.
       </h2>
 

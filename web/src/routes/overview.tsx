@@ -16,6 +16,17 @@ import {
   PixelRAG,
 } from "@/components/pixel/icons";
 
+const BENTO_AREA_CLASS: Record<string, string> = {
+  gateway: "bento-gateway",
+  agents: "bento-agents",
+  guard: "bento-guard",
+  rag: "bento-rag",
+  observe: "bento-observe",
+  mcp: "bento-mcp",
+  govern: "bento-govern",
+  approvals: "bento-approvals",
+};
+
 const BENTO = [
   {
     id: "gateway",
@@ -122,27 +133,27 @@ export function Overview() {
     <div className="bg-cream text-ink">
       {/* Hero — split grid */}
       <section className="grid grid-cols-1 border-b border-border lg:grid-cols-[1fr_380px]">
-        <div className="relative min-h-[72vh] overflow-hidden border-b border-border lg:border-b-0">
+        <div className="relative min-h-[52vh] overflow-hidden border-b border-border sm:min-h-[60vh] lg:min-h-[72vh] lg:border-b-0">
           <div className="absolute inset-0">
             <PixelFlame cols={28} rows={14} />
           </div>
           <div className="absolute inset-x-0 top-0 h-[50%] bg-gradient-to-b from-cream via-cream/95 to-transparent" />
-          <div className="relative flex h-full min-h-[72vh] flex-col justify-between px-6 py-12 md:px-12">
-            <h1 className="max-w-[14ch] text-[clamp(2.75rem,8vw,7rem)] font-semibold leading-[0.92] tracking-[-0.04em] fadein">
+          <div className="relative flex h-full min-h-[52vh] flex-col justify-between px-4 py-10 sm:min-h-[60vh] sm:px-6 sm:py-12 md:px-12 lg:min-h-[72vh]">
+            <h1 className="max-w-[14ch] text-[clamp(2rem,10vw,7rem)] font-semibold leading-[0.92] tracking-[-0.04em] fadein">
               AI infrastructure,
               <br />
               fully governed.
             </h1>
-            <div className="flex items-end justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-ink/70">
-              <span className="rounded-sm bg-cream px-2 py-1">Route · Agent · Guard · Trace</span>
-              <span className="rounded-sm bg-cream px-2 py-1">Self-hosted</span>
+            <div className="flex flex-col gap-2 text-[10px] font-medium uppercase tracking-[0.16em] text-ink/70 sm:flex-row sm:items-end sm:justify-between sm:text-[11px] sm:tracking-[0.2em]">
+              <span className="w-fit rounded-sm bg-cream px-2 py-1">Route · Agent · Guard · Trace</span>
+              <span className="w-fit rounded-sm bg-cream px-2 py-1">Self-hosted</span>
             </div>
           </div>
         </div>
 
         <aside className="flex flex-col justify-between lg:border-l lg:border-border">
-          <div className="p-8 md:p-10">
-            <p className="text-lg leading-relaxed text-ink/90">
+          <div className="p-5 sm:p-8 md:p-10">
+            <p className="text-base leading-relaxed text-ink/90 sm:text-lg">
               OpenInference routes requests to any LLM, runs governed agents with MCP tool access,
               enforces human approval steps, retrieves your documents, and records full traces —
               one deployable stack.
@@ -152,7 +163,7 @@ export function Overview() {
               <CtaButton to="/inference" variant="outline">Run benchmarks</CtaButton>
             </div>
           </div>
-          <div className="border-t border-border p-8 md:p-10">
+          <div className="border-t border-border p-5 sm:p-8 md:p-10">
             <div className="mb-4 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
               Featured
             </div>
@@ -173,7 +184,7 @@ export function Overview() {
       </section>
 
       {/* Statement + icons */}
-      <section className="border-b border-border px-6 py-20 md:px-12 fadein">
+      <section className="border-b border-border px-4 py-12 sm:px-6 sm:py-16 md:px-12 md:py-20 fadein">
         <div className="mx-auto max-w-4xl text-center">
           <div className="mb-8 flex justify-center gap-6">
             <PixelGateway size={28} />
@@ -191,35 +202,25 @@ export function Overview() {
       </section>
 
       {/* Bento product grid */}
-      <section className="border-b border-border px-6 py-16 md:px-12">
+      <section className="border-b border-border px-4 py-12 sm:px-6 md:px-12 md:py-16">
         <SectionHeading
           kicker="Platform"
           title="Do it all with OpenInference."
-          action={<CtaButton to="/playground" variant="light">Open playground →</CtaButton>}
-          className="mb-12"
+          action={<CtaButton to="/playground" variant="light" className="w-full justify-center sm:w-auto">Open playground →</CtaButton>}
+          className="mb-8 md:mb-12"
         />
-        <div
-          className="grid gap-px bg-border md:grid-cols-4"
-          style={{
-            gridTemplateAreas: `
-              "gateway agents guard rag"
-              "gateway observe observe mcp"
-              "govern approvals playground playground"
-            `,
-          }}
-        >
+        <div className="platform-bento bg-border">
           {BENTO.map((item) => {
             const Icon = item.icon;
             return (
               <Link
                 key={item.id}
                 to={item.href}
-                className="group flex flex-col justify-between bg-surface p-8 transition hover:bg-muted/50"
-                style={{ gridArea: item.area }}
+                className={`group flex flex-col justify-between bg-surface p-5 transition hover:bg-muted/50 sm:p-8 ${BENTO_AREA_CLASS[item.area] ?? ""}`}
               >
-                <Icon size={24} className="mb-6" />
+                <Icon size={24} className="mb-4 sm:mb-6" />
                 <div>
-                  <h3 className="text-xl font-semibold tracking-tight">{item.title}</h3>
+                  <h3 className="text-lg font-semibold tracking-tight sm:text-xl">{item.title}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{item.copy}</p>
                 </div>
               </Link>
@@ -227,8 +228,7 @@ export function Overview() {
           })}
           <Link
             to="/playground"
-            className="group col-span-full flex flex-col justify-center bg-flame-red/5 p-8 transition hover:bg-flame-red/10 sm:col-span-2 md:col-span-auto"
-            style={{ gridArea: "playground" }}
+            className="group bento-playground flex flex-col justify-center bg-flame-red/5 p-5 transition hover:bg-flame-red/10 sm:p-8"
           >
             <div className="text-xl font-semibold tracking-tight group-hover:text-flame-red transition">
               Open playground →
@@ -241,7 +241,7 @@ export function Overview() {
       </section>
 
       {/* Orange agent band */}
-      <section className="relative border-b border-border bg-flame-red px-6 py-16 text-cream md:px-12">
+      <section className="relative border-b border-border bg-flame-red px-4 py-12 text-cream sm:px-6 sm:py-16 md:px-12">
         <div className="absolute inset-0 opacity-[0.06]">
           <PixelFlame cols={40} rows={8} seed={9} />
         </div>
@@ -251,29 +251,29 @@ export function Overview() {
               <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-cream/50">
                 Governed agents
               </div>
-              <h2 className="mt-3 max-w-lg text-[clamp(2rem,5vw,3.5rem)] font-semibold leading-tight tracking-[-0.03em]">
+              <h2 className="mt-3 max-w-lg text-2xl font-semibold leading-tight tracking-[-0.03em] sm:text-[clamp(1.75rem,5vw,3.5rem)]">
                 Autonomous work.<br />Under your rules.
               </h2>
               <p className="mt-4 max-w-md text-base leading-relaxed text-cream/70">
                 AI agents for long-horizon tasks — fluent in your knowledge, tools, and approval policies.
               </p>
             </div>
-            <CtaButton to="/agent" variant="light" className="!bg-cream/15 !text-cream hover:!bg-cream/25">
+            <CtaButton to="/agent" variant="light" className="w-full justify-center !bg-cream/15 !text-cream hover:!bg-cream/25 sm:w-auto">
               Discover agents →
             </CtaButton>
           </div>
 
-          <div className="mx-auto mt-14 max-w-xl rounded-xl border border-cream/20 bg-cream p-1 shadow-lg">
-            <div className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
-              <span className="text-muted-foreground">+</span>
-              <span className="flex-1 text-sm text-muted-foreground">What would you like to route today?</span>
+          <div className="mt-10 w-full max-w-xl rounded-xl border border-cream/20 bg-cream p-1 shadow-lg sm:mt-14">
+            <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-3 sm:gap-3 sm:px-4">
+              <span className="shrink-0 text-muted-foreground">+</span>
+              <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">What would you like to route today?</span>
               <span className="flex h-8 w-8 items-center justify-center rounded-md bg-ink text-cream text-sm">↑</span>
             </div>
             <div className="divide-y divide-border px-2 py-1">
               {SUGGESTIONS.map((s) => (
-                <div key={s.text} className="flex items-center gap-3 px-3 py-3 text-sm text-ink/80">
-                  <span className="text-muted-foreground">{s.icon}</span>
-                  {s.text}
+                <div key={s.text} className="flex items-start gap-3 px-3 py-3 text-sm text-ink/80">
+                  <span className="shrink-0 text-muted-foreground">{s.icon}</span>
+                  <span className="min-w-0">{s.text}</span>
                 </div>
               ))}
             </div>
@@ -283,7 +283,7 @@ export function Overview() {
 
       {/* Services 4-col */}
       <section className="border-b border-border">
-        <div className="border-b border-border px-6 py-16 md:px-12">
+        <div className="border-b border-border px-4 py-12 sm:px-6 md:px-12 md:py-16">
           <SectionHeading
             kicker="Built for teams who own their AI"
             title="Supported by complete control."
@@ -297,12 +297,12 @@ export function Overview() {
             return (
               <div
                 key={s.title}
-                className={`group flex min-h-[220px] flex-col justify-between bg-surface p-8 transition ${i === 0 ? "lg:bg-cream" : "hover:bg-cream"}`}
+                className={`group flex min-h-0 flex-col justify-between bg-surface p-5 transition sm:min-h-[220px] sm:p-8 ${i === 0 ? "lg:bg-cream" : "hover:bg-cream"}`}
               >
                 <Icon size={28} />
                 <div>
                   <h3 className="text-lg font-semibold">{s.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground opacity-0 transition group-hover:opacity-100 lg:group-hover:opacity-100">
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground max-sm:opacity-100 opacity-0 transition group-hover:opacity-100 lg:group-hover:opacity-100">
                     {s.copy}
                   </p>
                 </div>
@@ -358,16 +358,21 @@ export function Overview() {
       {/* Comparison */}
       <section className="border-b border-border">
         <div className="grid grid-cols-1 lg:grid-cols-2">
-          <div className="p-10 md:p-16">
+          <div className="p-6 sm:p-10 md:p-16">
             <SectionHeading
               kicker="Why one stack"
               title="Gateway, agents, retrieval, governance and observability — one deploy."
             />
             <div className="mt-10 overflow-hidden rounded-md border border-border">
               {COMPARE.map(([a, b], i) => (
-                <div key={i} className="grid grid-cols-2 border-b border-border text-sm last:border-0">
-                  <div className="border-r border-border p-4 text-muted-foreground">{a}</div>
-                  <div className="p-4 font-medium">{b}</div>
+                <div key={i} className="border-b border-border text-sm last:border-0">
+                  <div className="bg-muted/40 px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
+                    Comparison {i + 1}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2">
+                    <div className="border-b border-border p-4 text-muted-foreground md:border-b-0 md:border-r">{a}</div>
+                    <div className="p-4 font-medium">{b}</div>
+                  </div>
                 </div>
               ))}
             </div>

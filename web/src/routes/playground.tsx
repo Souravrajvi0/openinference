@@ -130,7 +130,7 @@ export function Playground() {
         description="Authenticate with a key, pick any provider or self-hosted model, and watch it flow through guardrails, routing and metering."
       />
 
-      <div className="mx-auto max-w-6xl px-6 py-8 md:px-10">
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 md:px-10">
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.7fr_1fr]">
         <div>
           <Card className="overflow-hidden">
