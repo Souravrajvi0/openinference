@@ -63,7 +63,7 @@ function setupFlags(opts: Record<string, unknown>) {
 program
   .name('oi')
   .description('OpenInference — find, install, and chat with local open-source models')
-  .version('1.0.0');
+  .version('1.0.1');
 
 const startCmd = program
   .command('start', { isDefault: true })

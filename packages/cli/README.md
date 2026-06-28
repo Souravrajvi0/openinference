@@ -6,6 +6,15 @@ Not an agent. A hardware-aware model package manager on top of [Ollama](https://
 
 ## Quick start
 
+**Global install (recommended — type `oi` anytime):**
+
+```bash
+npm install -g @openinference/cli
+oi
+```
+
+**Or run once without installing:**
+
 ```bash
 npx @openinference/cli
 ```

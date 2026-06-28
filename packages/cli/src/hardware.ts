@@ -72,17 +72,25 @@ function osLabel(): string {
   return `${type} ${rel}`;
 }
 
+function memoryBudgetGb(ramGb: number, hasGpu: boolean, vramGb: number): number {
+  // Scale OS reserve for small cloud VMs (e.g. AWS 4 GB → reports ~3.7 GB)
+  const headroom = ramGb <= 4 ? 1.2 : ramGb <= 6 ? 2 : ramGb <= 8 ? 2.5 : 4;
+  const ramBudget = Math.max(0.35, ramGb - headroom);
+
+  if (hasGpu && vramGb > 0) {
+    const vramBudget = Math.max(0, vramGb - 0.5);
+    return Math.max(vramBudget, ramBudget * 0.6);
+  }
+  return ramBudget;
+}
+
 export function detectHardware(): HardwareProfile {
   const ramGb = roundGb(os.totalmem());
   const cpuCores = os.cpus().length;
   const { vramGb, name } = detectVram();
   const hasGpu = vramGb > 0;
   const diskFreeGb = detectDiskFreeGb();
-
-  const osHeadroom = 4;
-  const vramBudget = hasGpu ? Math.max(0, vramGb - 1) : 0;
-  const ramBudget = Math.max(0, ramGb - osHeadroom);
-  const budgetGb = hasGpu ? Math.max(vramBudget, ramBudget * 0.6) : ramBudget;
+  const budgetGb = memoryBudgetGb(ramGb, hasGpu, vramGb);
 
   return {
     ramGb,
@@ -108,9 +116,10 @@ export function ollamaModelsPath(): string {
   return path.join(os.homedir(), '.ollama', 'models');
 }
 
-/** Model fits if RAM budget ok and ~1.2× download size fits on disk (with 2 GB headroom). */
+/** Model fits if download size + reserve fits on disk. Tighter reserve on small disks. */
 export function fitsDisk(modelSizeMb: number, diskFreeGb: number): boolean {
   if (diskFreeGb <= 0) return true;
-  const needGb = modelSizeMb / 1024 + 2;
+  const reserveGb = diskFreeGb < 15 ? 0.8 : 2;
+  const needGb = modelSizeMb / 1024 + reserveGb;
   return diskFreeGb >= needGb;
 }
