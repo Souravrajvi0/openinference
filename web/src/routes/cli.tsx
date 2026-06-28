@@ -7,7 +7,6 @@ import {
   SiteFooter,
 } from "@/components/marketing/shared";
 import { PixelFlame } from "@/components/PixelFlame";
-import { PixelLogo } from "@/components/pixel/icons";
 
 const INSTALL_CMD = "npm install -g @openinference/cli && oi";
 
@@ -159,11 +158,7 @@ export function CliPage() {
             <PixelFlame cols={28} rows={14} seed={2} />
           </div>
           <div className="absolute inset-x-0 top-0 h-[55%] bg-gradient-to-b from-cream via-cream/95 to-transparent" />
-          <div className="relative flex h-full min-h-[48vh] flex-col justify-between px-4 py-10 sm:px-8 sm:py-12 md:px-12 lg:min-h-[72vh]">
-            <div className="flex items-center gap-3">
-              <PixelLogo size={22} />
-              <span className="font-mono text-sm font-semibold text-ink">oi</span>
-            </div>
+          <div className="relative flex h-full min-h-[48vh] flex-col justify-end px-4 py-10 sm:px-8 sm:py-12 md:px-12 lg:min-h-[72vh]">
             <div>
               <h1 className="max-w-[12ch] text-[clamp(2rem,9vw,5.5rem)] font-semibold leading-[0.95] tracking-[-0.04em]">
                 The package manager for local AI.
@@ -290,6 +285,7 @@ export function CliPage() {
             kicker="Use cases"
             title="Tell us your goal."
             description="We rank the catalog for coding, chat, PDFs, writing, vision, or research."
+            action={<CtaButton href="/models#local">Browse all models →</CtaButton>}
           />
           <div className="mt-8 flex flex-wrap gap-2">
             {USE_CASES.map((u) => (

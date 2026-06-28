@@ -4,6 +4,8 @@ import { PixelLogo } from "@/components/pixel/icons";
 import { toast } from "sonner";
 import { api, authHeaders, MODEL_CATALOG } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { LocalOiCatalog } from "@/components/LocalOiCatalog";
+import { OI_CATALOG } from "@/lib/oi-catalog";
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
@@ -167,6 +169,7 @@ export function Models() {
     <div className="overflow-x-hidden">
       <HeroSection />
       <PickerSection />
+      <LocalOiCatalog />
       <SelfHostedSection />
       <CloudSection />
       {isAdmin && <PullSection />}
@@ -179,10 +182,6 @@ export function Models() {
 function HeroSection() {
   const cpuModels   = MODEL_CATALOG.filter((m) => m.provider === "ollama");
   const cloudModels = MODEL_CATALOG.filter((m) => m.provider !== "ollama");
-  const sub1gb      = cpuModels.filter((m) => {
-    const sz = { "smollm2:135m": 270, "smollm2:360m": 725, "qwen2.5:0.5b": 397, "qwen2.5:1.5b": 986, "gemma3:1b": 815 };
-    return (sz as any)[m.model] !== undefined;
-  });
 
   return (
     <section className="flex min-h-0 flex-col justify-between border-b border-border bg-navy px-4 py-12 text-cream sm:px-8 sm:py-16 md:px-16">
@@ -202,10 +201,10 @@ function HeroSection() {
 
       <div className="mt-8 grid grid-cols-2 gap-px bg-cream/8 sm:mt-12 sm:grid-cols-4">
         {[
-          { v: String(cpuModels.length),   l: "Self-hosted CPU models" },
-          { v: String(sub1gb.length),      l: "Under 1 GB" },
+          { v: String(OI_CATALOG.length), l: "Local models (oi)" },
+          { v: String(cpuModels.length),   l: "Gateway CPU models" },
           { v: String(cloudModels.length), l: "Cloud models" },
-          { v: "$0",                       l: "Per token (CPU)" },
+          { v: "$0",                       l: "Per token (local)" },
         ].map((s) => (
           <div key={s.l} className="bg-ink px-6 py-6">
             <div className="text-2xl font-semibold tracking-tight text-cream">{s.v}</div>
@@ -373,9 +372,9 @@ function SelfHostedSection() {
 
   return (
     <section className="bg-muted/30 px-4 py-12 sm:px-8 sm:py-16 md:px-16">
-      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">CPU · $0 / token</div>
+      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Gateway · server</div>
       <h2 className="mt-3 mb-10 text-[clamp(1.5rem,5vw,3.75rem)] font-medium leading-[1.05] tracking-[-0.03em]">
-        Self-hosted models.
+        Models on your OpenInference stack.
       </h2>
 
       {loading ? (
