@@ -1,15 +1,24 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 
-vi.mock('ioredis', () => ({
-  default: vi.fn().mockImplementation(() => ({
-    on: vi.fn(),
-    quit: vi.fn(),
-    set: vi.fn(),
-    get: vi.fn(),
-    del: vi.fn(),
-    incr: vi.fn(),
-    expire: vi.fn(),
-  })),
+vi.mock('../services/redis', () => ({
+  connectRedis: vi.fn().mockResolvedValue({
+    redis: {
+      defineCommand: vi.fn(),
+      rateLimit: vi.fn().mockResolvedValue([0, 60]),
+      on: vi.fn(),
+      quit: vi.fn().mockResolvedValue('OK'),
+    },
+    writable: false,
+  }),
+  getRedis: vi.fn().mockReturnValue({
+    set: vi.fn().mockResolvedValue('OK'),
+    del: vi.fn().mockResolvedValue(1),
+    connect: vi.fn().mockResolvedValue(undefined),
+    status: 'ready',
+  }),
+  verifyRedisWritable: vi.fn().mockResolvedValue(undefined),
+  redisUrlLooksLikeReplica: vi.fn().mockReturnValue(false),
+  closeRedis: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('../db/client', async (importOriginal) => {

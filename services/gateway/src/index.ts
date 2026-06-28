@@ -1,6 +1,7 @@
 import { buildApp } from './app';
 import { config } from './config';
 import { pool } from './db/client';
+import { closeRedis } from './services/redis';
 import { reencryptPlaintextMcpSecrets } from './services/mcpSecretsMaintenance';
 
 async function main() {
@@ -21,6 +22,7 @@ async function main() {
 }
 
 process.on('SIGTERM', async () => {
+  await closeRedis();
   await pool.end();
   process.exit(0);
 });

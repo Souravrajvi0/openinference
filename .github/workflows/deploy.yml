@@ -32,6 +32,11 @@ jobs:
             # Gateway runs pending SQL migrations on container start before listening.
             docker compose up -d --build --remove-orphans
 
+            # Local Redis must be writable (master). Reset if it was left as a replica.
+            echo "Ensuring Redis is writable..."
+            docker compose exec -T redis redis-cli REPLICAOF NO ONE 2>/dev/null || true
+            docker compose exec -T redis redis-cli SET oi:deploy:probe 1 EX 30
+
             # nginx caches the gateway's upstream IP at startup; when the gateway
             # container is recreated above it gets a new docker-network IP, so nginx
             # keeps proxying to the dead IP and every request 502s. Restart it so it

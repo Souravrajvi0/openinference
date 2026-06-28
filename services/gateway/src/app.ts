@@ -6,10 +6,10 @@ import fastifyJwt from '@fastify/jwt';
 import fastifyStatic from '@fastify/static';
 import fastifySwagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
-import Redis from 'ioredis';
 import { config } from './config';
 import authPlugin from './plugins/auth';
 import tenantContextPlugin from './plugins/tenantContext';
+import { connectRedis, redisUrlLooksLikeReplica } from './services/redis';
 import authRoute from './routes/auth';
 import healthRoute from './routes/health';
 import chatRoute from './routes/chat';
@@ -36,19 +36,41 @@ export async function buildApp(): Promise<FastifyInstance> {
     },
   });
 
-  const redis = new Redis(config.REDIS_URL);
+  if (redisUrlLooksLikeReplica(config.REDIS_URL)) {
+    app.log.warn(
+      { redisUrl: config.REDIS_URL },
+      'REDIS_URL looks like a read replica — use the primary Redis URL or redis://redis:6379 in Docker',
+    );
+  }
+
+  const { redis, writable: redisWritable } = await connectRedis();
+
+  if (!redisWritable) {
+    app.log.error(
+      { redisUrl: config.REDIS_URL },
+      'Redis is read-only — rate limiting uses in-memory fallback; queues (chat eval, ingest) will fail until Redis is fixed',
+    );
+  } else {
+    app.log.info({ redisUrl: config.REDIS_URL }, 'Redis connected (writable)');
+  }
 
   await app.register(fastifyRateLimit, {
     global: true,
     max: config.DEFAULT_RATE_LIMIT_RPM,
     timeWindow: '1 minute',
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    redis: redis as any,
+    ...(redisWritable
+      ? {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          redis: redis as any,
+        }
+      : {}),
     keyGenerator: (req) => {
       const r = req as typeof req & { tenantId?: string };
       return r.tenantId ?? req.ip;
     },
   });
+
+  app.decorate('redisWritable', redisWritable);
 
   await app.register(fastifySwagger, {
     openapi: {

@@ -7,6 +7,7 @@ import { requireOrgRole } from '../services/orgAuth';
 import { query } from '../db/client';
 import { QUEUES, type IngestJobData } from '@sentinelai/shared';
 import { config } from '../config';
+import { bullmqConnection } from '../services/queueConnection';
 
 const createBodySchema = z.object({
   title: z.string().min(1).max(500),
@@ -17,7 +18,7 @@ const createBodySchema = z.object({
 
 const documentsRoute: FastifyPluginAsync = async (_fastify) => {
   const ingestQueue = new Queue(QUEUES.INGEST, {
-    connection: { url: config.REDIS_URL },
+    connection: bullmqConnection(),
   });
 
   // POST /v1/documents — ingest a document

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { Queue } from 'bullmq';
 import { requireScope } from '../plugins/auth';
 import { checkGuardrails } from '../services/guardrails';
+import { bullmqConnection } from '../services/queueConnection';
 import { routeRequest, getAbRoute, getFallbackRoute, estimateTokens } from '../services/router';
 import { callLLM, streamLLM, estimateCost } from '../services/llm';
 import { planAllowsModel, tierForModel } from '../services/plans';
@@ -43,7 +44,7 @@ const bodySchema = z.object({
 });
 
 const chatRoute: FastifyPluginAsync = async (_fastify) => {
-  const evalQueue = new Queue(QUEUES.EVAL, { connection: { url: config.REDIS_URL } });
+  const evalQueue = new Queue(QUEUES.EVAL, { connection: bullmqConnection() });
 
   _fastify.post('/chat', async (request, reply) => {
     requireScope(request, 'chat');

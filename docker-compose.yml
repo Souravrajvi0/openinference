@@ -20,12 +20,13 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    command: redis-server --appendonly yes
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "SET", "oi:healthcheck", "1", "EX", "10"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -39,10 +40,11 @@ services:
       - "3000:3000"
     env_file: .env
     environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgresql://sentinel:sentinel@postgres:5432/openinference
-      - REDIS_URL=redis://redis:6379
-      - OLLAMA_URL=http://ollama:11434
+      NODE_ENV: production
+      DATABASE_URL: postgresql://sentinel:sentinel@postgres:5432/openinference
+      # Always use the compose Redis master — never a managed read replica from .env
+      REDIS_URL: redis://redis:6379
+      OLLAMA_URL: http://ollama:11434
     depends_on:
       postgres:
         condition: service_healthy
@@ -68,9 +70,9 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgresql://sentinel:sentinel@postgres:5432/openinference
-      - REDIS_URL=redis://redis:6379
+      NODE_ENV: production
+      DATABASE_URL: postgresql://sentinel:sentinel@postgres:5432/openinference
+      REDIS_URL: redis://redis:6379
     depends_on:
       postgres:
         condition: service_healthy
@@ -84,9 +86,9 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgresql://sentinel:sentinel@postgres:5432/openinference
-      - REDIS_URL=redis://redis:6379
+      NODE_ENV: production
+      DATABASE_URL: postgresql://sentinel:sentinel@postgres:5432/openinference
+      REDIS_URL: redis://redis:6379
     depends_on:
       postgres:
         condition: service_healthy
