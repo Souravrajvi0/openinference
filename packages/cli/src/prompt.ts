@@ -1,15 +1,45 @@
 import type { HardwareProfile } from './hardware';
+import { isTinyVm } from './hardware';
 import type { Recommendation } from './recommend';
+import { readLine, select } from './linereader';
 
-const TIER_COLOR: Record<string, string> = {
-  perfect: '\x1b[32m',
-  good: '\x1b[33m',
-  marginal: '\x1b[35m',
-};
 const RESET = '\x1b[0m';
+const DIM = '\x1b[2m';
+const GOLD = '\x1b[38;5;220m';
+const TEAL = '\x1b[38;5;43m';
 
 function formatSize(mb: number): string {
   return mb >= 1000 ? `${(mb / 1000).toFixed(1)} GB` : `${mb} MB`;
+}
+
+/** Map a recommendation to a 1-5 score + plain-language verdict. */
+export function rateRec(r: Recommendation): { stars: number; label: string } {
+  let s = Math.round((r.quality || 60) / 20);
+  if (r.fit === 'marginal') s -= 1;
+  s = Math.max(1, Math.min(5, s));
+
+  let label: string;
+  if (r.fit === 'marginal') label = 'Runs, but slower';
+  else if (r.fit === 'perfect' && r.quality >= 82) label = 'Best';
+  else if (r.fit === 'perfect') label = 'Excellent fit';
+  else label = 'Recommended';
+  return { stars: s, label };
+}
+
+function stars(n: number): string {
+  return `${GOLD}${'★'.repeat(n)}${DIM}${'☆'.repeat(5 - n)}${RESET}`;
+}
+
+/** Outcome-focused, icon-tagged reasons a user actually cares about. */
+function reasons(r: Recommendation): string {
+  const parts: string[] = [];
+  if (r.ramGb > 0 && r.ramGb <= 2) parts.push('⚡ Fast');
+  else if (r.ramGb > 0 && r.ramGb <= 5) parts.push('⚡ Snappy');
+  if (r.quality >= 85) parts.push('🧠 Top quality');
+  else if (r.quality >= 78) parts.push('🧠 Great quality');
+  else if (r.quality > 0) parts.push('🧠 Good quality');
+  if (r.sizeMb > 0) parts.push(`💾 ${formatSize(r.sizeMb)}`);
+  return parts.join('  ');
 }
 
 export function printHardwareResults(hw: HardwareProfile): void {
@@ -17,15 +47,22 @@ export function printHardwareResults(hw: HardwareProfile): void {
   console.log(`  ✓ ${hw.osLabel}`);
   console.log(`  ✓ ${hw.ramGb} GB RAM`);
   console.log(`  ✓ ${hw.cpuCores} CPU cores`);
-  if (hw.hasGpu) {
+  if (hw.hasGpu && hw.gpuUsable) {
     console.log(`  ✓ ${hw.gpuName ?? 'GPU'} (${hw.vramGb} GB VRAM)`);
+  } else if (hw.hasGpu) {
+    console.log(`  ✓ ${hw.gpuName ?? 'GPU'} (${hw.vramGb} GB — too small to offload, using CPU)`);
   } else {
     console.log('  ✓ CPU inference (no dedicated GPU detected)');
   }
   if (hw.diskFreeGb > 0) {
     console.log(`  ✓ ${hw.diskFreeGb} GB disk free`);
   }
-  console.log(`  ✓ ~${hw.budgetGb} GB available for models\n`);
+  console.log(`  ✓ ~${hw.budgetGb} GB available for models`);
+  if (isTinyVm(hw)) {
+    console.log('  ⚠ Tiny instance — only very small models (e.g. SmolLM2 135M) are recommended.\n');
+  } else {
+    console.log('');
+  }
 }
 
 export function printHardwareScan(hw: HardwareProfile): void {
@@ -37,47 +74,53 @@ export function printHardwareScan(hw: HardwareProfile): void {
 export function printRecommendations(recs: Recommendation[]): void {
   console.log('');
   recs.forEach((r, i) => {
-    const color = TIER_COLOR[r.fit] ?? '';
-    const size = formatSize(r.sizeMb);
-    console.log(
-      `  [${i + 1}] ${color}${r.fit.padEnd(9)}${RESET} ${r.name.padEnd(22)} ${size.padStart(7)}  ${r.useCase}`,
-    );
-    console.log(`       ${r.id}`);
+    const { stars: sc, label } = rateRec(r);
+    console.log(`  ${i + 1}. ${stars(sc)}  ${TEAL}${r.name}${RESET}  ${DIM}${label}${RESET}`);
+    const why = reasons(r);
+    if (why) console.log(`       ${why}`);
+    console.log(`       ${DIM}${r.id}${RESET}`);
+    console.log('');
   });
-  console.log('');
 }
 
-/** Wizard step: numbered picks with recommended badge on #1. */
-export function printWizardRecommendations(
-  recs: Recommendation[],
-  totalFit: number,
-  opts?: { fallback?: boolean; useCaseLabel?: string },
-): void {
-  if (opts?.fallback) {
-    console.log(
-      `  ⚠ No "${opts.useCaseLabel}" models fit, but ${totalFit} small open-source models do on your hardware:\n`,
-    );
-  } else {
-    console.log(`  ${totalFit} models fit your computer for this use case. Top picks:\n`);
-  }
-  recs.forEach((r, i) => {
-    const badge = i === 0 ? '  ⭐ Recommended' : '';
-    const size = formatSize(r.sizeMb);
-    console.log(`  ${i + 1}. ${r.name.padEnd(22)} ${size.padStart(8)}${badge}`);
-  });
-  console.log('');
+/** Free-text prompt. Uses the shared raw-keypress reader (never readline.createInterface
+ *  on the interactive path) so it can't corrupt the next prompt's stdin state. */
+export async function askText(prompt: string): Promise<string> {
+  const answer = await readLine(prompt);
+  return (answer ?? '').trim();
 }
 
+/** Rough RAM estimate (GB) from an Ollama tag like "llama3.1:8b". Null if no size. */
+export function estimateRamFromTag(tag: string): number | null {
+  const m = /(\d+(?:\.\d+)?)\s*b\b/i.exec(tag);
+  if (!m) return null;
+  const p = parseFloat(m[1]!);
+  if (Number.isNaN(p)) return null;
+  const overhead = p < 1 ? 0.55 : p < 2 ? 1.0 : p < 4 ? 1.5 : p < 10 ? 2.2 : p < 30 ? 3.5 : 5.5;
+  return Math.round((p * 0.72 + overhead) * 10) / 10;
+}
+
+/** Yes/No prompt. In a TTY it uses the shared `select` reader (same stdin
+ *  discipline as every other interactive prompt — no readline.createInterface).
+ *  In a pipe / non-TTY it reads a line and parses y/n text, preserving the old
+ *  scriptable behavior. The default option is used on empty input or Ctrl+C. */
 export async function askYesNo(prompt: string, defaultYes = true): Promise<boolean> {
-  const readline = await import('node:readline');
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const answer = await new Promise<string>((resolve) => {
-    rl.question(prompt, resolve);
+  const simple = process.env.OI_SIMPLE === '1' || !process.stdin.isTTY;
+  if (simple) {
+    const answer = (await readLine(prompt)) ?? '';
+    const t = answer.trim().toLowerCase();
+    if (!t) return defaultYes;
+    return !/^(n|no)$/i.test(t);
+  }
+
+  const yes = { value: true, label: 'Yes' };
+  const no = { value: false, label: 'No' };
+  const picked = await select<boolean>({
+    title: prompt.replace(/\s*\([yYnN/]+\):?\s*$/, '').trimEnd(),
+    choices: defaultYes ? [yes, no] : [no, yes],
+    hint: '↑↓ to move · Enter to choose',
   });
-  rl.close();
-  const t = answer.trim().toLowerCase();
-  if (!t) return defaultYes;
-  return !/^(n|no)$/i.test(t);
+  return picked ?? defaultYes;
 }
 
 export function printTooSmallHelp(hw: HardwareProfile): void {
@@ -92,52 +135,99 @@ export function printTooSmallHelp(hw: HardwareProfile): void {
   }
 }
 
-export async function pickRecommendation(recs: Recommendation[]): Promise<Recommendation> {
+const MORE = '__more__';
+const CUSTOM = '__custom__';
+
+export async function pickRecommendation(
+  recs: Recommendation[],
+  opts?: { show?: number; totalFit?: number; fallback?: boolean; useCaseLabel?: string; budgetGb?: number },
+): Promise<Recommendation> {
   if (recs.length === 0) {
     throw new Error('No models fit this machine. Free up RAM or disk, or try another use case.');
   }
-  if (recs.length === 1) return recs[0]!;
 
-  const readline = await import('node:readline');
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const answer = await new Promise<string>((resolve) => {
-    rl.question(`  Choose a model (1-${recs.length}) [1]: `, resolve);
-  });
-  rl.close();
-
-  const n = parseInt(answer.trim() || '1', 10);
-  if (Number.isNaN(n) || n < 1 || n > recs.length) {
-    console.log('  Invalid choice — using recommendation #1.\n');
-    return recs[0]!;
+  if (opts?.fallback) {
+    console.log(
+      `  ⚠ No "${opts.useCaseLabel}" models fit, but ${opts.totalFit ?? recs.length} small open-source models do:\n`,
+    );
+  } else if (opts?.totalFit != null) {
+    console.log(`  ${opts.totalFit} models fit your computer for this use case.\n`);
   }
-  return recs[n - 1]!;
+
+  let show = Math.min(opts?.show ?? recs.length, recs.length);
+
+  while (true) {
+    const choices = recs.slice(0, show).map((r, i) => ({
+      value: r.id,
+      label: r.name,
+      hint: `${formatSize(r.sizeMb)}${i === 0 ? '  ⭐ recommended' : ''}`,
+    }));
+    if (show < recs.length) {
+      choices.push({ value: MORE, label: `Show ${recs.length - show} more…`, hint: '' });
+    }
+    choices.push({ value: CUSTOM, label: '✎ Enter a custom model…', hint: 'any tag from ollama.com/library' });
+
+    const picked = await select<string>({ title: '  Choose a model', choices });
+    if (picked === null) throw new Error('Setup cancelled.');
+    if (picked === MORE) {
+      show = recs.length;
+      continue;
+    }
+    if (picked === CUSTOM) {
+      const tag = await askText('\n  Ollama tag (e.g. mistral:7b, deepseek-r1:14b): ');
+      if (!tag) {
+        console.log('  No tag entered.\n');
+        continue;
+      }
+      const est = estimateRamFromTag(tag);
+      if (est != null && opts?.budgetGb != null && est > opts.budgetGb) {
+        console.log(`\n  ⚠ ${tag} looks like it needs ~${est} GB RAM, but only ~${opts.budgetGb} GB is free for models here.`);
+        console.log('    It may run slowly or fail to load — you can still try it.\n');
+      }
+      return {
+        id: tag,
+        name: tag,
+        ramGb: est ?? 0,
+        sizeMb: 0,
+        quality: 0,
+        useCase: 'your choice',
+        categories: [],
+        fit: 'good',
+        score: 0,
+      };
+    }
+    return recs.find((r) => r.id === picked) ?? recs[0]!;
+  }
 }
+
+export type InstallAction = 'install' | 'browse' | 'cancel';
 
 export async function confirmInstall(opts: {
   modelName: string;
   sizeMb: number;
   needsOllama: boolean;
-}): Promise<boolean> {
-  const size = formatSize(opts.sizeMb);
+  canBrowse?: boolean;
+}): Promise<InstallAction> {
+  const size = opts.sizeMb > 0 ? formatSize(opts.sizeMb) : 'the model (size unknown)';
 
   console.log('  This will:\n');
   if (opts.needsOllama) {
     console.log('    • Install Ollama (local AI runtime, one-time)');
   }
-  console.log(`    • Download ${size} — ${opts.modelName}`);
+  console.log(`    • Download ${size}${opts.sizeMb > 0 ? ` — ${opts.modelName}` : `: ${opts.modelName}`}`);
   console.log('    • Store models in ~/.ollama/models (managed by Ollama)\n');
 
-  const readline = await import('node:readline');
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const answer = await new Promise<string>((resolve) => {
-    rl.question('  Continue? (Y/n): ', resolve);
-  });
-  rl.close();
-
-  const no = /^(n|no)$/i.test(answer.trim());
-  if (no) {
-    console.log('\n  Setup cancelled. Run `oi` again when you are ready.\n');
-    return false;
+  const choices: { value: InstallAction; label: string; hint?: string }[] = [
+    { value: 'install', label: 'Install this model', hint: opts.modelName },
+  ];
+  if (opts.canBrowse) {
+    choices.push({ value: 'browse', label: 'Browse other models', hint: 'pick a different one' });
   }
-  return true;
+  choices.push({ value: 'cancel', label: 'Cancel', hint: 'do nothing' });
+
+  const picked = await select<InstallAction>({
+    title: `  Ready to install ${opts.modelName}?`,
+    choices,
+  });
+  return picked ?? 'cancel';
 }

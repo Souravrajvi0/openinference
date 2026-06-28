@@ -1,7 +1,7 @@
 {
   "name": "@openinference/cli",
-  "version": "1.0.3",
-  "description": "OpenInference Core — hardware-aware model discovery, Ollama setup, and local chat",
+  "version": "1.6.0",
+  "description": "OpenInference Core — a hardware-aware package manager for local AI models: search, install, run, and chat",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -20,6 +20,7 @@
   "scripts": {
     "build": "node scripts/build-catalog.mjs && tsc && node -e \"require('fs').cpSync('data','dist/data',{recursive:true})\"",
     "catalog": "node scripts/build-catalog.mjs",
+    "verify-catalog": "node scripts/verify-catalog.mjs",
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit"
   },

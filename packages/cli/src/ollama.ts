@@ -184,6 +184,34 @@ export function isInferenceCrashError(msg: string): boolean {
   return /segmentation fault|process has terminated|out of memory|oom|cuda/i.test(msg);
 }
 
+/**
+ * Turn a raw Ollama crash payload into an honest, specific message — instead of
+ * always blaming RAM. An OOM-kill (SIGKILL) and a segfault (SIGSEGV) have very
+ * different causes and fixes.
+ */
+export function classifyCrash(text: string): string | null {
+  const t = text.toLowerCase();
+  if (/signal: killed|out of memory|\boom\b|cannot allocate|bad_alloc/.test(t)) {
+    return (
+      'Model crashed — the system ran out of memory (OOM-killed). ' +
+      'Pick a smaller model (e.g. smollm2:135m) or use a machine with more RAM.'
+    );
+  }
+  if (/cuda|rocm|hip error|gpu/.test(t)) {
+    return (
+      'Model crashed on the GPU. Update your GPU driver, or run a smaller model on CPU.'
+    );
+  }
+  if (/segmentation fault|sigsegv|core dumped|process has terminated/.test(t)) {
+    return (
+      'Model crashed (segmentation fault). This is often low memory, but a segfault ' +
+      'can also mean a CPU-compatibility issue or a corrupt/partial download. ' +
+      'Try re-pulling the model, or pick a smaller one (e.g. smollm2:135m).'
+    );
+  }
+  return null;
+}
+
 export async function verifyModel(baseUrl: string, modelId: string): Promise<void> {
   const url = resolveOllamaUrl(baseUrl);
   console.log('Verifying model…');
@@ -201,12 +229,8 @@ export async function verifyModel(baseUrl: string, modelId: string): Promise<voi
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    if (isInferenceCrashError(text)) {
-      throw new Error(
-        `Model "${modelId}" crashed on this computer (usually not enough RAM for CPU inference). ` +
-          'Pick a smaller model — try smollm2:135m or gemma3:1b.',
-      );
-    }
+    const crash = classifyCrash(text);
+    if (crash) throw new Error(`Model "${modelId}" — ${crash}`);
     throw new Error(`Model verification failed: ${res.status} ${text}`);
   }
 
@@ -224,4 +248,35 @@ export async function listModelTags(ollamaUrl?: string): Promise<string[]> {
   if (!res.ok) throw new Error(`Could not list models (${res.status})`);
   const body = (await res.json()) as { models?: { name: string }[] };
   return (body.models ?? []).map((m) => m.name).sort();
+}
+
+/** Bytes a model occupies on disk, or null if it isn't installed / can't be read. */
+export async function modelSizeBytes(baseUrl: string, modelId: string): Promise<number | null> {
+  const base = resolveOllamaUrl(baseUrl);
+  try {
+    const res = await fetch(`${base}/api/tags`, { signal: AbortSignal.timeout(15_000) });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { models?: { name: string; size?: number }[] };
+    const hit = (body.models ?? []).find(
+      (m) => m.name === modelId || m.name === `${modelId}:latest`,
+    );
+    return hit?.size ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Delete a model via the Ollama HTTP API (works for local CLI and remote/Docker). */
+export async function deleteModel(baseUrl: string, modelId: string): Promise<void> {
+  const base = resolveOllamaUrl(baseUrl);
+  const res = await fetch(`${base}/api/delete`, {
+    method: 'DELETE',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: modelId }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Could not delete ${modelId} (${res.status}): ${text || res.statusText}`);
+  }
 }

@@ -5,9 +5,11 @@ import { runStart } from './start';
 import { runBrowse, runRecommend, parseUseCaseArg } from './recommend-run';
 import { runChat, listInstalledModels } from './chat';
 import { runChatRepl } from './chat-repl';
-import { runPull, runStorage, runUse } from './manage';
+import { runInfo, runPull, runRemove, runSearch, runStorage, runUse } from './manage';
 import { useCaseLabel } from './use-cases';
 import { ollamaModelsPath } from './hardware';
+import { runShell } from './shell';
+import { VERSION } from './version';
 
 const program = new Command();
 
@@ -63,10 +65,24 @@ function setupFlags(opts: Record<string, unknown>) {
 program
   .name('oi')
   .description('OpenInference — find, install, and chat with local open-source models')
-  .version('1.0.3');
+  .version(VERSION);
+
+const shellCmd = program
+  .command('shell', { isDefault: true })
+  .description('Interactive shell: banner + slash commands + chat')
+  .option(urlOption.flags, urlOption.description)
+  .option(dockerOption.flags, dockerOption.description);
+
+shellCmd.action(async (opts) => {
+  try {
+    await runShell({ ollamaUrl: opts.ollamaUrl, remote: opts.docker });
+  } catch (e) {
+    fail(e);
+  }
+});
 
 const startCmd = program
-  .command('start', { isDefault: true })
+  .command('start')
   .description('Wizard: use case → scan → pick → confirm → install → chat')
   .option('--force', 'run setup again even if already configured')
   .option('--no-chat', 'setup only, do not open chat after');
@@ -93,7 +109,7 @@ setupCmd.action(async (opts) => {
 program
   .command('recommend')
   .description('Preview recommendations (no install)')
-  .option('-n, --limit <n>', 'number of results', '10')
+  .option('-n, --limit <n>', 'number of results', '5')
   .option('--use-case <id>', 'coding | chat | pdfs | writing | image | research')
   .option('--all', 'full catalog')
   .action((opts: { limit: string; useCase?: string; all?: boolean }) => {
@@ -132,8 +148,9 @@ program
   });
 
 program
-  .command('pull <model>')
-  .description('Download a model without switching')
+  .command('install <model>')
+  .aliases(['pull', 'add'])
+  .description('Download a model')
   .option('--default', 'also set as active model')
   .option(urlOption.flags, urlOption.description)
   .option('--docker', 'remote Ollama')
@@ -144,6 +161,33 @@ program
         docker: opts.docker,
         setDefault: Boolean(opts.default),
       });
+    } catch (e) {
+      fail(e);
+    }
+  });
+
+program
+  .command('search [query]')
+  .alias('find')
+  .description('Search models that fit this machine (--all for every model)')
+  .option('--all', 'include models too big for this machine')
+  .option(urlOption.flags, urlOption.description)
+  .action(async (query: string | undefined, opts) => {
+    try {
+      await runSearch(query ?? '', { ollamaUrl: opts.ollamaUrl, all: Boolean(opts.all) });
+    } catch (e) {
+      fail(e);
+    }
+  });
+
+program
+  .command('info <model>')
+  .alias('show')
+  .description('Show details for a model (RAM, size, fit, installed state)')
+  .option(urlOption.flags, urlOption.description)
+  .action(async (model: string, opts) => {
+    try {
+      await runInfo(model, { ollamaUrl: opts.ollamaUrl });
     } catch (e) {
       fail(e);
     }
@@ -183,8 +227,28 @@ program
   });
 
 program
-  .command('models')
-  .description('List downloaded models')
+  .command('remove <model>')
+  .aliases(['rm', 'uninstall'])
+  .description('Delete a downloaded model and free disk space')
+  .option('-y, --yes', 'skip confirmation')
+  .option(urlOption.flags, urlOption.description)
+  .option('--docker', 'remote Ollama')
+  .action(async (model: string, opts) => {
+    try {
+      await runRemove(model, {
+        ollamaUrl: opts.ollamaUrl,
+        docker: opts.docker,
+        yes: Boolean(opts.yes),
+      });
+    } catch (e) {
+      fail(e);
+    }
+  });
+
+program
+  .command('list')
+  .aliases(['models', 'ls'])
+  .description('List installed models')
   .option(urlOption.flags, urlOption.description)
   .action(async (opts: { ollamaUrl?: string }) => {
     try {

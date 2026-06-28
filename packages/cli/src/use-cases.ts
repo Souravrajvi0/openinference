@@ -1,6 +1,5 @@
-import readline from 'node:readline';
-
 import type { CatalogModel } from './recommend';
+import { select } from './linereader';
 
 export type UseCaseId = 'coding' | 'chat' | 'pdfs' | 'writing' | 'image' | 'research';
 
@@ -79,28 +78,11 @@ export function parseUseCaseArg(raw?: string): UseCaseId | undefined {
 }
 
 export async function pickUseCase(): Promise<UseCaseId> {
-  console.log('  What do you want to use AI for?\n');
-  USE_CASES.forEach((u, i) => {
-    console.log(`  ${i + 1}. ${u.label.padEnd(18)} ${u.description}`);
+  const chosen = await select<UseCaseId>({
+    title: '  What do you want to use AI for?',
+    choices: USE_CASES.map((u) => ({ value: u.id, label: u.label, hint: u.description })),
   });
-  console.log('');
-
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const answer = await new Promise<string>((resolve) => {
-    rl.question(`  Choose (1-${USE_CASES.length}) [1]: `, resolve);
-  });
-  rl.close();
-
-  const n = parseInt(answer.trim() || '1', 10);
-  if (!Number.isNaN(n) && n >= 1 && n <= USE_CASES.length) {
-    return USE_CASES[n - 1]!.id;
-  }
-
-  const byName = parseUseCaseArg(answer.trim());
-  if (byName) return byName;
-
-  console.log('  Using General Chat.\n');
-  return 'chat';
+  return chosen ?? 'chat';
 }
 
 /** Boost score when model categories align with the user's goal. */

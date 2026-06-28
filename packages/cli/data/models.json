@@ -357,7 +357,8 @@
     "useCase": "code small",
     "categories": [
       "coding"
-    ]
+    ],
+    "verified": true
   },
   {
     "id": "wizardcoder:3b",
@@ -596,7 +597,8 @@
     "useCase": "code small",
     "categories": [
       "coding"
-    ]
+    ],
+    "verified": true
   },
   {
     "id": "deepseek-r1:7b",

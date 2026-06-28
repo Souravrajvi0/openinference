@@ -183,6 +183,8 @@ const VERIFIED = new Set([
   'mistral:7b', 'llama3.1:8b', 'qwen2.5:7b', 'qwen2.5-coder:7b', 'deepseek-r1:7b',
   'codellama:7b', 'llama3.3:70b', 'qwen2.5:14b', 'gemma2:9b', 'phi3:mini',
   'tinyllama', 'llama2:7b', 'neural-chat:7b', 'zephyr:7b', 'mistral-nemo:12b',
+  // Small coding models so low-RAM / CPU machines get a coding pick
+  'qwen2.5-coder:1.5b', 'deepseek-coder:1.3b',
 ]);
 
 function estimateRamGb(paramsB) {

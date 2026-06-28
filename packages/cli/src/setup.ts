@@ -6,9 +6,16 @@ import {
   loadCatalog,
   recommendTop,
   scoreModel,
+  TINY_VM_DEFAULT,
 } from './recommend';
-import { detectHardware, ollamaModelsPath } from './hardware';
-import { saveConfig, type SavedConfig } from './config';
+import { detectDiskFreeGb, detectHardware, fitsDisk, isTinyVm, ollamaModelsPath } from './hardware';
+import {
+  clearCrashedModel,
+  loadCrashedModels,
+  recordCrashedModel,
+  saveConfig,
+  type SavedConfig,
+} from './config';
 import {
   askYesNo,
   confirmInstall,
@@ -17,13 +24,14 @@ import {
   printHardwareScan,
   printRecommendations,
   printTooSmallHelp,
-  printWizardRecommendations,
 } from './prompt';
 import {
+  deleteModel,
   ensureHostOllamaRunning,
   ensureRemoteOllama,
   installOllama,
   isOllamaInstalled,
+  listModelTags,
   pingOllama,
   pullModelHost,
   pullModelRemote,
@@ -37,7 +45,10 @@ import {
   type UseCaseId,
 } from './use-cases';
 
-export const WIZARD_PICK_COUNT = 10;
+/** How many picks to compute (so "show more" has content). */
+export const WIZARD_PICK_COUNT = 15;
+/** How many to show before the user asks for more. */
+export const WIZARD_SHOW_COUNT = 5;
 
 export type SetupOptions = {
   yes?: boolean;
@@ -60,16 +71,17 @@ async function resolvePool(
   catalog: ReturnType<typeof loadCatalog>,
   hw: ReturnType<typeof detectHardware>,
   opts: SetupOptions,
+  excludeIds: string[],
 ): Promise<PoolResult | null> {
   const auto = Boolean(opts.yes);
   const lockedUseCase = opts.useCase;
 
   if (auto || opts.model) {
     const useCase = lockedUseCase ?? 'chat';
-    let { pool, runnable } = buildRecommendPool(catalog, hw, useCase, opts.all);
+    let { pool, runnable } = buildRecommendPool(catalog, hw, useCase, opts.all, excludeIds);
     let hardwareFallback = false;
     if (runnable.length === 0) {
-      runnable = hardwareFittingModels(catalog, hw, opts.all);
+      runnable = hardwareFittingModels(catalog, hw, opts.all, excludeIds);
       pool = runnable;
       hardwareFallback = runnable.length > 0;
     }
@@ -87,14 +99,14 @@ async function resolvePool(
       scanned = true;
     }
 
-    let { pool, runnable } = buildRecommendPool(catalog, hw, useCase, opts.all);
+    let { pool, runnable } = buildRecommendPool(catalog, hw, useCase, opts.all, excludeIds);
     let hardwareFallback = false;
 
     console.log(`  Use case: ${useCaseLabel(useCase)}`);
     console.log(`  Catalog: ${pool.length} models for this goal`);
 
     if (runnable.length === 0) {
-      const anyFit = hardwareFittingModels(catalog, hw, opts.all);
+      const anyFit = hardwareFittingModels(catalog, hw, opts.all, excludeIds);
       if (anyFit.length > 0) {
         console.log(`  0 models for this goal on your hardware, but ${anyFit.length} other small models fit.\n`);
         const ok = lockedUseCase
@@ -128,6 +140,106 @@ async function resolvePool(
   }
 }
 
+type InstallCtx = {
+  remote: boolean;
+  baseUrl: string;
+  needsOllama: boolean;
+  ollamaReady: boolean;
+};
+
+async function ensureOllama(ctx: InstallCtx): Promise<void> {
+  if (ctx.ollamaReady) return;
+
+  if (ctx.remote) {
+    await ensureRemoteOllama(ctx.baseUrl);
+  } else {
+    if (ctx.needsOllama) {
+      console.log('  Installing Ollama…\n');
+      installOllama();
+      if (!isOllamaInstalled()) {
+        throw new Error(
+          'Install finished but Ollama was not found. Restart your terminal and run `oi` again.',
+        );
+      }
+    } else if (!isOllamaInstalled() && !(await pingOllama(ctx.baseUrl))) {
+      throw new Error('Ollama not found. Run `oi` again to install it.');
+    }
+    console.log('  Starting Ollama…\n');
+    await ensureHostOllamaRunning(ctx.baseUrl);
+  }
+  ctx.ollamaReady = true;
+}
+
+async function pullIfNeeded(ctx: InstallCtx, modelId: string): Promise<boolean> {
+  const tags = await listModelTags(ctx.baseUrl).catch((): string[] => []);
+  if (tags.includes(modelId)) return true;
+  console.log('  Downloading model…\n');
+  if (ctx.remote) await pullModelRemote(ctx.baseUrl, modelId);
+  else await pullModelHost(modelId);
+  return false;
+}
+
+async function tryInstallModels(
+  candidates: Recommendation[],
+  ctx: InstallCtx,
+  opts: { auto: boolean; explicitModel: boolean },
+): Promise<Recommendation> {
+  let lastError: Error | null = null;
+
+  for (let i = 0; i < candidates.length; i++) {
+    const model = candidates[i]!;
+
+    if (model.sizeMb > 0) {
+      const freeGb = detectDiskFreeGb();
+      if (freeGb > 0 && !fitsDisk(model.sizeMb, freeGb)) {
+        lastError = new Error(`Not enough disk for ${model.name}.`);
+        continue;
+      }
+    }
+
+    let preexisting = false;
+    try {
+      await ensureOllama(ctx);
+      preexisting = await pullIfNeeded(ctx, model.id);
+      console.log('  Running a quick test…');
+      await verifyModel(ctx.baseUrl, model.id);
+      clearCrashedModel(model.id);
+      return model;
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      lastError = err;
+      recordCrashedModel(model.id);
+      if (!preexisting) {
+        await deleteModel(ctx.baseUrl, model.id).catch(() => {});
+        console.log(`  Removed ${model.id} after the failed test (freed disk).\n`);
+      }
+
+      const hasNext = i < candidates.length - 1;
+      if (opts.explicitModel || !hasNext) break;
+
+      const next = candidates[i + 1]!;
+      if (opts.auto) {
+        console.log(`  ${model.name} did not run here — trying ${next.name}…\n`);
+        continue;
+      }
+
+      const retry = await askYesNo(`  ${model.name} failed. Try ${next.name} instead? (Y/n): `, true);
+      if (retry) {
+        console.log('');
+        continue;
+      }
+      break;
+    }
+  }
+
+  throw (
+    lastError ??
+    new Error(
+      `No model ran successfully on this computer. Try: oi start -y -m ${TINY_VM_DEFAULT}`,
+    )
+  );
+}
+
 export async function runSetup(opts: SetupOptions): Promise<void> {
   const remote = Boolean(opts.docker);
   const baseUrl = resolveOllamaUrl(opts.ollamaUrl);
@@ -135,8 +247,9 @@ export async function runSetup(opts: SetupOptions): Promise<void> {
 
   const hw = detectHardware();
   const catalog = loadCatalog();
+  const crashed = loadCrashedModels();
 
-  const resolved = await resolvePool(catalog, hw, opts);
+  const resolved = await resolvePool(catalog, hw, opts, crashed);
   if (!resolved) return;
 
   const { useCase, runnable, hardwareFallback } = resolved;
@@ -147,8 +260,8 @@ export async function runSetup(opts: SetupOptions): Promise<void> {
     console.log(`  Use case: ${useCaseLabel(useCase)}\n`);
   }
 
-  const recs = recommendTop(runnable, hw.budgetGb, WIZARD_PICK_COUNT, useCase, hw.diskFreeGb, hw);
-  const picks =
+  let recs = recommendTop(runnable, hw.budgetGb, WIZARD_PICK_COUNT, useCase, hw.diskFreeGb, hw);
+  let picks =
     recs.length > 0
       ? recs
       : runnable
@@ -157,19 +270,31 @@ export async function runSetup(opts: SetupOptions): Promise<void> {
           .sort((a, b) => b.score - a.score)
           .slice(0, WIZARD_PICK_COUNT);
 
+  if (picks.length === 0 && isTinyVm(hw)) {
+    const fallback = catalog.find((m) => m.id === TINY_VM_DEFAULT);
+    if (fallback) {
+      const fit = fitsHardware(fallback, hw) ?? 'good';
+      picks = [{ ...fallback, fit, score: 100 }];
+      console.log(`  Using safe default for tiny instances: ${fallback.name}\n`);
+    }
+  }
+
   if (picks.length === 0) {
     printTooSmallHelp(hw);
     return;
   }
 
-  if (!auto && !opts.model) {
-    printWizardRecommendations(picks, runnable.length, {
-      fallback: hardwareFallback,
-      useCaseLabel: useCaseLabel(useCase),
-    });
-  }
+  const needsOllama =
+    !remote && !opts.skipInstall && !(await pingOllama(baseUrl)) && !isOllamaInstalled();
+
+  const cpuNote = () => {
+    if (!hw.gpuUsable && hw.ramGb < 8) {
+      console.log('  Note: CPU-only on limited RAM — only small models are recommended.\n');
+    }
+  };
 
   let chosen: Recommendation;
+  let candidates: Recommendation[];
 
   if (opts.model) {
     const fromRecs = picks.find((r) => r.id === opts.model);
@@ -182,70 +307,80 @@ export async function runSetup(opts: SetupOptions): Promise<void> {
       if (!fit) throw new Error(`Model "${opts.model}" does not fit this machine.`);
       chosen = { ...m, fit, score: 0 };
     }
-    if (!auto) console.log(`  Using model: ${chosen.name} (${chosen.id})\n`);
+    if (crashed.includes(chosen.id)) {
+      console.log(`  Note: ${chosen.name} crashed here before — retrying because you asked for it.\n`);
+    }
+    if (!auto) {
+      console.log(`  Using model: ${chosen.name} (${chosen.id})\n`);
+      cpuNote();
+      const action = await confirmInstall({ modelName: chosen.name, sizeMb: chosen.sizeMb, needsOllama });
+      if (action !== 'install') {
+        console.log('\n  Setup cancelled. Run `oi` again when ready.\n');
+        return;
+      }
+      console.log('');
+    }
+    candidates = [chosen];
   } else if (auto) {
     chosen = picks[0]!;
     console.log(`  → ${chosen.name} (best match)\n`);
+    candidates = picks;
   } else {
-    chosen = await pickRecommendation(picks);
-    console.log(`\n  Selected: ${chosen.name}\n`);
-  }
-
-  if (!hw.hasGpu && hw.ramGb < 8) {
-    console.log('  Note: CPU-only on limited RAM — only small models are recommended.\n');
-  }
-
-  const needsOllama =
-    !remote && !opts.skipInstall && !(await pingOllama(baseUrl)) && !isOllamaInstalled();
-
-  if (!auto) {
-    const ok = await confirmInstall({
-      modelName: chosen.name,
-      sizeMb: chosen.sizeMb,
-      needsOllama,
-    });
-    if (!ok) return;
-    console.log('');
-  }
-
-  if (remote) {
-    console.log('  Connecting to Ollama…\n');
-    await ensureRemoteOllama(baseUrl);
-    console.log('  Downloading model…\n');
-    await pullModelRemote(baseUrl, chosen.id);
-  } else {
-    if (needsOllama) {
-      console.log('  Installing Ollama…\n');
-      installOllama();
-      if (!isOllamaInstalled()) {
-        throw new Error(
-          'Install finished but Ollama was not found. Restart your terminal and run `oi` again.',
-        );
+    while (true) {
+      chosen = await pickRecommendation(picks, {
+        show: WIZARD_SHOW_COUNT,
+        totalFit: runnable.length,
+        fallback: hardwareFallback,
+        useCaseLabel: useCaseLabel(useCase),
+        budgetGb: hw.budgetGb,
+      });
+      console.log(`  Selected: ${chosen.name}\n`);
+      cpuNote();
+      const action = await confirmInstall({
+        modelName: chosen.name,
+        sizeMb: chosen.sizeMb,
+        needsOllama,
+        canBrowse: picks.length > 1,
+      });
+      if (action === 'install') {
+        console.log('');
+        break;
       }
-    } else if (!opts.skipInstall && !isOllamaInstalled() && !(await pingOllama(baseUrl))) {
-      throw new Error('Ollama not found. Run `oi` again to install it.');
+      if (action === 'cancel') {
+        console.log('\n  Setup cancelled. Run `oi` again when ready.\n');
+        return;
+      }
+      console.log('  Pick another model:\n');
     }
-
-    console.log('  Starting Ollama…\n');
-    await ensureHostOllamaRunning(baseUrl);
-    console.log('  Downloading model…\n');
-    await pullModelHost(chosen.id);
+    const idx = picks.findIndex((p) => p.id === chosen.id);
+    candidates = idx >= 0 ? picks.slice(idx) : [chosen];
   }
 
-  console.log('  Running a quick test…');
-  await verifyModel(baseUrl, chosen.id);
+  if (remote) console.log('  Connecting to Ollama…\n');
+
+  const ctx: InstallCtx = {
+    remote,
+    baseUrl,
+    needsOllama,
+    ollamaReady: false,
+  };
+
+  const working = await tryInstallModels(candidates, ctx, {
+    auto: auto && !opts.model,
+    explicitModel: Boolean(opts.model),
+  });
 
   const cfg: SavedConfig = {
     ollamaUrl: baseUrl,
-    model: chosen.id,
-    modelName: chosen.name,
+    model: working.id,
+    modelName: working.name,
     useCase,
     setupAt: new Date().toISOString(),
   };
   saveConfig(cfg);
 
   console.log('\n  ✓ Ready — you can use open-source AI on this computer.\n');
-  console.log(`  Model:   ${chosen.name}`);
+  console.log(`  Model:   ${working.name}`);
   console.log(`  Stored:  ${ollamaModelsPath()}`);
   console.log(`  Config:  ~/.openinference/config.json\n`);
 }
@@ -257,16 +392,22 @@ export function printRecommendPreview(
 ): void {
   console.log('\n  OpenInference — model recommendations\n');
   printHardwareResults(hw);
-  console.log(`  Use case: ${useCaseLabel(meta.useCase)}`);
-  console.log(
-    `  ${meta.poolSize} models for this goal · ${meta.runnableSize} fit your hardware` +
-      `${meta.all ? '' : ' (verified tags preferred; use --all for full catalog)'}\n`,
-  );
+  console.log(`  Use case: ${useCaseLabel(meta.useCase)}\n`);
+  console.log(`  ${meta.poolSize} ${useCaseLabel(meta.useCase)} models available.`);
+  const filtered = meta.poolSize - meta.runnableSize;
+  if (filtered > 0) {
+    console.log(`  ${filtered} need more RAM, GPU, or disk than this computer has.`);
+  }
   if (recs.length === 0) {
-    console.log('  No models fit this machine. Try: oi browse --use-case chat\n');
+    console.log('\n  None will run well here. Try another goal: oi browse --use-case chat\n');
     return;
   }
-  console.log(`  Top ${recs.length}:\n`);
+  console.log(`  Showing the ${recs.length} that will run well:\n`);
   printRecommendations(recs);
-  console.log('  Run `oi` for the setup wizard, or `oi -y` to auto-install the top pick.\n');
+  if (meta.runnableSize > recs.length) {
+    console.log(
+      `  +${meta.runnableSize - recs.length} more fit your hardware — run \`oi browse\` (or /browse) to see them.`,
+    );
+  }
+  console.log('  Run `oi start` for setup, or `oi start -y` to auto-install the top pick.\n');
 }

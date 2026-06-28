@@ -1,8 +1,13 @@
 # @openinference/cli
 
-**OpenInference Core** — find, install, and chat with the best open-source model for your computer.
+**OpenInference Core** — a package manager for local AI models.
 
-Not an agent. A hardware-aware model package manager on top of [Ollama](https://ollama.com).
+`oi` finds, installs, and runs the right open-source model for your computer —
+the same way `apt`, `brew`, or `npm` manage software. It is **hardware-aware**:
+it scans your machine and only offers models that will actually run on it.
+
+Powered by a local inference engine ([Ollama](https://ollama.com) today) — but
+you manage *models*, not the engine.
 
 ## Quick start
 
@@ -19,34 +24,44 @@ oi
 npx @openinference/cli
 ```
 
-The wizard will:
+The default is an **interactive shell** — chat when you already have a model, or `/setup` to run the wizard.
+
+The setup wizard (`oi start`):
 
 1. Ask what you want AI for (coding, chat, PDFs, …)
 2. Scan RAM, CPU, GPU, disk, and OS
 3. Filter 150+ models → what fits your machine
 4. Let you pick and confirm before downloading
-5. Install Ollama, pull the model, open chat
+5. Install Ollama, pull the model, verify with a quick test
+6. On tiny VMs (<4 GB RAM), only micro models are offered; if a model crashes, `-y` auto-retries the next smallest fit
 
 Skip prompts (power users):
 
 ```bash
-npx @openinference/cli -y
+oi start -y
+# safest on a 3–4 GB cloud VM:
+oi start -y -m smollm2:135m
 ```
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `oi` | Setup wizard + chat |
-| `oi -y` | Auto-pick and install |
-| `oi recommend` | Preview picks (no install) |
-| `oi browse` | Browse filtered catalog |
-| `oi use <model>` | Switch model (pulls if needed) |
-| `oi pull <model>` | Download another model |
-| `oi chat` | Chat with active model |
-| `oi models` | List downloaded models |
-| `oi storage` | Where Ollama stores files |
-| `oi status` | Current setup |
+Familiar, package-manager-style commands. Older names are kept as aliases.
+
+| Command | Aliases | Description |
+|---------|---------|-------------|
+| `oi` | | Interactive shell (default) — chat + `/search`, `/install`, `/setup` |
+| `oi start` | `setup` | Setup wizard |
+| `oi start -y` | | Auto-pick and install (retries on crash) |
+| `oi search <query>` | `find` | Search models — shows installed vs available |
+| `oi info <model>` | `show` | Details: RAM, size, fit, installed state |
+| `oi install <model>` | `pull`, `add` | Download a model |
+| `oi use <model>` | | Switch active model (installs if needed) |
+| `oi list` | `models`, `ls` | List installed models |
+| `oi remove <model>` | `rm`, `uninstall` | Delete a model and free disk space |
+| `oi recommend` | | Preview picks for your hardware (no install) |
+| `oi chat` | | Chat with active model |
+| `oi storage` | | Where models are stored |
+| `oi status` | | Current setup |
 
 ## Use cases
 

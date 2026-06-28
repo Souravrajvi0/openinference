@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import type { UseCaseId } from './use-cases';
 import { filterByUseCase, useCaseScoreBoost } from './use-cases';
-import { fitsDisk, type HardwareProfile } from './hardware';
+import { fitsDisk, isSmallVm, isTinyVm, type HardwareProfile } from './hardware';
 
 export type FitTier = 'perfect' | 'good' | 'marginal';
 
@@ -31,6 +31,8 @@ export type RecommendOptions = {
   verifiedOnly?: boolean;
   includeEmbed?: boolean;
   hw?: HardwareProfile;
+  /** Model ids to drop (e.g. crashed on this machine). */
+  excludeIds?: string[];
 };
 
 function modelsPath(): string {
@@ -68,28 +70,38 @@ export function fitLabel(fit: FitTier): string {
   return FIT_LABEL[fit];
 }
 
-/** Realistic RAM Ollama needs — higher on CPU-only (llama.cpp + KV cache). */
+/** Realistic RAM Ollama needs — higher without a usable GPU (llama.cpp + KV cache). */
 export function modelRamNeed(model: CatalogModel, hw: HardwareProfile): number {
   let need = model.ramGb;
-  if (!hw.hasGpu) {
+  if (!hw.gpuUsable) {
     need = Math.round((need * 1.35 + 0.75) * 10) / 10;
   }
   return need;
 }
 
 export function fitsHardware(model: CatalogModel, hw: HardwareProfile): FitTier | null {
+  // Hard caps for cloud micro-instances — prevents segfaults on 3–4 GB VMs
+  if (isTinyVm(hw)) {
+    if (model.ramGb > 0.75 || model.sizeMb > 250) return null;
+  } else if (isSmallVm(hw)) {
+    if (model.ramGb > 1.05 || model.sizeMb > 450) return null;
+  }
+
   const need = modelRamNeed(model, hw);
   const fit = fitTier(need, hw.budgetGb);
   if (!fit) return null;
 
-  // Small CPU-only VMs: never recommend marginal or >~1B class — prevents segfaults
-  if (!hw.hasGpu && hw.ramGb < 8) {
+  // Small CPU-only machines: never recommend marginal or >~1B class
+  if (!hw.gpuUsable && hw.ramGb < 8) {
     if (fit === 'marginal') return null;
     if (hw.ramGb < 6 && model.ramGb > 1.25) return null;
   }
 
   return fit;
 }
+
+/** Safe default when nothing else fits (known-good on 3 GB VMs). */
+export const TINY_VM_DEFAULT = 'smollm2:135m';
 
 /** Filter catalog by hardware, disk, and optional verified flag. */
 export function filterRunnable(
@@ -98,8 +110,10 @@ export function filterRunnable(
 ): CatalogModel[] {
   const disk = opts.diskFreeGb ?? 0;
   const hw = opts.hw;
+  const excluded = opts.excludeIds && opts.excludeIds.length ? new Set(opts.excludeIds) : null;
 
   return catalog.filter((m) => {
+    if (excluded?.has(m.id)) return false;
     if (!opts.includeEmbed && m.kind === 'embed') return false;
     if (opts.verifiedOnly && !m.verified) return false;
 
@@ -127,7 +141,7 @@ export function scoreModel(
   if (useCase) score += useCaseScoreBoost(model, useCase);
   if (model.verified) score += 3;
   // Prefer smaller models on tight CPU boxes
-  if (hw && !hw.hasGpu && hw.ramGb < 8) score -= model.ramGb * 4;
+  if (hw && !hw.gpuUsable && hw.ramGb < 8) score -= model.ramGb * 4;
 
   return { ...model, fit, score };
 }
@@ -157,6 +171,7 @@ export function buildRecommendPool(
   hw: HardwareProfile,
   useCase: UseCaseId,
   all?: boolean,
+  excludeIds?: string[],
 ): { pool: CatalogModel[]; runnable: CatalogModel[] } {
   let pool = catalog.filter((m) => m.kind !== 'embed');
 
@@ -172,6 +187,7 @@ export function buildRecommendPool(
     diskFreeGb: hw.diskFreeGb,
     includeEmbed: false,
     hw,
+    excludeIds,
   });
 
   return { pool, runnable };
@@ -182,6 +198,7 @@ export function hardwareFittingModels(
   catalog: CatalogModel[],
   hw: HardwareProfile,
   all?: boolean,
+  excludeIds?: string[],
 ): CatalogModel[] {
   let pool = catalog.filter((m) => m.kind !== 'embed');
   if (!all) {
@@ -193,5 +210,6 @@ export function hardwareFittingModels(
     diskFreeGb: hw.diskFreeGb,
     includeEmbed: false,
     hw,
+    excludeIds,
   });
 }
