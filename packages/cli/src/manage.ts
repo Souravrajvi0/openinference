@@ -3,6 +3,7 @@ import { fitsHardware, loadCatalog, type CatalogModel } from './recommend';
 import { detectDiskFreeGb, detectHardware, fitsDisk } from './hardware';
 import { askYesNo } from './prompt';
 import { useCaseLabel } from './use-cases';
+import { select } from './linereader';
 import {
   deleteModel,
   ensureHostOllamaRunning,
@@ -187,40 +188,147 @@ export async function runInfo(modelId: string, opts: { ollamaUrl?: string } = {}
   }
 }
 
-export async function runUse(modelId: string, opts: { ollamaUrl?: string; docker?: boolean }): Promise<void> {
-  const catalog = loadCatalog();
-  const entry = catalog.find((m) => m.id === modelId);
-  const name = entry?.name ?? modelId;
-  const base = resolveOllamaUrl(opts.ollamaUrl);
+const INSTALL_MORE = '__install_more__';
 
-  if (!(await pingOllama(base))) {
-    if (opts.docker) throw new Error(`Ollama not reachable at ${base}`);
-    await ensureHostOllamaRunning(base);
-  }
+export type UsePickerResult = 'switched' | 'unchanged' | 'search' | 'empty' | 'cancelled';
 
-  const installed = await listModelTags(base);
-  const has = installed.some((t) => t === modelId || t.startsWith(`${modelId}:`));
+function catalogEntryForTag(catalog: CatalogModel[], tag: string): CatalogModel | undefined {
+  return (
+    catalog.find((m) => m.id === tag) ??
+    catalog.find((m) => tag.startsWith(`${m.id}:`)) ??
+    catalog.find((m) => m.id.startsWith(tag.split(':')[0]!))
+  );
+}
 
-  if (!has) {
-    console.log(`\n  ${modelId} is not downloaded yet. Pulling…\n`);
-    if (opts.docker) await pullModelRemote(base, modelId);
-    else await pullModelHost(modelId);
-  }
-
-  // `use` can bootstrap a fresh install — if there's no config yet, create one
-  // instead of failing with "Not set up yet."
+function switchActiveModel(
+  modelId: string,
+  name: string,
+  baseUrl: string,
+  entry?: CatalogModel,
+): void {
   if (loadConfig()) {
     setActiveModel(modelId, name);
   } else {
     saveConfig({
-      ollamaUrl: base,
+      ollamaUrl: baseUrl,
       model: modelId,
       modelName: name,
       useCase: entry?.categories?.[0],
       setupAt: new Date().toISOString(),
     });
   }
-  console.log(`\n  ✓ Active model: ${name} (${modelId})\n`);
+}
+
+/** Interactive picker — installed models only. Last row opens search to install more. */
+export async function runUsePicker(
+  opts: { ollamaUrl?: string; docker?: boolean } = {},
+): Promise<UsePickerResult> {
+  const base = resolveOllamaUrl(opts.ollamaUrl);
+  const cfg = loadConfig();
+
+  if (!(await pingOllama(base))) {
+    if (opts.docker) {
+      console.log('\n  Local inference is not reachable.\n');
+      return 'cancelled';
+    }
+    try {
+      await ensureHostOllamaRunning(base);
+    } catch {
+      console.log('\n  Local inference is not running. Run /setup or try again.\n');
+      return 'cancelled';
+    }
+  }
+
+  const tags = await listModelTags(base);
+  if (tags.length === 0) {
+    console.log('\n  No models installed yet.');
+    console.log('  Run /setup or /install <model> to get started.\n');
+    return 'empty';
+  }
+
+  const catalog = loadCatalog();
+  const activeId = cfg?.model;
+
+  if (tags.length === 1 && tags[0] === activeId) {
+    const entry = catalogEntryForTag(catalog, tags[0]!);
+    const label = entry?.name ?? tags[0]!;
+    console.log(`\n  Only one model installed: ${label} (already active)\n`);
+    return 'unchanged';
+  }
+
+  type Pick = { value: string; label: string; hint?: string };
+  const choices: Pick[] = tags.map((tag) => {
+    const entry = catalogEntryForTag(catalog, tag);
+    const isActive = tag === activeId;
+    const name = entry?.name ?? tag;
+    const prefix = isActive ? '●' : '○';
+    const size = entry ? formatMb(entry.sizeMb) : undefined;
+    const use = entry ? catLabels(entry) : undefined;
+    const hint = [use, size, isActive ? 'active' : undefined].filter(Boolean).join(' · ');
+    return {
+      value: tag,
+      label: `${prefix} ${name}`,
+      hint: hint || undefined,
+    };
+  });
+
+  choices.push({
+    value: INSTALL_MORE,
+    label: '+ Install another model…',
+    hint: 'search catalog',
+  });
+
+  const picked = await select<string>({
+    title: '  Installed models — pick one to chat with:',
+    choices,
+    hint: '↑↓ move · Enter select · Ctrl+C cancel',
+  });
+
+  if (picked === null) {
+    console.log('');
+    return 'cancelled';
+  }
+
+  if (picked === INSTALL_MORE) return 'search';
+
+  if (picked === activeId) {
+    const entry = catalogEntryForTag(catalog, picked);
+    console.log(`\n  ${entry?.name ?? picked} is already active.\n`);
+    return 'unchanged';
+  }
+
+  const entry = catalogEntryForTag(catalog, picked);
+  const name = entry?.name ?? picked;
+  switchActiveModel(picked, name, base, entry);
+  console.log(`\n  ✓ Active model: ${name} (${picked})\n`);
+  return 'switched';
+}
+
+export async function runUse(modelId: string, opts: { ollamaUrl?: string; docker?: boolean }): Promise<void> {
+  const catalog = loadCatalog();
+  const entry = catalog.find((m) => m.id === modelId) ?? catalog.find((m) => modelId.startsWith(m.id));
+  const name = entry?.name ?? modelId;
+  const base = resolveOllamaUrl(opts.ollamaUrl);
+
+  if (!(await pingOllama(base))) {
+    if (opts.docker) throw new Error(`Local inference not reachable at ${base}`);
+    await ensureHostOllamaRunning(base);
+  }
+
+  const installed = await listModelTags(base);
+  const match =
+    installed.find((t) => t === modelId) ??
+    installed.find((t) => t.startsWith(`${modelId}:`)) ??
+    installed.find((t) => modelId.startsWith(t.split(':')[0]!));
+
+  if (!match) {
+    console.log(`\n  ${modelId} is not installed.`);
+    console.log(`  Install it:  oi install ${modelId}\n`);
+    return;
+  }
+
+  switchActiveModel(match, catalogEntryForTag(catalog, match)?.name ?? name, base, entry);
+  console.log(`\n  ✓ Active model: ${catalogEntryForTag(catalog, match)?.name ?? name} (${match})\n`);
 }
 
 export async function runPull(

@@ -9,7 +9,7 @@ import { runBrowse, runRecommend } from './recommend-run';
 import { parseUseCaseArg, pickUseCase, useCaseLabel, USE_CASES } from './use-cases';
 import { listInstalledModels, streamChatTurn, type ChatMessage } from './chat';
 import { loadCatalog } from './recommend';
-import { runInfo, runPull, runRemove, runSearch, runStorage, runUse } from './manage';
+import { runInfo, runPull, runRemove, runSearch, runStorage, runUse, runUsePicker } from './manage';
 import { printHardwareScan } from './prompt';
 import { VERSION } from './version';
 import { LineReader, type Suggestion } from './linereader';
@@ -39,7 +39,7 @@ const COMMANDS: CommandSpec[] = [
   { name: '/search', args: '[query]', help: 'Search models (installed + available)', group: 'Setup & models' },
   { name: '/recommend', args: '[goal]', help: 'Best models for your hardware', group: 'Setup & models' },
   { name: '/install', args: '<model>', help: 'Download a model', group: 'Setup & models' },
-  { name: '/use', args: '<model>', help: 'Switch active model (installs if needed)', group: 'Setup & models' },
+  { name: '/use', args: '[model]', help: 'Pick from installed models (or switch by name)', group: 'Setup & models' },
   { name: '/info', args: '<model>', help: 'Show details for a model', group: 'Setup & models' },
   { name: '/list', help: 'List installed models', group: 'Setup & models' },
   { name: '/remove', args: '<model>', help: 'Delete a model (frees disk)', group: 'Setup & models' },
@@ -120,7 +120,7 @@ function printReadyHeader(cfg: NonNullable<ReturnType<typeof loadConfig>>): void
   printLogo();
   console.log('');
   console.log(`  ${dim('Model'.padEnd(10))}${bold(cfg.modelName)}`);
-  console.log(`  ${dim('Provider'.padEnd(10))}Ollama`);
+  console.log(`  ${dim('Runtime'.padEnd(10))}local`);
   console.log('');
   console.log(`  ${green('Ready.')}`);
   console.log('');
@@ -302,14 +302,17 @@ async function dispatch(
       await runInfo(arg, { ollamaUrl: opts.ollamaUrl });
       return {};
 
-    case 'use':
+    case 'use': {
       if (!arg) {
-        console.log('\n  Usage: /use <model>   (Tab to autocomplete)\n');
+        const pick = await runUsePicker({ ollamaUrl: opts.ollamaUrl, docker: opts.remote });
+        if (pick === 'search') await runSearch('', { ollamaUrl: opts.ollamaUrl });
+        await refreshInstalled(opts);
         return {};
       }
       await runUse(arg, { ollamaUrl: opts.ollamaUrl, docker: opts.remote });
       await refreshInstalled(opts);
       return {};
+    }
 
     case 'install':
     case 'pull':
@@ -444,7 +447,7 @@ function suggest(line: string): Suggestion[] {
   // Once a command has a space/args, stop showing the command menu.
   if (/\s/.test(line)) return [];
 
-  const ARG_CMDS = new Set(['/install', '/use', '/info', '/remove']);
+  const ARG_CMDS = new Set(['/install', '/info', '/remove']);
   return COMMANDS.filter((c) => c.name.startsWith(line)).map((c) => {
     const needsArg = ARG_CMDS.has(c.name);
     return {

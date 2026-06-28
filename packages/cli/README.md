@@ -57,7 +57,7 @@ Familiar, package-manager-style commands. Older names are kept as aliases.
 | `oi search <query>` | `find` | Search models — shows installed vs available |
 | `oi info <model>` | `show` | Details: RAM, size, fit, installed state |
 | `oi install <model>` | `pull`, `add` | Download a model |
-| `oi use <model>` | | Switch active model (installs if needed) |
+| `oi use [model]` | | Switch active model (`oi use` = pick from installed) |
 | `oi list` | `models`, `ls` | List installed models |
 | `oi remove <model>` | `rm`, `uninstall` | Delete a model and free disk space |
 | `oi recommend` | | Preview picks for your hardware (no install) |

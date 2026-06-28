@@ -5,7 +5,7 @@ import { runStart } from './start';
 import { runBrowse, runRecommend, parseUseCaseArg } from './recommend-run';
 import { runChat, listInstalledModels } from './chat';
 import { runChatRepl } from './chat-repl';
-import { runInfo, runPull, runRemove, runSearch, runStorage, runUse } from './manage';
+import { runInfo, runPull, runRemove, runSearch, runStorage, runUse, runUsePicker } from './manage';
 import { useCaseLabel } from './use-cases';
 import { ollamaModelsPath } from './hardware';
 import { runShell } from './shell';
@@ -135,12 +135,17 @@ program
   });
 
 program
-  .command('use <model>')
-  .description('Switch active model (pulls first if needed)')
+  .command('use [model]')
+  .description('Switch active model (no arg = pick from installed)')
   .option(urlOption.flags, urlOption.description)
-  .option('--docker', 'remote Ollama')
-  .action(async (model: string, opts) => {
+  .option('--docker', 'remote inference host')
+  .action(async (model: string | undefined, opts) => {
     try {
+      if (!model?.trim()) {
+        const pick = await runUsePicker({ ollamaUrl: opts.ollamaUrl });
+        if (pick === 'search') await runSearch('', { ollamaUrl: opts.ollamaUrl });
+        return;
+      }
       await runUse(model, { ollamaUrl: opts.ollamaUrl, docker: opts.docker });
     } catch (e) {
       fail(e);
