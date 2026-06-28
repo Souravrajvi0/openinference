@@ -86,6 +86,7 @@ export function FeatureCard({
   accent,
   className,
   href,
+  stacked = false,
 }: {
   icon?: ReactNode;
   title: string;
@@ -94,24 +95,38 @@ export function FeatureCard({
   accent?: string;
   className?: string;
   href?: string;
+  /** Top-align tag, title, and body (default spreads title to card bottom). */
+  stacked?: boolean;
 }) {
-  const inner = (
-  <>
+  const tagEl = tag ? (
+    <div className={cn("flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground", !stacked && "mb-4")}>
+      {accent && <span className="inline-block h-2 w-2 rounded-sm" style={{ backgroundColor: accent }} />}
+      {tag}
+    </div>
+  ) : null;
+
+  const titleEl = (
+    <>
+      <h3 className={cn("text-xl font-semibold leading-snug tracking-tight", stacked && "mt-4")}>{title}</h3>
+      {description && (
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:opacity-100 group-hover:text-cream/70 max-sm:opacity-100">{description}</p>
+      )}
+    </>
+  );
+
+  const inner = stacked ? (
+    <>
+      {icon && <div className="mb-6">{icon}</div>}
+      {tagEl}
+      {titleEl}
+    </>
+  ) : (
+    <>
       <div className="mb-auto">
         {icon && <div className="mb-6">{icon}</div>}
-        {tag && (
-          <div className="mb-4 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            {accent && <span className="inline-block h-2 w-2 rounded-sm" style={{ backgroundColor: accent }} />}
-            {tag}
-          </div>
-        )}
+        {tagEl}
       </div>
-      <div>
-        <h3 className="text-xl font-semibold leading-snug tracking-tight">{title}</h3>
-        {description && (
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:opacity-100 group-hover:text-cream/70 max-sm:opacity-100">{description}</p>
-        )}
-      </div>
+      <div>{titleEl}</div>
     </>
   );
 

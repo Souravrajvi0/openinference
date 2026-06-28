@@ -243,6 +243,7 @@ export function CliPage() {
             {PILLARS.map((p) => (
               <FeatureCard
                 key={p.tag}
+                stacked
                 tag={p.tag}
                 title={p.title}
                 description={p.description}
