@@ -1,22 +1,31 @@
 import { loadConfig } from './config';
-import { ensureOllamaRunning, ollamaBaseUrl, pingOllama } from './ollama';
+import {
+  ensureHostOllamaRunning,
+  pingOllama,
+  resolveOllamaUrl,
+} from './ollama';
 
 export type ChatOptions = {
   model?: string;
-  url?: string;
+  ollamaUrl?: string;
+  /** Skip trying to start local `ollama serve` (use with --docker / remote URL). */
+  remote?: boolean;
 };
 
 export async function runChat(message: string, opts: ChatOptions = {}): Promise<string> {
   const cfg = loadConfig();
   const model = opts.model ?? cfg?.model;
-  const base = (opts.url ?? cfg?.ollamaUrl ?? ollamaBaseUrl()).replace(/\/$/, '');
+  const base = resolveOllamaUrl(opts.ollamaUrl);
 
   if (!model) {
     throw new Error('No model configured. Run: oi setup');
   }
 
-  if (!(await pingOllama())) {
-    await ensureOllamaRunning();
+  if (!(await pingOllama(base))) {
+    if (opts.remote || base !== 'http://127.0.0.1:11434') {
+      throw new Error(`Ollama not reachable at ${base}. Check --ollama-url or OLLAMA_URL.`);
+    }
+    await ensureHostOllamaRunning(base);
   }
 
   const res = await fetch(`${base}/api/chat`, {
@@ -41,15 +50,16 @@ export async function runChat(message: string, opts: ChatOptions = {}): Promise<
   return content;
 }
 
-export async function listInstalledModels(): Promise<string[]> {
-  const cfg = loadConfig();
-  const base = (cfg?.ollamaUrl ?? ollamaBaseUrl()).replace(/\/$/, '');
+export async function listInstalledModels(ollamaUrl?: string): Promise<string[]> {
+  const base = resolveOllamaUrl(ollamaUrl);
 
-  if (!(await pingOllama())) {
-    throw new Error('Ollama is not running. Run: oi setup');
+  if (!(await pingOllama(base))) {
+    throw new Error(
+      `Ollama not reachable at ${base}. Set --ollama-url or OLLAMA_URL (e.g. http://ollama:11434 on Docker).`,
+    );
   }
 
-  const res = await fetch(`${base}/api/tags`, { signal: AbortSignal.timeout(10_000) });
+  const res = await fetch(`${base}/api/tags`, { signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`Could not list models (${res.status})`);
 
   const body = (await res.json()) as { models?: { name: string }[] };

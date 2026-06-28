@@ -1,9 +1,12 @@
 import { spawn, spawnSync } from 'node:child_process';
+import { loadConfig } from './config';
 
-const OLLAMA_URL = process.env.OLLAMA_URL ?? 'http://127.0.0.1:11434';
+const DEFAULT_URL = 'http://127.0.0.1:11434';
 
-export function ollamaBaseUrl(): string {
-  return OLLAMA_URL.replace(/\/$/, '');
+/** Resolve Ollama API base: CLI flag → OLLAMA_URL env → saved config → localhost. */
+export function resolveOllamaUrl(cliUrl?: string): string {
+  const cfg = loadConfig();
+  return (cliUrl ?? process.env.OLLAMA_URL ?? cfg?.ollamaUrl ?? DEFAULT_URL).replace(/\/$/, '');
 }
 
 export function isOllamaInstalled(): boolean {
@@ -12,9 +15,10 @@ export function isOllamaInstalled(): boolean {
   return r.status === 0 && Boolean(r.stdout?.trim());
 }
 
-export async function pingOllama(): Promise<boolean> {
+export async function pingOllama(baseUrl?: string): Promise<boolean> {
+  const url = resolveOllamaUrl(baseUrl);
   try {
-    const res = await fetch(`${ollamaBaseUrl()}/api/tags`, { signal: AbortSignal.timeout(3000) });
+    const res = await fetch(`${url}/api/tags`, { signal: AbortSignal.timeout(5000) });
     return res.ok;
   } catch {
     return false;
@@ -69,8 +73,9 @@ function spawnDetached(command: string, args: string[]): void {
   child.unref();
 }
 
-export async function ensureOllamaRunning(): Promise<void> {
-  if (await pingOllama()) return;
+/** Start local `ollama serve` when using host CLI mode. */
+export async function ensureHostOllamaRunning(baseUrl: string): Promise<void> {
+  if (await pingOllama(baseUrl)) return;
 
   console.log('Starting Ollama…');
   if (!isOllamaInstalled()) {
@@ -81,7 +86,7 @@ export async function ensureOllamaRunning(): Promise<void> {
 
   const deadline = Date.now() + 45_000;
   while (Date.now() < deadline) {
-    if (await pingOllama()) {
+    if (await pingOllama(baseUrl)) {
       console.log('Ollama is running.\n');
       return;
     }
@@ -96,7 +101,18 @@ export async function ensureOllamaRunning(): Promise<void> {
   throw new Error('Ollama did not start in time. Try: ollama serve');
 }
 
-export function pullModel(modelId: string): Promise<void> {
+/** Docker / remote mode — Ollama must already be reachable over HTTP. */
+export async function ensureRemoteOllama(baseUrl: string): Promise<void> {
+  if (await pingOllama(baseUrl)) {
+    console.log(`  Ollama reachable at ${baseUrl}\n`);
+    return;
+  }
+  throw new Error(
+    `Cannot reach Ollama at ${baseUrl}. Check the URL, Docker network, and that the container is running.`,
+  );
+}
+
+export function pullModelHost(modelId: string): Promise<void> {
   return new Promise((resolve, reject) => {
     console.log(`\nPulling ${modelId}… (this may take a few minutes)\n`);
     const child = spawn('ollama', ['pull', modelId], { stdio: 'inherit', windowsHide: false });
@@ -108,9 +124,66 @@ export function pullModel(modelId: string): Promise<void> {
   });
 }
 
-export async function verifyModel(modelId: string): Promise<void> {
-  console.log('\nVerifying model…');
-  const res = await fetch(`${ollamaBaseUrl()}/api/generate`, {
+type PullEvent = { status?: string; completed?: number; total?: number; digest?: string };
+
+/** Pull via Ollama HTTP API (for Docker / VM where `ollama` CLI is not on PATH). */
+export async function pullModelRemote(baseUrl: string, modelId: string): Promise<void> {
+  const url = resolveOllamaUrl(baseUrl);
+  console.log(`\nPulling ${modelId} via ${url}… (this may take a few minutes)\n`);
+
+  const res = await fetch(`${url}/api/pull`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: modelId, stream: true }),
+  });
+
+  if (!res.ok || !res.body) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Pull failed (${res.status}): ${text || res.statusText}`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let lastLine = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split('\n');
+    buffer = parts.pop() ?? '';
+
+    for (const line of parts) {
+      if (!line.trim()) continue;
+      let ev: PullEvent;
+      try {
+        ev = JSON.parse(line) as PullEvent;
+      } catch {
+        continue;
+      }
+      if (ev.status === 'downloading' && ev.total && ev.completed != null) {
+        const pct = Math.round((ev.completed / ev.total) * 100);
+        lastLine = `  downloading ${pct}%`;
+        process.stdout.write(`\r${lastLine}`);
+      } else if (ev.status && ev.status !== lastLine) {
+        if (lastLine.startsWith('\r')) process.stdout.write('\n');
+        lastLine = ev.status;
+        const short =
+          ev.status.length > 72 ? ev.status.slice(0, 69) + '…' : ev.status;
+        console.log(`  ${short}`);
+      }
+    }
+  }
+
+  if (lastLine.startsWith('downloading')) process.stdout.write('\n');
+  console.log('');
+}
+
+export async function verifyModel(baseUrl: string, modelId: string): Promise<void> {
+  const url = resolveOllamaUrl(baseUrl);
+  console.log('Verifying model…');
+  const res = await fetch(`${url}/api/generate`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -119,7 +192,7 @@ export async function verifyModel(modelId: string): Promise<void> {
       stream: false,
       options: { num_predict: 8 },
     }),
-    signal: AbortSignal.timeout(120_000),
+    signal: AbortSignal.timeout(300_000),
   });
 
   if (!res.ok) {

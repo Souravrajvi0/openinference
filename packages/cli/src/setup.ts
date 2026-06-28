@@ -4,12 +4,14 @@ import { detectHardware, formatHardware } from './hardware';
 import { saveConfig } from './config';
 import { printRecommendations, pickRecommendation } from './prompt';
 import {
-  ensureOllamaRunning,
+  ensureHostOllamaRunning,
+  ensureRemoteOllama,
   installOllama,
   isOllamaInstalled,
-  ollamaBaseUrl,
   pingOllama,
-  pullModel,
+  pullModelHost,
+  pullModelRemote,
+  resolveOllamaUrl,
   verifyModel,
 } from './ollama';
 
@@ -17,10 +19,19 @@ export type SetupOptions = {
   yes?: boolean;
   model?: string;
   skipInstall?: boolean;
+  /** Remote Ollama (Docker/VM): pull via HTTP API, no host `ollama` CLI. */
+  docker?: boolean;
+  ollamaUrl?: string;
 };
 
 export async function runSetup(opts: SetupOptions): Promise<void> {
+  const remote = Boolean(opts.docker);
+  const baseUrl = resolveOllamaUrl(opts.ollamaUrl);
+
   console.log('\n  OpenInference — local model setup\n');
+  if (remote) {
+    console.log(`  Mode: remote Ollama (HTTP API at ${baseUrl})\n`);
+  }
 
   const hw = detectHardware();
   console.log(`  System: ${formatHardware(hw)}`);
@@ -68,23 +79,29 @@ export async function runSetup(opts: SetupOptions): Promise<void> {
     console.log('  Note: this model is a tight fit — it may run slowly on your hardware.\n');
   }
 
-  if (!opts.skipInstall && !(await pingOllama()) && !isOllamaInstalled()) {
-    installOllama();
-    if (!isOllamaInstalled()) {
-      throw new Error('Ollama install finished but `ollama` was not found on PATH. Restart your terminal and retry.');
+  if (remote) {
+    await ensureRemoteOllama(baseUrl);
+    await pullModelRemote(baseUrl, chosen.id);
+  } else {
+    if (!opts.skipInstall && !(await pingOllama(baseUrl)) && !isOllamaInstalled()) {
+      installOllama();
+      if (!isOllamaInstalled()) {
+        throw new Error('Ollama install finished but `ollama` was not found on PATH. Restart your terminal and retry.');
+      }
+    } else if (!opts.skipInstall && !isOllamaInstalled() && !(await pingOllama(baseUrl))) {
+      throw new Error(
+        'Ollama is not installed. Run without --skip-install or install from https://ollama.com',
+      );
     }
-  } else if (!isOllamaInstalled()) {
-    throw new Error(
-      'Ollama is not installed. Run without --skip-install or install from https://ollama.com',
-    );
+
+    await ensureHostOllamaRunning(baseUrl);
+    await pullModelHost(chosen.id);
   }
 
-  await ensureOllamaRunning();
-  await pullModel(chosen.id);
-  await verifyModel(chosen.id);
+  await verifyModel(baseUrl, chosen.id);
 
   saveConfig({
-    ollamaUrl: ollamaBaseUrl(),
+    ollamaUrl: baseUrl,
     model: chosen.id,
     modelName: chosen.name,
     setupAt: new Date().toISOString(),
@@ -92,10 +109,10 @@ export async function runSetup(opts: SetupOptions): Promise<void> {
 
   console.log('  Setup complete\n');
   console.log(`  Model:  ${chosen.name} (${chosen.id})`);
-  console.log(`  Ollama: ${ollamaBaseUrl()}`);
+  console.log(`  Ollama: ${baseUrl}`);
   console.log(`  Config: ~/.openinference/config.json\n`);
   console.log('  Gateway .env:');
-  console.log(`    OLLAMA_URL=${ollamaBaseUrl()}\n`);
+  console.log(`    OLLAMA_URL=${baseUrl}\n`);
   console.log('  Test:');
-  console.log(`    oi chat "Hello"\n`);
+  console.log(`    oi chat "Hello"${remote ? ` --ollama-url ${baseUrl}` : ''}\n`);
 }

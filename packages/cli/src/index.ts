@@ -13,28 +13,48 @@ function fail(e: unknown): never {
   process.exit(1);
 }
 
+const urlOption = {
+  flags: '--ollama-url <url>',
+  description: 'Ollama HTTP API base (default: $OLLAMA_URL, config, or http://127.0.0.1:11434)',
+};
+
 program
   .name('oi')
   .description('OpenInference CLI — local model setup and gateway tools')
-  .version('0.1.0');
+  .version('0.2.0');
 
 program
   .command('setup', { isDefault: true })
   .description('Detect hardware, show 5 picks, install Ollama, pull your model (default command)')
   .option('-y, --yes', 'skip prompt and use the top recommendation')
   .option('-m, --model <id>', 'skip prompt and use a specific Ollama model tag')
-  .option('--skip-install', 'do not attempt to install Ollama (must already be on PATH)')
-  .action(async (opts: { yes?: boolean; model?: string; skipInstall?: boolean }) => {
-    try {
-      await runSetup({
-        yes: opts.yes,
-        model: opts.model,
-        skipInstall: opts.skipInstall,
-      });
-    } catch (e) {
-      fail(e);
-    }
-  });
+  .option('--skip-install', 'host mode: do not install Ollama if missing')
+  .option(
+    '--docker',
+    'remote mode: talk to Ollama over HTTP (Docker/VM); pull via API, no host CLI',
+  )
+  .option(urlOption.flags, urlOption.description)
+  .action(
+    async (opts: {
+      yes?: boolean;
+      model?: string;
+      skipInstall?: boolean;
+      docker?: boolean;
+      ollamaUrl?: string;
+    }) => {
+      try {
+        await runSetup({
+          yes: opts.yes,
+          model: opts.model,
+          skipInstall: opts.skipInstall,
+          docker: opts.docker,
+          ollamaUrl: opts.ollamaUrl,
+        });
+      } catch (e) {
+        fail(e);
+      }
+    },
+  );
 
 program
   .command('recommend')
@@ -54,27 +74,39 @@ program
   .command('chat [message]')
   .description('Chat with your local Ollama model from setup')
   .option('-m, --model <id>', 'override model tag')
-  .action(async (message: string | undefined, opts: { model?: string }) => {
-    try {
-      const text = message?.trim() || 'Hello! Reply in one short sentence.';
-      const reply = await runChat(text, { model: opts.model });
-      console.log(`\n${reply}\n`);
-    } catch (e) {
-      fail(e);
-    }
-  });
+  .option(urlOption.flags, urlOption.description)
+  .option('--docker', 'remote mode: do not try to start local ollama serve')
+  .action(
+    async (
+      message: string | undefined,
+      opts: { model?: string; ollamaUrl?: string; docker?: boolean },
+    ) => {
+      try {
+        const text = message?.trim() || 'Hello! Reply in one short sentence.';
+        const reply = await runChat(text, {
+          model: opts.model,
+          ollamaUrl: opts.ollamaUrl,
+          remote: opts.docker,
+        });
+        console.log(`\n${reply}\n`);
+      } catch (e) {
+        fail(e);
+      }
+    },
+  );
 
 program
   .command('models')
-  .description('List models installed in local Ollama')
-  .action(async () => {
+  .description('List models installed in Ollama')
+  .option(urlOption.flags, urlOption.description)
+  .action(async (opts: { ollamaUrl?: string }) => {
     try {
-      const names = await listInstalledModels();
+      const names = await listInstalledModels(opts.ollamaUrl);
       if (names.length === 0) {
         console.log('\n  No models installed. Run: oi setup\n');
         return;
       }
-      console.log('\n  Installed in Ollama:\n');
+      console.log(`\n  Installed in Ollama (${opts.ollamaUrl ?? process.env.OLLAMA_URL ?? 'default'}):\n`);
       names.forEach((n) => console.log(`    ${n}`));
       console.log('');
     } catch (e) {
@@ -96,7 +128,7 @@ program
     console.log(`  Ollama: ${cfg.ollamaUrl}`);
     console.log(`  Since:  ${cfg.setupAt}\n`);
     console.log('  Commands:');
-    console.log('    oi chat "your question"');
+    console.log(`    oi chat "your question" --ollama-url ${cfg.ollamaUrl}`);
     console.log('    oi recommend');
     console.log('    oi models\n');
   });
