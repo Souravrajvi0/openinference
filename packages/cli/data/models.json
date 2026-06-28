@@ -2,7 +2,7 @@
   {
     "id": "smollm2:135m",
     "name": "SmolLM2 135M",
-    "ramGb": 0.4,
+    "ramGb": 0.6,
     "sizeMb": 190,
     "quality": 45,
     "useCase": "classification, tags",
@@ -14,7 +14,7 @@
   {
     "id": "smollm2:360m",
     "name": "SmolLM2 360M",
-    "ramGb": 0.5,
+    "ramGb": 0.8,
     "sizeMb": 307,
     "quality": 50,
     "useCase": "light tasks",
@@ -26,7 +26,7 @@
   {
     "id": "qwen2.5:0.5b",
     "name": "Qwen 2.5 0.5B",
-    "ramGb": 0.6,
+    "ramGb": 0.9,
     "sizeMb": 380,
     "quality": 52,
     "useCase": "fast labels",
@@ -38,7 +38,7 @@
   {
     "id": "tinyllama",
     "name": "TinyLlama 1.1B",
-    "ramGb": 1.1,
+    "ramGb": 1.8,
     "sizeMb": 772,
     "quality": 48,
     "useCase": "tiny chat",
@@ -51,7 +51,7 @@
   {
     "id": "tinydolphin",
     "name": "TinyDolphin 1.5B",
-    "ramGb": 1.3,
+    "ramGb": 2.1,
     "sizeMb": 980,
     "quality": 55,
     "useCase": "uncensored small",
@@ -62,7 +62,7 @@
   {
     "id": "stablelm2:1.6b",
     "name": "StableLM2 1.6B",
-    "ramGb": 1.4,
+    "ramGb": 2.2,
     "sizeMb": 1032,
     "quality": 54,
     "useCase": "chat",
@@ -74,7 +74,7 @@
   {
     "id": "olmo2:1b",
     "name": "OLMo 2 1B",
-    "ramGb": 1.1,
+    "ramGb": 1.7,
     "sizeMb": 720,
     "quality": 56,
     "useCase": "research chat",
@@ -87,7 +87,7 @@
   {
     "id": "granite3-dense:2b",
     "name": "Granite 3 Dense 2B",
-    "ramGb": 1.6,
+    "ramGb": 2.9,
     "sizeMb": 1240,
     "quality": 73,
     "useCase": "enterprise chat",
@@ -99,7 +99,7 @@
   {
     "id": "gemma3:1b",
     "name": "Gemma 3 1B",
-    "ramGb": 1.1,
+    "ramGb": 1.7,
     "sizeMb": 720,
     "quality": 68,
     "useCase": "chat, general",
@@ -112,7 +112,7 @@
   {
     "id": "llama3.2:1b",
     "name": "Llama 3.2 1B",
-    "ramGb": 1.1,
+    "ramGb": 1.7,
     "sizeMb": 720,
     "quality": 66,
     "useCase": "instructions",
@@ -125,7 +125,7 @@
   {
     "id": "llama3.2:1b-instruct-q8_0",
     "name": "Llama 3.2 1B Q8",
-    "ramGb": 1.1,
+    "ramGb": 1.7,
     "sizeMb": 720,
     "quality": 67,
     "useCase": "precise small",
@@ -136,7 +136,7 @@
   {
     "id": "qwen2.5:1.5b",
     "name": "Qwen 2.5 1.5B",
-    "ramGb": 1.3,
+    "ramGb": 2.1,
     "sizeMb": 980,
     "quality": 70,
     "useCase": "JSON, chat",
@@ -149,7 +149,7 @@
   {
     "id": "deepseek-r1:1.5b",
     "name": "DeepSeek R1 1.5B",
-    "ramGb": 1.3,
+    "ramGb": 2.1,
     "sizeMb": 980,
     "quality": 72,
     "useCase": "reasoning",
@@ -161,7 +161,7 @@
   {
     "id": "phi3:mini",
     "name": "Phi-3 Mini",
-    "ramGb": 2.5,
+    "ramGb": 4.2,
     "sizeMb": 2176,
     "quality": 74,
     "useCase": "reasoning small",
@@ -173,7 +173,7 @@
   {
     "id": "gemma2:2b",
     "name": "Gemma 2 2B",
-    "ramGb": 1.6,
+    "ramGb": 2.9,
     "sizeMb": 1240,
     "quality": 71,
     "useCase": "chat",
@@ -186,7 +186,7 @@
   {
     "id": "smollm2:1.7b",
     "name": "SmolLM2 1.7B",
-    "ramGb": 1.4,
+    "ramGb": 2.2,
     "sizeMb": 1084,
     "quality": 65,
     "useCase": "efficient chat",
@@ -199,7 +199,7 @@
   {
     "id": "internlm2:1.8b",
     "name": "InternLM2 1.8B",
-    "ramGb": 1.5,
+    "ramGb": 2.3,
     "sizeMb": 1136,
     "quality": 69,
     "useCase": "multilingual",
@@ -210,7 +210,7 @@
   {
     "id": "yi:1.5b",
     "name": "Yi 1.5B",
-    "ramGb": 1.3,
+    "ramGb": 2.1,
     "sizeMb": 980,
     "quality": 67,
     "useCase": "bilingual chat",
@@ -222,7 +222,7 @@
   {
     "id": "qwen2:1.5b",
     "name": "Qwen 2 1.5B",
-    "ramGb": 1.3,
+    "ramGb": 2.1,
     "sizeMb": 980,
     "quality": 66,
     "useCase": "chat",
@@ -234,7 +234,7 @@
   {
     "id": "orca-mini",
     "name": "Orca Mini 3B",
-    "ramGb": 2.1,
+    "ramGb": 3.7,
     "sizeMb": 1760,
     "quality": 58,
     "useCase": "teaching small",
@@ -245,7 +245,7 @@
   {
     "id": "stablelm-zephyr:3b",
     "name": "StableLM Zephyr 3B",
-    "ramGb": 2.1,
+    "ramGb": 3.7,
     "sizeMb": 1760,
     "quality": 68,
     "useCase": "chat",
@@ -257,7 +257,7 @@
   {
     "id": "llama3.2:3b",
     "name": "Llama 3.2 3B",
-    "ramGb": 2.1,
+    "ramGb": 3.7,
     "sizeMb": 1760,
     "quality": 76,
     "useCase": "general",
@@ -270,7 +270,7 @@
   {
     "id": "qwen2.5:3b",
     "name": "Qwen 2.5 3B",
-    "ramGb": 2.1,
+    "ramGb": 3.7,
     "sizeMb": 1760,
     "quality": 78,
     "useCase": "coding, JSON",
@@ -282,7 +282,7 @@
   {
     "id": "phi3.5:latest",
     "name": "Phi 3.5",
-    "ramGb": 2.5,
+    "ramGb": 4.2,
     "sizeMb": 2176,
     "quality": 74,
     "useCase": "reasoning",
@@ -294,7 +294,7 @@
   {
     "id": "gemma3:4b",
     "name": "Gemma 3 4B",
-    "ramGb": 2.9,
+    "ramGb": 5.1,
     "sizeMb": 2280,
     "quality": 80,
     "useCase": "quality chat",
@@ -307,7 +307,7 @@
   {
     "id": "gemma3:4b-it-qat",
     "name": "Gemma 3 4B QAT",
-    "ramGb": 2.9,
+    "ramGb": 5.1,
     "sizeMb": 2280,
     "quality": 81,
     "useCase": "efficient 4B",
@@ -318,7 +318,7 @@
   {
     "id": "codestral:22b-v0.1-q4_0",
     "name": "Codestral 22B Q4",
-    "ramGb": 12.6,
+    "ramGb": 19.3,
     "sizeMb": 11640,
     "quality": 88,
     "useCase": "coding frontier",
@@ -329,7 +329,7 @@
   {
     "id": "codegemma:2b",
     "name": "CodeGemma 2B",
-    "ramGb": 1.6,
+    "ramGb": 2.9,
     "sizeMb": 1240,
     "quality": 72,
     "useCase": "code completion",
@@ -340,7 +340,7 @@
   {
     "id": "starcoder2:3b",
     "name": "StarCoder2 3B",
-    "ramGb": 2.1,
+    "ramGb": 3.7,
     "sizeMb": 1760,
     "quality": 75,
     "useCase": "code",
@@ -351,7 +351,7 @@
   {
     "id": "deepseek-coder:1.3b",
     "name": "DeepSeek Coder 1.3B",
-    "ramGb": 1.2,
+    "ramGb": 1.9,
     "sizeMb": 876,
     "quality": 70,
     "useCase": "code small",
@@ -362,7 +362,7 @@
   {
     "id": "wizardcoder:3b",
     "name": "WizardCoder 3B",
-    "ramGb": 2.1,
+    "ramGb": 3.7,
     "sizeMb": 1760,
     "quality": 71,
     "useCase": "code",
@@ -373,7 +373,7 @@
   {
     "id": "sqlcoder:7b",
     "name": "SQLCoder 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 79,
     "useCase": "SQL",
@@ -384,7 +384,7 @@
   {
     "id": "llama3.2-vision:11b",
     "name": "Llama 3.2 Vision 11B",
-    "ramGb": 6.9,
+    "ramGb": 11.4,
     "sizeMb": 5920,
     "quality": 82,
     "useCase": "vision",
@@ -395,7 +395,7 @@
   {
     "id": "moondream:1.8b",
     "name": "Moondream 1.8B",
-    "ramGb": 1.5,
+    "ramGb": 2.3,
     "sizeMb": 1136,
     "quality": 64,
     "useCase": "vision small",
@@ -406,7 +406,7 @@
   {
     "id": "llava:7b",
     "name": "LLaVA 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 76,
     "useCase": "vision chat",
@@ -419,7 +419,7 @@
   {
     "id": "bakllava:7b",
     "name": "BakLLaVA 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 75,
     "useCase": "vision",
@@ -430,7 +430,7 @@
   {
     "id": "granite3-dense:8b",
     "name": "Granite 3 Dense 8B",
-    "ramGb": 5,
+    "ramGb": 8,
     "sizeMb": 4360,
     "quality": 83,
     "useCase": "enterprise",
@@ -441,7 +441,7 @@
   {
     "id": "falcon3:3b",
     "name": "Falcon 3 3B",
-    "ramGb": 2.1,
+    "ramGb": 3.7,
     "sizeMb": 1760,
     "quality": 70,
     "useCase": "chat",
@@ -453,7 +453,7 @@
   {
     "id": "openhermes:2.5-mistral-7b",
     "name": "OpenHermes Mistral 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 77,
     "useCase": "chat tuned",
@@ -465,7 +465,7 @@
   {
     "id": "mistral:7b",
     "name": "Mistral 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 82,
     "useCase": "general",
@@ -478,7 +478,7 @@
   {
     "id": "mistral:7b-instruct",
     "name": "Mistral 7B Instruct",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 83,
     "useCase": "instructions",
@@ -490,7 +490,7 @@
   {
     "id": "mistral-nemo:12b",
     "name": "Mistral Nemo 12B",
-    "ramGb": 7.4,
+    "ramGb": 12.1,
     "sizeMb": 6440,
     "quality": 85,
     "useCase": "long context",
@@ -502,7 +502,7 @@
   {
     "id": "llama3.1:8b",
     "name": "Llama 3.1 8B",
-    "ramGb": 5,
+    "ramGb": 8,
     "sizeMb": 4360,
     "quality": 84,
     "useCase": "general, tools",
@@ -516,7 +516,7 @@
   {
     "id": "llama3.1:8b-instruct-q4_K_M",
     "name": "Llama 3.1 8B Q4",
-    "ramGb": 5,
+    "ramGb": 8,
     "sizeMb": 4360,
     "quality": 84,
     "useCase": "general",
@@ -528,7 +528,7 @@
   {
     "id": "llama3.2:3b-instruct-q4_K_M",
     "name": "Llama 3.2 3B Q4",
-    "ramGb": 2.1,
+    "ramGb": 3.7,
     "sizeMb": 1760,
     "quality": 76,
     "useCase": "fast general",
@@ -540,7 +540,7 @@
   {
     "id": "llama3.3:70b",
     "name": "Llama 3.3 70B",
-    "ramGb": 38.9,
+    "ramGb": 55.9,
     "sizeMb": 36600,
     "quality": 93,
     "useCase": "frontier",
@@ -552,7 +552,7 @@
   {
     "id": "qwen2.5:7b",
     "name": "Qwen 2.5 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 86,
     "useCase": "coding, chat",
@@ -566,7 +566,7 @@
   {
     "id": "qwen2.5:7b-instruct",
     "name": "Qwen 2.5 7B Instruct",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 86,
     "useCase": "chat",
@@ -578,7 +578,7 @@
   {
     "id": "qwen2.5-coder:7b",
     "name": "Qwen 2.5 Coder 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 87,
     "useCase": "coding",
@@ -590,7 +590,7 @@
   {
     "id": "qwen2.5-coder:1.5b",
     "name": "Qwen 2.5 Coder 1.5B",
-    "ramGb": 1.3,
+    "ramGb": 2.1,
     "sizeMb": 980,
     "quality": 74,
     "useCase": "code small",
@@ -601,7 +601,7 @@
   {
     "id": "deepseek-r1:7b",
     "name": "DeepSeek R1 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 85,
     "useCase": "reasoning",
@@ -613,7 +613,7 @@
   {
     "id": "deepseek-r1:8b",
     "name": "DeepSeek R1 8B",
-    "ramGb": 5,
+    "ramGb": 8,
     "sizeMb": 4360,
     "quality": 86,
     "useCase": "reasoning",
@@ -624,7 +624,7 @@
   {
     "id": "deepseek-coder:6.7b",
     "name": "DeepSeek Coder 6.7B",
-    "ramGb": 4.3,
+    "ramGb": 7,
     "sizeMb": 3684,
     "quality": 84,
     "useCase": "coding",
@@ -635,7 +635,7 @@
   {
     "id": "deepseek-coder-v2:16b",
     "name": "DeepSeek Coder v2 16B",
-    "ramGb": 9.5,
+    "ramGb": 15,
     "sizeMb": 8520,
     "quality": 89,
     "useCase": "coding large",
@@ -646,7 +646,7 @@
   {
     "id": "codellama:7b",
     "name": "Code Llama 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 83,
     "useCase": "coding",
@@ -658,7 +658,7 @@
   {
     "id": "codellama:13b",
     "name": "Code Llama 13B",
-    "ramGb": 8,
+    "ramGb": 12.9,
     "sizeMb": 6960,
     "quality": 86,
     "useCase": "coding",
@@ -669,7 +669,7 @@
   {
     "id": "codellama:34b",
     "name": "Code Llama 34B",
-    "ramGb": 20.2,
+    "ramGb": 30,
     "sizeMb": 17880,
     "quality": 90,
     "useCase": "coding frontier",
@@ -680,7 +680,7 @@
   {
     "id": "neural-chat:7b",
     "name": "Neural Chat 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 79,
     "useCase": "chat",
@@ -693,7 +693,7 @@
   {
     "id": "starling-lm:7b",
     "name": "Starling 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 81,
     "useCase": "chat",
@@ -705,7 +705,7 @@
   {
     "id": "openchat:7b",
     "name": "OpenChat 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 80,
     "useCase": "chat",
@@ -717,7 +717,7 @@
   {
     "id": "vicuna:7b",
     "name": "Vicuna 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 78,
     "useCase": "chat",
@@ -729,7 +729,7 @@
   {
     "id": "wizardlm2:7b",
     "name": "WizardLM2 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 80,
     "useCase": "instructions",
@@ -741,7 +741,7 @@
   {
     "id": "wizardlm2:8x22b",
     "name": "WizardLM2 8x22B MoE",
-    "ramGb": 75.8,
+    "ramGb": 107,
     "sizeMb": 73520,
     "quality": 94,
     "useCase": "MoE frontier",
@@ -752,7 +752,7 @@
   {
     "id": "nous-hermes2:7b",
     "name": "Nous Hermes 2 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 81,
     "useCase": "chat",
@@ -764,7 +764,7 @@
   {
     "id": "nous-hermes2-mixtral:8x7b",
     "name": "Nous Hermes Mixtral",
-    "ramGb": 26.9,
+    "ramGb": 39.3,
     "sizeMb": 24640,
     "quality": 90,
     "useCase": "MoE chat",
@@ -776,7 +776,7 @@
   {
     "id": "dolphin-mistral:7b",
     "name": "Dolphin Mistral 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 79,
     "useCase": "uncensored chat",
@@ -788,7 +788,7 @@
   {
     "id": "dolphin-llama3:8b",
     "name": "Dolphin Llama 3 8B",
-    "ramGb": 5,
+    "ramGb": 8,
     "sizeMb": 4360,
     "quality": 80,
     "useCase": "uncensored chat",
@@ -800,7 +800,7 @@
   {
     "id": "solar:10.7b",
     "name": "Solar 10.7B",
-    "ramGb": 6.8,
+    "ramGb": 11.2,
     "sizeMb": 5764,
     "quality": 84,
     "useCase": "depth-upscaled",
@@ -811,7 +811,7 @@
   {
     "id": "yi:6b",
     "name": "Yi 6B",
-    "ramGb": 4,
+    "ramGb": 6.5,
     "sizeMb": 3320,
     "quality": 80,
     "useCase": "bilingual",
@@ -822,7 +822,7 @@
   {
     "id": "yi:9b",
     "name": "Yi 9B",
-    "ramGb": 5.5,
+    "ramGb": 8.7,
     "sizeMb": 4880,
     "quality": 83,
     "useCase": "bilingual quality",
@@ -833,7 +833,7 @@
   {
     "id": "command-r7b",
     "name": "Command R 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 82,
     "useCase": "RAG, tools",
@@ -845,7 +845,7 @@
   {
     "id": "command-r:35b",
     "name": "Command R 35B",
-    "ramGb": 20.7,
+    "ramGb": 30.7,
     "sizeMb": 18400,
     "quality": 91,
     "useCase": "RAG enterprise",
@@ -858,7 +858,7 @@
   {
     "id": "command-r-plus:104b",
     "name": "Command R+ 104B",
-    "ramGb": 56.6,
+    "ramGb": 80.4,
     "sizeMb": 54280,
     "quality": 95,
     "useCase": "frontier RAG",
@@ -870,7 +870,7 @@
   {
     "id": "granite3.1-dense:8b",
     "name": "Granite 3.1 8B",
-    "ramGb": 5,
+    "ramGb": 8,
     "sizeMb": 4360,
     "quality": 84,
     "useCase": "enterprise",
@@ -881,7 +881,7 @@
   {
     "id": "granite3.1-moe:1b",
     "name": "Granite 3.1 MoE 1B",
-    "ramGb": 1.1,
+    "ramGb": 1.7,
     "sizeMb": 720,
     "quality": 70,
     "useCase": "efficient MoE",
@@ -892,7 +892,7 @@
   {
     "id": "falcon:7b",
     "name": "Falcon 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 77,
     "useCase": "general",
@@ -904,7 +904,7 @@
   {
     "id": "falcon2:11b",
     "name": "Falcon 2 11B",
-    "ramGb": 6.9,
+    "ramGb": 11.4,
     "sizeMb": 5920,
     "quality": 82,
     "useCase": "general",
@@ -916,7 +916,7 @@
   {
     "id": "zephyr:7b",
     "name": "Zephyr 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 80,
     "useCase": "helpful chat",
@@ -929,7 +929,7 @@
   {
     "id": "orca2:7b",
     "name": "Orca 2 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 79,
     "useCase": "reasoning",
@@ -940,7 +940,7 @@
   {
     "id": "orca2:13b",
     "name": "Orca 2 13B",
-    "ramGb": 8,
+    "ramGb": 12.9,
     "sizeMb": 6960,
     "quality": 84,
     "useCase": "reasoning",
@@ -951,7 +951,7 @@
   {
     "id": "wizard-vicuna-uncensored:7b",
     "name": "Wizard Vicuna 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 76,
     "useCase": "uncensored",
@@ -962,7 +962,7 @@
   {
     "id": "everythinglm:13b",
     "name": "EverythingLM 13B",
-    "ramGb": 8,
+    "ramGb": 12.9,
     "sizeMb": 6960,
     "quality": 78,
     "useCase": "roleplay",
@@ -973,7 +973,7 @@
   {
     "id": "megadolphin:7b",
     "name": "MegaDolphin 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 77,
     "useCase": "uncensored",
@@ -984,7 +984,7 @@
   {
     "id": "open-orca-platypus2:13b",
     "name": "OpenOrca Platypus2 13B",
-    "ramGb": 8,
+    "ramGb": 12.9,
     "sizeMb": 6960,
     "quality": 80,
     "useCase": "reasoning",
@@ -995,7 +995,7 @@
   {
     "id": "stable-beluga:7b",
     "name": "Stable Beluga 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 78,
     "useCase": "chat",
@@ -1007,7 +1007,7 @@
   {
     "id": "stable-beluga:13b",
     "name": "Stable Beluga 13B",
-    "ramGb": 8,
+    "ramGb": 12.9,
     "sizeMb": 6960,
     "quality": 81,
     "useCase": "chat",
@@ -1019,7 +1019,7 @@
   {
     "id": "meditron:7b",
     "name": "Meditron 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 76,
     "useCase": "medical",
@@ -1030,7 +1030,7 @@
   {
     "id": "medllama2:7b",
     "name": "MedLlama2 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 75,
     "useCase": "medical",
@@ -1041,7 +1041,7 @@
   {
     "id": "biomistral:7b",
     "name": "BioMistral 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 77,
     "useCase": "biomedical",
@@ -1052,7 +1052,7 @@
   {
     "id": "llama2:7b",
     "name": "Llama 2 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 72,
     "useCase": "legacy general",
@@ -1065,7 +1065,7 @@
   {
     "id": "llama2:13b",
     "name": "Llama 2 13B",
-    "ramGb": 8,
+    "ramGb": 12.9,
     "sizeMb": 6960,
     "quality": 78,
     "useCase": "legacy general",
@@ -1077,7 +1077,7 @@
   {
     "id": "llama2:70b",
     "name": "Llama 2 70B",
-    "ramGb": 38.9,
+    "ramGb": 55.9,
     "sizeMb": 36600,
     "quality": 90,
     "useCase": "legacy frontier",
@@ -1088,7 +1088,7 @@
   {
     "id": "llama2-chinese:7b",
     "name": "Llama 2 Chinese 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 74,
     "useCase": "chinese",
@@ -1099,7 +1099,7 @@
   {
     "id": "gemma:7b",
     "name": "Gemma 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 79,
     "useCase": "google chat",
@@ -1111,7 +1111,7 @@
   {
     "id": "gemma2:9b",
     "name": "Gemma 2 9B",
-    "ramGb": 5.5,
+    "ramGb": 8.7,
     "sizeMb": 4880,
     "quality": 84,
     "useCase": "quality chat",
@@ -1124,7 +1124,7 @@
   {
     "id": "gemma2:27b",
     "name": "Gemma 2 27B",
-    "ramGb": 15.2,
+    "ramGb": 22.9,
     "sizeMb": 14240,
     "quality": 91,
     "useCase": "frontier chat",
@@ -1136,7 +1136,7 @@
   {
     "id": "gemma3:12b",
     "name": "Gemma 3 12B",
-    "ramGb": 7.4,
+    "ramGb": 12.1,
     "sizeMb": 6440,
     "quality": 87,
     "useCase": "multimodal text",
@@ -1147,7 +1147,7 @@
   {
     "id": "gemma3:27b",
     "name": "Gemma 3 27B",
-    "ramGb": 15.2,
+    "ramGb": 22.9,
     "sizeMb": 14240,
     "quality": 92,
     "useCase": "frontier",
@@ -1158,7 +1158,7 @@
   {
     "id": "phi4:14b",
     "name": "Phi-4 14B",
-    "ramGb": 8.5,
+    "ramGb": 13.6,
     "sizeMb": 7480,
     "quality": 88,
     "useCase": "reasoning",
@@ -1169,7 +1169,7 @@
   {
     "id": "marco-o1:7b",
     "name": "Marco-o1 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 82,
     "useCase": "reasoning",
@@ -1180,7 +1180,7 @@
   {
     "id": "reflection:70b",
     "name": "Reflection 70B",
-    "ramGb": 38.9,
+    "ramGb": 55.9,
     "sizeMb": 36600,
     "quality": 92,
     "useCase": "self-correct",
@@ -1191,7 +1191,7 @@
   {
     "id": "athene-v2:72b",
     "name": "Athene v2 72B",
-    "ramGb": 39.9,
+    "ramGb": 57.3,
     "sizeMb": 37640,
     "quality": 93,
     "useCase": "agentic",
@@ -1202,7 +1202,7 @@
   {
     "id": "sailor2:8b",
     "name": "Sailor2 8B",
-    "ramGb": 5,
+    "ramGb": 8,
     "sizeMb": 4360,
     "quality": 81,
     "useCase": "multilingual sea",
@@ -1213,7 +1213,7 @@
   {
     "id": "exaone3.5:7.8b",
     "name": "EXAONE 3.5 7.8B",
-    "ramGb": 4.9,
+    "ramGb": 7.8,
     "sizeMb": 4256,
     "quality": 83,
     "useCase": "korean, english",
@@ -1224,7 +1224,7 @@
   {
     "id": "aya:23-8b",
     "name": "Aya 23 8B",
-    "ramGb": 5,
+    "ramGb": 8,
     "sizeMb": 4360,
     "quality": 82,
     "useCase": "multilingual",
@@ -1235,7 +1235,7 @@
   {
     "id": "aya:23-35b",
     "name": "Aya 23 35B",
-    "ramGb": 20.7,
+    "ramGb": 30.7,
     "sizeMb": 18400,
     "quality": 90,
     "useCase": "multilingual large",
@@ -1246,7 +1246,7 @@
   {
     "id": "nemotron-mini:4b",
     "name": "Nemotron Mini 4B",
-    "ramGb": 2.9,
+    "ramGb": 5.1,
     "sizeMb": 2280,
     "quality": 76,
     "useCase": "nvidia small",
@@ -1257,7 +1257,7 @@
   {
     "id": "nemotron:70b",
     "name": "Nemotron 70B",
-    "ramGb": 38.9,
+    "ramGb": 55.9,
     "sizeMb": 36600,
     "quality": 92,
     "useCase": "nvidia frontier",
@@ -1268,7 +1268,7 @@
   {
     "id": "snowflake-arctic-embed:335m",
     "name": "Snowflake Arctic Embed",
-    "ramGb": 0.5,
+    "ramGb": 0.8,
     "sizeMb": 294,
     "quality": 58,
     "useCase": "embeddings",
@@ -1280,7 +1280,7 @@
   {
     "id": "nomic-embed-text",
     "name": "Nomic Embed Text",
-    "ramGb": 0.4,
+    "ramGb": 0.7,
     "sizeMb": 193,
     "quality": 60,
     "useCase": "embeddings",
@@ -1292,7 +1292,7 @@
   {
     "id": "mxbai-embed-large",
     "name": "MxBai Embed Large",
-    "ramGb": 0.5,
+    "ramGb": 0.8,
     "sizeMb": 297,
     "quality": 62,
     "useCase": "embeddings",
@@ -1304,7 +1304,7 @@
   {
     "id": "bge-large",
     "name": "BGE Large",
-    "ramGb": 0.5,
+    "ramGb": 0.8,
     "sizeMb": 297,
     "quality": 61,
     "useCase": "embeddings",
@@ -1316,7 +1316,7 @@
   {
     "id": "all-minilm",
     "name": "All-MiniLM",
-    "ramGb": 0.4,
+    "ramGb": 0.6,
     "sizeMb": 162,
     "quality": 55,
     "useCase": "embeddings",
@@ -1328,7 +1328,7 @@
   {
     "id": "qwen2.5:14b",
     "name": "Qwen 2.5 14B",
-    "ramGb": 8.5,
+    "ramGb": 13.6,
     "sizeMb": 7480,
     "quality": 88,
     "useCase": "reasoning",
@@ -1340,7 +1340,7 @@
   {
     "id": "qwen2.5:14b-instruct",
     "name": "Qwen 2.5 14B Instruct",
-    "ramGb": 8.5,
+    "ramGb": 13.6,
     "sizeMb": 7480,
     "quality": 88,
     "useCase": "chat",
@@ -1352,7 +1352,7 @@
   {
     "id": "qwen2.5:32b",
     "name": "Qwen 2.5 32B",
-    "ramGb": 19.1,
+    "ramGb": 28.5,
     "sizeMb": 16840,
     "quality": 90,
     "useCase": "frontier local",
@@ -1363,7 +1363,7 @@
   {
     "id": "qwen2.5:72b",
     "name": "Qwen 2.5 72B",
-    "ramGb": 39.9,
+    "ramGb": 57.3,
     "sizeMb": 37640,
     "quality": 94,
     "useCase": "frontier",
@@ -1374,7 +1374,7 @@
   {
     "id": "llama3.1:70b",
     "name": "Llama 3.1 70B",
-    "ramGb": 38.9,
+    "ramGb": 55.9,
     "sizeMb": 36600,
     "quality": 92,
     "useCase": "frontier",
@@ -1385,7 +1385,7 @@
   {
     "id": "llama3.1:70b-instruct-q4_K_M",
     "name": "Llama 3.1 70B Q4",
-    "ramGb": 38.9,
+    "ramGb": 55.9,
     "sizeMb": 36600,
     "quality": 92,
     "useCase": "frontier",
@@ -1396,7 +1396,7 @@
   {
     "id": "mixtral:8x7b",
     "name": "Mixtral 8x7B MoE",
-    "ramGb": 26.9,
+    "ramGb": 39.3,
     "sizeMb": 24640,
     "quality": 91,
     "useCase": "MoE quality",
@@ -1407,7 +1407,7 @@
   {
     "id": "mixtral:8x22b",
     "name": "Mixtral 8x22B MoE",
-    "ramGb": 75.8,
+    "ramGb": 107,
     "sizeMb": 73520,
     "quality": 95,
     "useCase": "MoE frontier",
@@ -1418,7 +1418,7 @@
   {
     "id": "solar-pro:22b",
     "name": "Solar Pro 22B",
-    "ramGb": 12.6,
+    "ramGb": 19.3,
     "sizeMb": 11640,
     "quality": 89,
     "useCase": "reasoning",
@@ -1429,7 +1429,7 @@
   {
     "id": "dbrx:132b",
     "name": "DBRX 132B MoE",
-    "ramGb": 71.1,
+    "ramGb": 100.5,
     "sizeMb": 68840,
     "quality": 96,
     "useCase": "enterprise MoE",
@@ -1440,7 +1440,7 @@
   {
     "id": "internlm2:7b",
     "name": "InternLM2 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 82,
     "useCase": "multilingual",
@@ -1451,7 +1451,7 @@
   {
     "id": "internlm2:20b",
     "name": "InternLM2 20B",
-    "ramGb": 11.6,
+    "ramGb": 17.9,
     "sizeMb": 10600,
     "quality": 88,
     "useCase": "multilingual large",
@@ -1462,7 +1462,7 @@
   {
     "id": "wizardlm:13b",
     "name": "WizardLM 13B",
-    "ramGb": 8,
+    "ramGb": 12.9,
     "sizeMb": 6960,
     "quality": 80,
     "useCase": "instructions",
@@ -1474,7 +1474,7 @@
   {
     "id": "nous-hermes2:10.7b",
     "name": "Nous Hermes 10.7B",
-    "ramGb": 6.8,
+    "ramGb": 11.2,
     "sizeMb": 5764,
     "quality": 83,
     "useCase": "chat",
@@ -1486,7 +1486,7 @@
   {
     "id": "starcoder2:7b",
     "name": "StarCoder2 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 82,
     "useCase": "code",
@@ -1497,7 +1497,7 @@
   {
     "id": "starcoder2:15b",
     "name": "StarCoder2 15B",
-    "ramGb": 9,
+    "ramGb": 14.3,
     "sizeMb": 8000,
     "quality": 86,
     "useCase": "code large",
@@ -1508,7 +1508,7 @@
   {
     "id": "shieldgemma:9b",
     "name": "ShieldGemma 9B",
-    "ramGb": 5.5,
+    "ramGb": 8.7,
     "sizeMb": 4880,
     "quality": 78,
     "useCase": "safety",
@@ -1519,7 +1519,7 @@
   {
     "id": "mathstral:7b",
     "name": "Mathstral 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 84,
     "useCase": "math",
@@ -1530,7 +1530,7 @@
   {
     "id": "llama3-groq-tool-use:8b",
     "name": "Llama 3 Groq Tool Use 8B",
-    "ramGb": 5,
+    "ramGb": 8,
     "sizeMb": 4360,
     "quality": 85,
     "useCase": "tool calling",
@@ -1541,7 +1541,7 @@
   {
     "id": "firefunction-v2:70b",
     "name": "Firefunction v2 70B",
-    "ramGb": 38.9,
+    "ramGb": 55.9,
     "sizeMb": 36600,
     "quality": 91,
     "useCase": "function calling",
@@ -1552,7 +1552,7 @@
   {
     "id": "granite3-moe:3b",
     "name": "Granite 3 MoE 3B",
-    "ramGb": 2.1,
+    "ramGb": 3.7,
     "sizeMb": 1760,
     "quality": 77,
     "useCase": "efficient MoE",
@@ -1563,7 +1563,7 @@
   {
     "id": "granite-code:8b",
     "name": "Granite Code 8B",
-    "ramGb": 5,
+    "ramGb": 8,
     "sizeMb": 4360,
     "quality": 84,
     "useCase": "code enterprise",
@@ -1575,7 +1575,7 @@
   {
     "id": "stable-code:3b",
     "name": "Stable Code 3B",
-    "ramGb": 2.1,
+    "ramGb": 3.7,
     "sizeMb": 1760,
     "quality": 73,
     "useCase": "code",
@@ -1586,7 +1586,7 @@
   {
     "id": "stablelm2:12b",
     "name": "StableLM2 12B",
-    "ramGb": 7.4,
+    "ramGb": 12.1,
     "sizeMb": 6440,
     "quality": 82,
     "useCase": "chat",
@@ -1598,7 +1598,7 @@
   {
     "id": "mpt:7b",
     "name": "MPT 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 74,
     "useCase": "legacy chat",
@@ -1610,7 +1610,7 @@
   {
     "id": "mpt:30b",
     "name": "MPT 30B",
-    "ramGb": 18.1,
+    "ramGb": 27.1,
     "sizeMb": 15800,
     "quality": 86,
     "useCase": "legacy large",
@@ -1621,7 +1621,7 @@
   {
     "id": "yarn-mistral:7b-128k",
     "name": "Yarn Mistral 7B 128k",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 81,
     "useCase": "long context",
@@ -1632,7 +1632,7 @@
   {
     "id": "llama-pro:8b",
     "name": "Llama Pro 8B",
-    "ramGb": 5,
+    "ramGb": 8,
     "sizeMb": 4360,
     "quality": 83,
     "useCase": "block expansion",
@@ -1643,7 +1643,7 @@
   {
     "id": "openhermes:7b-mistral-v2.5",
     "name": "OpenHermes 7B v2.5",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 80,
     "useCase": "chat",
@@ -1655,7 +1655,7 @@
   {
     "id": "nous-capybara:7b",
     "name": "Nous Capybara 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 79,
     "useCase": "chat",
@@ -1667,7 +1667,7 @@
   {
     "id": "neural-chat:7b-v3-3",
     "name": "Neural Chat 7B v3.3",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 80,
     "useCase": "chat",
@@ -1679,7 +1679,7 @@
   {
     "id": "wizard-math:7b",
     "name": "WizardMath 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 82,
     "useCase": "math",
@@ -1690,7 +1690,7 @@
   {
     "id": "wizard-math:13b",
     "name": "WizardMath 13B",
-    "ramGb": 8,
+    "ramGb": 12.9,
     "sizeMb": 6960,
     "quality": 85,
     "useCase": "math",
@@ -1701,7 +1701,7 @@
   {
     "id": "deepseek-llm:7b",
     "name": "DeepSeek LLM 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 81,
     "useCase": "general",
@@ -1713,7 +1713,7 @@
   {
     "id": "deepseek-llm:67b",
     "name": "DeepSeek LLM 67B",
-    "ramGb": 37.3,
+    "ramGb": 53.7,
     "sizeMb": 35040,
     "quality": 91,
     "useCase": "frontier",
@@ -1724,7 +1724,7 @@
   {
     "id": "qwen:7b",
     "name": "Qwen 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 78,
     "useCase": "legacy chat",
@@ -1736,7 +1736,7 @@
   {
     "id": "qwen:14b",
     "name": "Qwen 14B",
-    "ramGb": 8.5,
+    "ramGb": 13.6,
     "sizeMb": 7480,
     "quality": 84,
     "useCase": "legacy chat",
@@ -1748,7 +1748,7 @@
   {
     "id": "qwen:72b",
     "name": "Qwen 72B",
-    "ramGb": 39.9,
+    "ramGb": 57.3,
     "sizeMb": 37640,
     "quality": 92,
     "useCase": "legacy frontier",
@@ -1759,7 +1759,7 @@
   {
     "id": "qwen2:7b",
     "name": "Qwen 2 7B",
-    "ramGb": 4.5,
+    "ramGb": 7.2,
     "sizeMb": 3840,
     "quality": 82,
     "useCase": "chat",
@@ -1771,7 +1771,7 @@
   {
     "id": "qwen2:72b",
     "name": "Qwen 2 72B",
-    "ramGb": 39.9,
+    "ramGb": 57.3,
     "sizeMb": 37640,
     "quality": 93,
     "useCase": "frontier",

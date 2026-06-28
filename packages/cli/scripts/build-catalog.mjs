@@ -186,8 +186,10 @@ const VERIFIED = new Set([
 ]);
 
 function estimateRamGb(paramsB) {
-  const overhead = paramsB < 1 ? 0.35 : paramsB < 4 ? 0.55 : paramsB < 10 ? 0.85 : paramsB < 30 ? 1.2 : 2.5;
-  return Math.round((paramsB * 0.52 + overhead) * 10) / 10;
+  // Conservative for Ollama on CPU — underestimating causes segfaults on small VMs
+  const overhead =
+    paramsB < 1 ? 0.55 : paramsB < 2 ? 1.0 : paramsB < 4 ? 1.5 : paramsB < 10 ? 2.2 : paramsB < 30 ? 3.5 : 5.5;
+  return Math.round((paramsB * 0.72 + overhead) * 10) / 10;
 }
 
 function estimateSizeMb(paramsB) {

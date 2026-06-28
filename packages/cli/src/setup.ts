@@ -1,7 +1,7 @@
 import type { Recommendation } from './recommend';
 import {
   buildRecommendPool,
-  fitTier,
+  fitsHardware,
   hardwareFittingModels,
   loadCatalog,
   recommendTop,
@@ -147,12 +147,12 @@ export async function runSetup(opts: SetupOptions): Promise<void> {
     console.log(`  Use case: ${useCaseLabel(useCase)}\n`);
   }
 
-  const recs = recommendTop(runnable, hw.budgetGb, WIZARD_PICK_COUNT, useCase, hw.diskFreeGb);
+  const recs = recommendTop(runnable, hw.budgetGb, WIZARD_PICK_COUNT, useCase, hw.diskFreeGb, hw);
   const picks =
     recs.length > 0
       ? recs
       : runnable
-          .map((m) => scoreModel(m, hw.budgetGb, useCase))
+          .map((m) => scoreModel(m, hw.budgetGb, useCase, hw))
           .filter((r): r is Recommendation => r !== null)
           .sort((a, b) => b.score - a.score)
           .slice(0, WIZARD_PICK_COUNT);
@@ -178,7 +178,7 @@ export async function runSetup(opts: SetupOptions): Promise<void> {
     } else {
       const m = catalog.find((c) => c.id === opts.model);
       if (!m) throw new Error(`Model "${opts.model}" not found in catalog.`);
-      const fit = fitTier(m.ramGb, hw.budgetGb);
+      const fit = fitsHardware(m, hw);
       if (!fit) throw new Error(`Model "${opts.model}" does not fit this machine.`);
       chosen = { ...m, fit, score: 0 };
     }
@@ -191,8 +191,8 @@ export async function runSetup(opts: SetupOptions): Promise<void> {
     console.log(`\n  Selected: ${chosen.name}\n`);
   }
 
-  if (chosen.fit === 'marginal' && !auto) {
-    console.log('  Note: this model is a tight fit — it may run slowly.\n');
+  if (!hw.hasGpu && hw.ramGb < 8) {
+    console.log('  Note: CPU-only on limited RAM — only small models are recommended.\n');
   }
 
   const needsOllama =

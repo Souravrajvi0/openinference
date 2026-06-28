@@ -180,6 +180,10 @@ export async function pullModelRemote(baseUrl: string, modelId: string): Promise
   console.log('');
 }
 
+export function isInferenceCrashError(msg: string): boolean {
+  return /segmentation fault|process has terminated|out of memory|oom|cuda/i.test(msg);
+}
+
 export async function verifyModel(baseUrl: string, modelId: string): Promise<void> {
   const url = resolveOllamaUrl(baseUrl);
   console.log('Verifying model…');
@@ -197,6 +201,12 @@ export async function verifyModel(baseUrl: string, modelId: string): Promise<voi
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
+    if (isInferenceCrashError(text)) {
+      throw new Error(
+        `Model "${modelId}" crashed on this computer (usually not enough RAM for CPU inference). ` +
+          'Pick a smaller model — try smollm2:135m or gemma3:1b.',
+      );
+    }
     throw new Error(`Model verification failed: ${res.status} ${text}`);
   }
 

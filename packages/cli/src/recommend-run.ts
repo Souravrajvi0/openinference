@@ -17,7 +17,7 @@ export function runRecommend(opts: RecommendRunOptions = {}): void {
   const { pool, runnable } = buildRecommendPool(catalog, hw, useCase, opts.all);
 
   const limit = opts.limit ?? 10;
-  const recs = recommendTop(runnable, hw.budgetGb, limit, useCase, hw.diskFreeGb);
+  const recs = recommendTop(runnable, hw.budgetGb, limit, useCase, hw.diskFreeGb, hw);
 
   printRecommendPreview(recs, hw, {
     useCase,
