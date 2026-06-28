@@ -48,14 +48,48 @@ export function printRecommendations(recs: Recommendation[]): void {
 }
 
 /** Wizard step: numbered picks with recommended badge on #1. */
-export function printWizardRecommendations(recs: Recommendation[], totalFit: number): void {
-  console.log(`  ${totalFit} models fit your computer for this use case. Top picks:\n`);
+export function printWizardRecommendations(
+  recs: Recommendation[],
+  totalFit: number,
+  opts?: { fallback?: boolean; useCaseLabel?: string },
+): void {
+  if (opts?.fallback) {
+    console.log(
+      `  ⚠ No "${opts.useCaseLabel}" models fit, but ${totalFit} small open-source models do on your hardware:\n`,
+    );
+  } else {
+    console.log(`  ${totalFit} models fit your computer for this use case. Top picks:\n`);
+  }
   recs.forEach((r, i) => {
     const badge = i === 0 ? '  ⭐ Recommended' : '';
     const size = formatSize(r.sizeMb);
     console.log(`  ${i + 1}. ${r.name.padEnd(22)} ${size.padStart(8)}${badge}`);
   });
   console.log('');
+}
+
+export async function askYesNo(prompt: string, defaultYes = true): Promise<boolean> {
+  const readline = await import('node:readline');
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await new Promise<string>((resolve) => {
+    rl.question(prompt, resolve);
+  });
+  rl.close();
+  const t = answer.trim().toLowerCase();
+  if (!t) return defaultYes;
+  return !/^(n|no)$/i.test(t);
+}
+
+export function printTooSmallHelp(hw: HardwareProfile): void {
+  console.log('\n  Nothing in our catalog fits this machine right now.\n');
+  console.log(`  RAM budget: ~${hw.budgetGb} GB · Disk free: ${hw.diskFreeGb} GB\n`);
+  console.log('  Options:');
+  console.log('    • Free disk space or use a VM with 8 GB+ RAM');
+  console.log('    • Try a different use case (General Chat has the most tiny models)');
+  console.log('    • Force a tiny model:  oi -y -m smollm2:135m\n');
+  if (hw.budgetGb < 0.5) {
+    console.log('  Tip: update the CLI —  npm update -g @openinference/cli\n');
+  }
 }
 
 export async function pickRecommendation(recs: Recommendation[]): Promise<Recommendation> {

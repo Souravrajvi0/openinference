@@ -1,6 +1,6 @@
 {
   "name": "@openinference/cli",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "OpenInference Core — hardware-aware model discovery, Ollama setup, and local chat",
   "license": "MIT",
   "repository": {

@@ -140,3 +140,21 @@ export function buildRecommendPool(
 
   return { pool, runnable };
 }
+
+/** All catalog models that fit RAM + disk (ignores use case). */
+export function hardwareFittingModels(
+  catalog: CatalogModel[],
+  hw: HardwareProfile,
+  all?: boolean,
+): CatalogModel[] {
+  let pool = catalog.filter((m) => m.kind !== 'embed');
+  if (!all) {
+    const verified = pool.filter((m) => m.verified);
+    if (verified.length >= 10) pool = verified;
+  }
+  return filterRunnable(pool, {
+    budgetGb: hw.budgetGb,
+    diskFreeGb: hw.diskFreeGb,
+    includeEmbed: false,
+  });
+}

@@ -34,7 +34,12 @@ export function modelMatchesUseCase(model: CatalogModel, useCase: UseCaseId): bo
 
   if (useCase === 'pdfs' && (cats.includes('research') || cats.includes('chat'))) {
     const u = model.useCase.toLowerCase();
-    return u.includes('rag') || u.includes('long context') || u.includes('context');
+    if (u.includes('rag') || u.includes('long context') || u.includes('context')) return true;
+  }
+
+  // Small chat models work for writing / PDFs on constrained hardware
+  if ((useCase === 'writing' || useCase === 'pdfs') && cats.includes('chat') && model.ramGb <= 2.5) {
+    return true;
   }
 
   return false;

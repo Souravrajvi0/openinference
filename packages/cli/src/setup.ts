@@ -2,6 +2,7 @@ import type { Recommendation } from './recommend';
 import {
   buildRecommendPool,
   fitTier,
+  hardwareFittingModels,
   loadCatalog,
   recommendTop,
   scoreModel,
@@ -9,11 +10,13 @@ import {
 import { detectHardware, ollamaModelsPath } from './hardware';
 import { saveConfig, type SavedConfig } from './config';
 import {
+  askYesNo,
   confirmInstall,
   pickRecommendation,
   printHardwareResults,
   printHardwareScan,
   printRecommendations,
+  printTooSmallHelp,
   printWizardRecommendations,
 } from './prompt';
 import {
@@ -46,53 +49,124 @@ export type SetupOptions = {
   all?: boolean;
 };
 
+type PoolResult = {
+  useCase: UseCaseId;
+  pool: ReturnType<typeof loadCatalog>;
+  runnable: ReturnType<typeof loadCatalog>;
+  hardwareFallback: boolean;
+};
+
+async function resolvePool(
+  catalog: ReturnType<typeof loadCatalog>,
+  hw: ReturnType<typeof detectHardware>,
+  opts: SetupOptions,
+): Promise<PoolResult | null> {
+  const auto = Boolean(opts.yes);
+  const lockedUseCase = opts.useCase;
+
+  if (auto || opts.model) {
+    const useCase = lockedUseCase ?? 'chat';
+    let { pool, runnable } = buildRecommendPool(catalog, hw, useCase, opts.all);
+    let hardwareFallback = false;
+    if (runnable.length === 0) {
+      runnable = hardwareFittingModels(catalog, hw, opts.all);
+      pool = runnable;
+      hardwareFallback = runnable.length > 0;
+    }
+    return { useCase, pool, runnable, hardwareFallback };
+  }
+
+  let scanned = false;
+
+  while (true) {
+    const useCase = lockedUseCase ?? (await pickUseCase());
+    if (!lockedUseCase) console.log(`\n  → ${useCaseLabel(useCase)}\n`);
+
+    if (!scanned) {
+      printHardwareScan(hw);
+      scanned = true;
+    }
+
+    let { pool, runnable } = buildRecommendPool(catalog, hw, useCase, opts.all);
+    let hardwareFallback = false;
+
+    console.log(`  Use case: ${useCaseLabel(useCase)}`);
+    console.log(`  Catalog: ${pool.length} models for this goal`);
+
+    if (runnable.length === 0) {
+      const anyFit = hardwareFittingModels(catalog, hw, opts.all);
+      if (anyFit.length > 0) {
+        console.log(`  0 models for this goal on your hardware, but ${anyFit.length} other small models fit.\n`);
+        const ok = lockedUseCase
+          ? true
+          : await askYesNo('  Show small models that fit anyway? (Y/n): ', true);
+        if (ok) {
+          runnable = anyFit;
+          pool = anyFit;
+          hardwareFallback = true;
+        } else if (!lockedUseCase) {
+          console.log('\n  Pick another use case:\n');
+          continue;
+        } else {
+          return null;
+        }
+      } else {
+        printTooSmallHelp(hw);
+        if (lockedUseCase) return null;
+        const retry = await askYesNo('  Try a different use case? (Y/n): ', true);
+        if (retry) {
+          console.log('');
+          continue;
+        }
+        return null;
+      }
+    } else {
+      console.log(`  ${runnable.length} models fit your hardware\n`);
+    }
+
+    return { useCase, pool, runnable, hardwareFallback };
+  }
+}
+
 export async function runSetup(opts: SetupOptions): Promise<void> {
   const remote = Boolean(opts.docker);
   const baseUrl = resolveOllamaUrl(opts.ollamaUrl);
   const auto = Boolean(opts.yes);
 
-  let useCase: UseCaseId = opts.useCase ?? 'chat';
-  if (!auto && !opts.useCase && !opts.model) {
-    useCase = await pickUseCase();
-    console.log(`\n  → ${useCaseLabel(useCase)}\n`);
-  } else if (opts.useCase) {
-    useCase = opts.useCase;
-  }
-
   const hw = detectHardware();
   const catalog = loadCatalog();
-  const { pool, runnable } = buildRecommendPool(catalog, hw, useCase, opts.all);
 
-  if (!auto) {
-    printHardwareScan(hw);
-    console.log(`  Use case: ${useCaseLabel(useCase)}`);
-    console.log(`  Catalog: ${pool.length} models for this goal`);
-    if (runnable.length === 0) {
-      throw new Error(
-        `No models fit (~${hw.budgetGb} GB RAM${hw.diskFreeGb > 0 ? `, ${hw.diskFreeGb} GB disk` : ''}). ` +
-          'Free space or pick a different use case.',
-      );
-    }
-    console.log(`  ${runnable.length} models fit your hardware\n`);
-  } else {
+  const resolved = await resolvePool(catalog, hw, opts);
+  if (!resolved) return;
+
+  const { useCase, runnable, hardwareFallback } = resolved;
+
+  if (auto) {
     console.log('\n  OpenInference — quick setup (-y)\n');
     printHardwareResults(hw);
     console.log(`  Use case: ${useCaseLabel(useCase)}\n`);
   }
 
   const recs = recommendTop(runnable, hw.budgetGb, WIZARD_PICK_COUNT, useCase, hw.diskFreeGb);
-  const picks = recs.length > 0 ? recs : runnable
-    .map((m) => scoreModel(m, hw.budgetGb, useCase))
-    .filter((r): r is Recommendation => r !== null)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, WIZARD_PICK_COUNT);
+  const picks =
+    recs.length > 0
+      ? recs
+      : runnable
+          .map((m) => scoreModel(m, hw.budgetGb, useCase))
+          .filter((r): r is Recommendation => r !== null)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, WIZARD_PICK_COUNT);
 
   if (picks.length === 0) {
-    throw new Error('No runnable models found for this use case and hardware.');
+    printTooSmallHelp(hw);
+    return;
   }
 
   if (!auto && !opts.model) {
-    printWizardRecommendations(picks, runnable.length);
+    printWizardRecommendations(picks, runnable.length, {
+      fallback: hardwareFallback,
+      useCaseLabel: useCaseLabel(useCase),
+    });
   }
 
   let chosen: Recommendation;
@@ -122,10 +196,7 @@ export async function runSetup(opts: SetupOptions): Promise<void> {
   }
 
   const needsOllama =
-    !remote &&
-    !opts.skipInstall &&
-    !(await pingOllama(baseUrl)) &&
-    !isOllamaInstalled();
+    !remote && !opts.skipInstall && !(await pingOllama(baseUrl)) && !isOllamaInstalled();
 
   if (!auto) {
     const ok = await confirmInstall({
@@ -192,7 +263,7 @@ export function printRecommendPreview(
       `${meta.all ? '' : ' (verified tags preferred; use --all for full catalog)'}\n`,
   );
   if (recs.length === 0) {
-    console.log('  No models fit this machine.\n');
+    console.log('  No models fit this machine. Try: oi browse --use-case chat\n');
     return;
   }
   console.log(`  Top ${recs.length}:\n`);
