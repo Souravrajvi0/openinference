@@ -19,6 +19,7 @@ const PRIMARY_NAV: NavEntry[] = [
   { to: "/inference", label: "Inference" },
   { to: "/models", label: "Models" },
   { to: "/docs", label: "Docs" },
+  { to: "/cli", label: "CLI" },
 ];
 
 const PRO_NAV: NavEntry[] = [
@@ -166,6 +167,7 @@ function StartBuildingDropdown() {
   useEffect(() => { setOpen(false); }, [pathname]);
 
   const links = [
+    { to: "/cli", label: "CLI setup" },
     { to: "/playground", label: "Playground" },
     { to: "/docs", label: "Knowledge base" },
     { to: "/models", label: "Model catalogue" },
@@ -471,6 +473,7 @@ export function Nav({
               Get started
             </div>
             {[
+              { to: "/cli", label: "CLI setup" },
               { to: "/playground", label: "Playground" },
               { to: "/docs", label: "Knowledge base" },
               { to: "/models", label: "Model catalogue" },

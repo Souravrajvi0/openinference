@@ -171,6 +171,7 @@ export function SiteFooter() {
         { label: "Inference", to: "/inference" },
         { label: "Models", to: "/models" },
         { label: "Documents", to: "/docs" },
+        { label: "CLI", to: "/cli" },
       ],
     },
     {
