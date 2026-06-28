@@ -1,44 +1,34 @@
-import type { Recommendation } from './recommend';
-import { fitTier, loadCatalog, recommendTop } from './recommend';
-import { detectHardware, formatHardware } from './hardware';
-import { printRecommendations } from './prompt';
+import type { UseCaseId } from './use-cases';
+import { parseUseCaseArg, useCaseLabel } from './use-cases';
+import { detectHardware } from './hardware';
+import { buildRecommendPool, loadCatalog, recommendTop } from './recommend';
+import { printRecommendPreview } from './setup';
 
 export type RecommendRunOptions = {
   limit?: number;
   all?: boolean;
+  useCase?: UseCaseId;
 };
 
-export function runRecommend(opts: RecommendRunOptions = {}): Recommendation[] {
+export function runRecommend(opts: RecommendRunOptions = {}): void {
   const hw = detectHardware();
   const catalog = loadCatalog();
-  const chat = catalog.filter((m) => m.kind !== 'embed');
+  const useCase = opts.useCase ?? 'chat';
+  const { pool, runnable } = buildRecommendPool(catalog, hw, useCase, opts.all);
 
-  let pool = chat;
-  if (!opts.all) {
-    const verified = chat.filter((m) => m.verified);
-    if (verified.length >= 3) pool = verified;
-  }
+  const limit = opts.limit ?? 10;
+  const recs = recommendTop(runnable, hw.budgetGb, limit, useCase, hw.diskFreeGb);
 
-  const limit = opts.limit ?? 5;
-  const recs = recommendTop(pool, hw.budgetGb, limit);
-
-  console.log('\n  OpenInference — model recommendations\n');
-  console.log(`  System: ${formatHardware(hw)}`);
-  console.log(`  Memory budget: ~${hw.budgetGb} GB`);
-  console.log(
-    `  Catalog: ${pool.length} models scored${opts.all ? '' : ' (verified Ollama tags only; use --all for full catalog)'}\n`,
-  );
-
-  if (recs.length === 0) {
-    console.log('  No models fit this machine.\n');
-    return recs;
-  }
-
-  console.log(`  Top ${recs.length} for your hardware:\n`);
-  printRecommendations(recs);
-  console.log('  Run `oi setup` to install Ollama and pull your choice.\n');
-
-  return recs;
+  printRecommendPreview(recs, hw, {
+    useCase,
+    poolSize: pool.length,
+    runnableSize: runnable.length,
+    all: opts.all,
+  });
 }
 
-export { fitTier };
+export function runBrowse(opts: RecommendRunOptions = {}): void {
+  runRecommend({ ...opts, limit: opts.limit ?? 15 });
+}
+
+export { parseUseCaseArg, useCaseLabel };

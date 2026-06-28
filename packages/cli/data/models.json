@@ -6,6 +6,9 @@
     "sizeMb": 190,
     "quality": 45,
     "useCase": "classification, tags",
+    "categories": [
+      "chat"
+    ],
     "verified": true
   },
   {
@@ -15,6 +18,9 @@
     "sizeMb": 307,
     "quality": 50,
     "useCase": "light tasks",
+    "categories": [
+      "chat"
+    ],
     "verified": true
   },
   {
@@ -24,6 +30,9 @@
     "sizeMb": 380,
     "quality": 52,
     "useCase": "fast labels",
+    "categories": [
+      "chat"
+    ],
     "verified": true
   },
   {
@@ -33,6 +42,10 @@
     "sizeMb": 772,
     "quality": 48,
     "useCase": "tiny chat",
+    "categories": [
+      "chat",
+      "writing"
+    ],
     "verified": true
   },
   {
@@ -41,7 +54,10 @@
     "ramGb": 1.3,
     "sizeMb": 980,
     "quality": 55,
-    "useCase": "uncensored small"
+    "useCase": "uncensored small",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "stablelm2:1.6b",
@@ -49,7 +65,11 @@
     "ramGb": 1.4,
     "sizeMb": 1032,
     "quality": 54,
-    "useCase": "chat"
+    "useCase": "chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "olmo2:1b",
@@ -57,7 +77,12 @@
     "ramGb": 1.1,
     "sizeMb": 720,
     "quality": 56,
-    "useCase": "research chat"
+    "useCase": "research chat",
+    "categories": [
+      "research",
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "granite3-dense:2b",
@@ -65,7 +90,11 @@
     "ramGb": 1.6,
     "sizeMb": 1240,
     "quality": 73,
-    "useCase": "enterprise chat"
+    "useCase": "enterprise chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "gemma3:1b",
@@ -74,6 +103,10 @@
     "sizeMb": 720,
     "quality": 68,
     "useCase": "chat, general",
+    "categories": [
+      "chat",
+      "writing"
+    ],
     "verified": true
   },
   {
@@ -83,6 +116,10 @@
     "sizeMb": 720,
     "quality": 66,
     "useCase": "instructions",
+    "categories": [
+      "chat",
+      "writing"
+    ],
     "verified": true
   },
   {
@@ -91,7 +128,10 @@
     "ramGb": 1.1,
     "sizeMb": 720,
     "quality": 67,
-    "useCase": "precise small"
+    "useCase": "precise small",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "qwen2.5:1.5b",
@@ -100,6 +140,10 @@
     "sizeMb": 980,
     "quality": 70,
     "useCase": "JSON, chat",
+    "categories": [
+      "chat",
+      "writing"
+    ],
     "verified": true
   },
   {
@@ -109,6 +153,9 @@
     "sizeMb": 980,
     "quality": 72,
     "useCase": "reasoning",
+    "categories": [
+      "research"
+    ],
     "verified": true
   },
   {
@@ -118,6 +165,9 @@
     "sizeMb": 2176,
     "quality": 74,
     "useCase": "reasoning small",
+    "categories": [
+      "research"
+    ],
     "verified": true
   },
   {
@@ -127,6 +177,10 @@
     "sizeMb": 1240,
     "quality": 71,
     "useCase": "chat",
+    "categories": [
+      "chat",
+      "writing"
+    ],
     "verified": true
   },
   {
@@ -136,6 +190,10 @@
     "sizeMb": 1084,
     "quality": 65,
     "useCase": "efficient chat",
+    "categories": [
+      "chat",
+      "writing"
+    ],
     "verified": true
   },
   {
@@ -144,7 +202,10 @@
     "ramGb": 1.5,
     "sizeMb": 1136,
     "quality": 69,
-    "useCase": "multilingual"
+    "useCase": "multilingual",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "yi:1.5b",
@@ -152,7 +213,11 @@
     "ramGb": 1.3,
     "sizeMb": 980,
     "quality": 67,
-    "useCase": "bilingual chat"
+    "useCase": "bilingual chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "qwen2:1.5b",
@@ -160,7 +225,11 @@
     "ramGb": 1.3,
     "sizeMb": 980,
     "quality": 66,
-    "useCase": "chat"
+    "useCase": "chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "orca-mini",
@@ -168,7 +237,10 @@
     "ramGb": 2.1,
     "sizeMb": 1760,
     "quality": 58,
-    "useCase": "teaching small"
+    "useCase": "teaching small",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "stablelm-zephyr:3b",
@@ -176,7 +248,11 @@
     "ramGb": 2.1,
     "sizeMb": 1760,
     "quality": 68,
-    "useCase": "chat"
+    "useCase": "chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "llama3.2:3b",
@@ -185,6 +261,10 @@
     "sizeMb": 1760,
     "quality": 76,
     "useCase": "general",
+    "categories": [
+      "chat",
+      "writing"
+    ],
     "verified": true
   },
   {
@@ -194,6 +274,9 @@
     "sizeMb": 1760,
     "quality": 78,
     "useCase": "coding, JSON",
+    "categories": [
+      "coding"
+    ],
     "verified": true
   },
   {
@@ -203,6 +286,9 @@
     "sizeMb": 2176,
     "quality": 74,
     "useCase": "reasoning",
+    "categories": [
+      "research"
+    ],
     "verified": true
   },
   {
@@ -212,6 +298,10 @@
     "sizeMb": 2280,
     "quality": 80,
     "useCase": "quality chat",
+    "categories": [
+      "chat",
+      "writing"
+    ],
     "verified": true
   },
   {
@@ -220,7 +310,10 @@
     "ramGb": 2.9,
     "sizeMb": 2280,
     "quality": 81,
-    "useCase": "efficient 4B"
+    "useCase": "efficient 4B",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "codestral:22b-v0.1-q4_0",
@@ -228,7 +321,10 @@
     "ramGb": 12.6,
     "sizeMb": 11640,
     "quality": 88,
-    "useCase": "coding frontier"
+    "useCase": "coding frontier",
+    "categories": [
+      "coding"
+    ]
   },
   {
     "id": "codegemma:2b",
@@ -236,7 +332,10 @@
     "ramGb": 1.6,
     "sizeMb": 1240,
     "quality": 72,
-    "useCase": "code completion"
+    "useCase": "code completion",
+    "categories": [
+      "coding"
+    ]
   },
   {
     "id": "starcoder2:3b",
@@ -244,7 +343,10 @@
     "ramGb": 2.1,
     "sizeMb": 1760,
     "quality": 75,
-    "useCase": "code"
+    "useCase": "code",
+    "categories": [
+      "coding"
+    ]
   },
   {
     "id": "deepseek-coder:1.3b",
@@ -252,7 +354,10 @@
     "ramGb": 1.2,
     "sizeMb": 876,
     "quality": 70,
-    "useCase": "code small"
+    "useCase": "code small",
+    "categories": [
+      "coding"
+    ]
   },
   {
     "id": "wizardcoder:3b",
@@ -260,7 +365,10 @@
     "ramGb": 2.1,
     "sizeMb": 1760,
     "quality": 71,
-    "useCase": "code"
+    "useCase": "code",
+    "categories": [
+      "coding"
+    ]
   },
   {
     "id": "sqlcoder:7b",
@@ -268,7 +376,10 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 79,
-    "useCase": "SQL"
+    "useCase": "SQL",
+    "categories": [
+      "coding"
+    ]
   },
   {
     "id": "llama3.2-vision:11b",
@@ -276,7 +387,10 @@
     "ramGb": 6.9,
     "sizeMb": 5920,
     "quality": 82,
-    "useCase": "vision"
+    "useCase": "vision",
+    "categories": [
+      "image"
+    ]
   },
   {
     "id": "moondream:1.8b",
@@ -284,7 +398,10 @@
     "ramGb": 1.5,
     "sizeMb": 1136,
     "quality": 64,
-    "useCase": "vision small"
+    "useCase": "vision small",
+    "categories": [
+      "image"
+    ]
   },
   {
     "id": "llava:7b",
@@ -292,7 +409,12 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 76,
-    "useCase": "vision chat"
+    "useCase": "vision chat",
+    "categories": [
+      "image",
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "bakllava:7b",
@@ -300,7 +422,10 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 75,
-    "useCase": "vision"
+    "useCase": "vision",
+    "categories": [
+      "image"
+    ]
   },
   {
     "id": "granite3-dense:8b",
@@ -308,7 +433,10 @@
     "ramGb": 5,
     "sizeMb": 4360,
     "quality": 83,
-    "useCase": "enterprise"
+    "useCase": "enterprise",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "falcon3:3b",
@@ -316,7 +444,11 @@
     "ramGb": 2.1,
     "sizeMb": 1760,
     "quality": 70,
-    "useCase": "chat"
+    "useCase": "chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "openhermes:2.5-mistral-7b",
@@ -324,7 +456,11 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 77,
-    "useCase": "chat tuned"
+    "useCase": "chat tuned",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "mistral:7b",
@@ -333,6 +469,10 @@
     "sizeMb": 3840,
     "quality": 82,
     "useCase": "general",
+    "categories": [
+      "chat",
+      "writing"
+    ],
     "verified": true
   },
   {
@@ -341,7 +481,11 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 83,
-    "useCase": "instructions"
+    "useCase": "instructions",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "mistral-nemo:12b",
@@ -350,6 +494,9 @@
     "sizeMb": 6440,
     "quality": 85,
     "useCase": "long context",
+    "categories": [
+      "pdfs"
+    ],
     "verified": true
   },
   {
@@ -359,6 +506,11 @@
     "sizeMb": 4360,
     "quality": 84,
     "useCase": "general, tools",
+    "categories": [
+      "research",
+      "chat",
+      "writing"
+    ],
     "verified": true
   },
   {
@@ -367,7 +519,11 @@
     "ramGb": 5,
     "sizeMb": 4360,
     "quality": 84,
-    "useCase": "general"
+    "useCase": "general",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "llama3.2:3b-instruct-q4_K_M",
@@ -375,7 +531,11 @@
     "ramGb": 2.1,
     "sizeMb": 1760,
     "quality": 76,
-    "useCase": "fast general"
+    "useCase": "fast general",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "llama3.3:70b",
@@ -384,6 +544,9 @@
     "sizeMb": 36600,
     "quality": 93,
     "useCase": "frontier",
+    "categories": [
+      "chat"
+    ],
     "verified": true
   },
   {
@@ -393,6 +556,11 @@
     "sizeMb": 3840,
     "quality": 86,
     "useCase": "coding, chat",
+    "categories": [
+      "coding",
+      "chat",
+      "writing"
+    ],
     "verified": true
   },
   {
@@ -401,7 +569,11 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 86,
-    "useCase": "chat"
+    "useCase": "chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "qwen2.5-coder:7b",
@@ -410,6 +582,9 @@
     "sizeMb": 3840,
     "quality": 87,
     "useCase": "coding",
+    "categories": [
+      "coding"
+    ],
     "verified": true
   },
   {
@@ -418,7 +593,10 @@
     "ramGb": 1.3,
     "sizeMb": 980,
     "quality": 74,
-    "useCase": "code small"
+    "useCase": "code small",
+    "categories": [
+      "coding"
+    ]
   },
   {
     "id": "deepseek-r1:7b",
@@ -427,6 +605,9 @@
     "sizeMb": 3840,
     "quality": 85,
     "useCase": "reasoning",
+    "categories": [
+      "research"
+    ],
     "verified": true
   },
   {
@@ -435,7 +616,10 @@
     "ramGb": 5,
     "sizeMb": 4360,
     "quality": 86,
-    "useCase": "reasoning"
+    "useCase": "reasoning",
+    "categories": [
+      "research"
+    ]
   },
   {
     "id": "deepseek-coder:6.7b",
@@ -443,7 +627,10 @@
     "ramGb": 4.3,
     "sizeMb": 3684,
     "quality": 84,
-    "useCase": "coding"
+    "useCase": "coding",
+    "categories": [
+      "coding"
+    ]
   },
   {
     "id": "deepseek-coder-v2:16b",
@@ -451,7 +638,10 @@
     "ramGb": 9.5,
     "sizeMb": 8520,
     "quality": 89,
-    "useCase": "coding large"
+    "useCase": "coding large",
+    "categories": [
+      "coding"
+    ]
   },
   {
     "id": "codellama:7b",
@@ -460,6 +650,9 @@
     "sizeMb": 3840,
     "quality": 83,
     "useCase": "coding",
+    "categories": [
+      "coding"
+    ],
     "verified": true
   },
   {
@@ -468,7 +661,10 @@
     "ramGb": 8,
     "sizeMb": 6960,
     "quality": 86,
-    "useCase": "coding"
+    "useCase": "coding",
+    "categories": [
+      "coding"
+    ]
   },
   {
     "id": "codellama:34b",
@@ -476,7 +672,10 @@
     "ramGb": 20.2,
     "sizeMb": 17880,
     "quality": 90,
-    "useCase": "coding frontier"
+    "useCase": "coding frontier",
+    "categories": [
+      "coding"
+    ]
   },
   {
     "id": "neural-chat:7b",
@@ -485,6 +684,10 @@
     "sizeMb": 3840,
     "quality": 79,
     "useCase": "chat",
+    "categories": [
+      "chat",
+      "writing"
+    ],
     "verified": true
   },
   {
@@ -493,7 +696,11 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 81,
-    "useCase": "chat"
+    "useCase": "chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "openchat:7b",
@@ -501,7 +708,11 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 80,
-    "useCase": "chat"
+    "useCase": "chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "vicuna:7b",
@@ -509,7 +720,11 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 78,
-    "useCase": "chat"
+    "useCase": "chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "wizardlm2:7b",
@@ -517,7 +732,11 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 80,
-    "useCase": "instructions"
+    "useCase": "instructions",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "wizardlm2:8x22b",
@@ -525,7 +744,10 @@
     "ramGb": 75.8,
     "sizeMb": 73520,
     "quality": 94,
-    "useCase": "MoE frontier"
+    "useCase": "MoE frontier",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "nous-hermes2:7b",
@@ -533,7 +755,11 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 81,
-    "useCase": "chat"
+    "useCase": "chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "nous-hermes2-mixtral:8x7b",
@@ -541,7 +767,11 @@
     "ramGb": 26.9,
     "sizeMb": 24640,
     "quality": 90,
-    "useCase": "MoE chat"
+    "useCase": "MoE chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "dolphin-mistral:7b",
@@ -549,7 +779,11 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 79,
-    "useCase": "uncensored chat"
+    "useCase": "uncensored chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "dolphin-llama3:8b",
@@ -557,7 +791,11 @@
     "ramGb": 5,
     "sizeMb": 4360,
     "quality": 80,
-    "useCase": "uncensored chat"
+    "useCase": "uncensored chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "solar:10.7b",
@@ -565,7 +803,10 @@
     "ramGb": 6.8,
     "sizeMb": 5764,
     "quality": 84,
-    "useCase": "depth-upscaled"
+    "useCase": "depth-upscaled",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "yi:6b",
@@ -573,7 +814,10 @@
     "ramGb": 4,
     "sizeMb": 3320,
     "quality": 80,
-    "useCase": "bilingual"
+    "useCase": "bilingual",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "yi:9b",
@@ -581,7 +825,10 @@
     "ramGb": 5.5,
     "sizeMb": 4880,
     "quality": 83,
-    "useCase": "bilingual quality"
+    "useCase": "bilingual quality",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "command-r7b",
@@ -589,7 +836,11 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 82,
-    "useCase": "RAG, tools"
+    "useCase": "RAG, tools",
+    "categories": [
+      "research",
+      "pdfs"
+    ]
   },
   {
     "id": "command-r:35b",
@@ -597,7 +848,12 @@
     "ramGb": 20.7,
     "sizeMb": 18400,
     "quality": 91,
-    "useCase": "RAG enterprise"
+    "useCase": "RAG enterprise",
+    "categories": [
+      "research",
+      "chat",
+      "pdfs"
+    ]
   },
   {
     "id": "command-r-plus:104b",
@@ -605,7 +861,11 @@
     "ramGb": 56.6,
     "sizeMb": 54280,
     "quality": 95,
-    "useCase": "frontier RAG"
+    "useCase": "frontier RAG",
+    "categories": [
+      "research",
+      "pdfs"
+    ]
   },
   {
     "id": "granite3.1-dense:8b",
@@ -613,7 +873,10 @@
     "ramGb": 5,
     "sizeMb": 4360,
     "quality": 84,
-    "useCase": "enterprise"
+    "useCase": "enterprise",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "granite3.1-moe:1b",
@@ -621,7 +884,10 @@
     "ramGb": 1.1,
     "sizeMb": 720,
     "quality": 70,
-    "useCase": "efficient MoE"
+    "useCase": "efficient MoE",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "falcon:7b",
@@ -629,7 +895,11 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 77,
-    "useCase": "general"
+    "useCase": "general",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "falcon2:11b",
@@ -637,7 +907,11 @@
     "ramGb": 6.9,
     "sizeMb": 5920,
     "quality": 82,
-    "useCase": "general"
+    "useCase": "general",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "zephyr:7b",
@@ -646,6 +920,10 @@
     "sizeMb": 3840,
     "quality": 80,
     "useCase": "helpful chat",
+    "categories": [
+      "chat",
+      "writing"
+    ],
     "verified": true
   },
   {
@@ -654,7 +932,10 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 79,
-    "useCase": "reasoning"
+    "useCase": "reasoning",
+    "categories": [
+      "research"
+    ]
   },
   {
     "id": "orca2:13b",
@@ -662,7 +943,10 @@
     "ramGb": 8,
     "sizeMb": 6960,
     "quality": 84,
-    "useCase": "reasoning"
+    "useCase": "reasoning",
+    "categories": [
+      "research"
+    ]
   },
   {
     "id": "wizard-vicuna-uncensored:7b",
@@ -670,7 +954,10 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 76,
-    "useCase": "uncensored"
+    "useCase": "uncensored",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "everythinglm:13b",
@@ -678,7 +965,10 @@
     "ramGb": 8,
     "sizeMb": 6960,
     "quality": 78,
-    "useCase": "roleplay"
+    "useCase": "roleplay",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "megadolphin:7b",
@@ -686,7 +976,10 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 77,
-    "useCase": "uncensored"
+    "useCase": "uncensored",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "open-orca-platypus2:13b",
@@ -694,7 +987,10 @@
     "ramGb": 8,
     "sizeMb": 6960,
     "quality": 80,
-    "useCase": "reasoning"
+    "useCase": "reasoning",
+    "categories": [
+      "research"
+    ]
   },
   {
     "id": "stable-beluga:7b",
@@ -702,7 +998,11 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 78,
-    "useCase": "chat"
+    "useCase": "chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "stable-beluga:13b",
@@ -710,7 +1010,11 @@
     "ramGb": 8,
     "sizeMb": 6960,
     "quality": 81,
-    "useCase": "chat"
+    "useCase": "chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "meditron:7b",
@@ -718,7 +1022,10 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 76,
-    "useCase": "medical"
+    "useCase": "medical",
+    "categories": [
+      "research"
+    ]
   },
   {
     "id": "medllama2:7b",
@@ -726,7 +1033,10 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 75,
-    "useCase": "medical"
+    "useCase": "medical",
+    "categories": [
+      "research"
+    ]
   },
   {
     "id": "biomistral:7b",
@@ -734,7 +1044,10 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 77,
-    "useCase": "biomedical"
+    "useCase": "biomedical",
+    "categories": [
+      "research"
+    ]
   },
   {
     "id": "llama2:7b",
@@ -743,6 +1056,10 @@
     "sizeMb": 3840,
     "quality": 72,
     "useCase": "legacy general",
+    "categories": [
+      "chat",
+      "writing"
+    ],
     "verified": true
   },
   {
@@ -751,7 +1068,11 @@
     "ramGb": 8,
     "sizeMb": 6960,
     "quality": 78,
-    "useCase": "legacy general"
+    "useCase": "legacy general",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "llama2:70b",
@@ -759,7 +1080,10 @@
     "ramGb": 38.9,
     "sizeMb": 36600,
     "quality": 90,
-    "useCase": "legacy frontier"
+    "useCase": "legacy frontier",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "llama2-chinese:7b",
@@ -767,7 +1091,10 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 74,
-    "useCase": "chinese"
+    "useCase": "chinese",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "gemma:7b",
@@ -775,7 +1102,11 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 79,
-    "useCase": "google chat"
+    "useCase": "google chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "gemma2:9b",
@@ -784,6 +1115,10 @@
     "sizeMb": 4880,
     "quality": 84,
     "useCase": "quality chat",
+    "categories": [
+      "chat",
+      "writing"
+    ],
     "verified": true
   },
   {
@@ -792,7 +1127,11 @@
     "ramGb": 15.2,
     "sizeMb": 14240,
     "quality": 91,
-    "useCase": "frontier chat"
+    "useCase": "frontier chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "gemma3:12b",
@@ -800,7 +1139,10 @@
     "ramGb": 7.4,
     "sizeMb": 6440,
     "quality": 87,
-    "useCase": "multimodal text"
+    "useCase": "multimodal text",
+    "categories": [
+      "image"
+    ]
   },
   {
     "id": "gemma3:27b",
@@ -808,7 +1150,10 @@
     "ramGb": 15.2,
     "sizeMb": 14240,
     "quality": 92,
-    "useCase": "frontier"
+    "useCase": "frontier",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "phi4:14b",
@@ -816,7 +1161,10 @@
     "ramGb": 8.5,
     "sizeMb": 7480,
     "quality": 88,
-    "useCase": "reasoning"
+    "useCase": "reasoning",
+    "categories": [
+      "research"
+    ]
   },
   {
     "id": "marco-o1:7b",
@@ -824,7 +1172,10 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 82,
-    "useCase": "reasoning"
+    "useCase": "reasoning",
+    "categories": [
+      "research"
+    ]
   },
   {
     "id": "reflection:70b",
@@ -832,7 +1183,10 @@
     "ramGb": 38.9,
     "sizeMb": 36600,
     "quality": 92,
-    "useCase": "self-correct"
+    "useCase": "self-correct",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "athene-v2:72b",
@@ -840,7 +1194,10 @@
     "ramGb": 39.9,
     "sizeMb": 37640,
     "quality": 93,
-    "useCase": "agentic"
+    "useCase": "agentic",
+    "categories": [
+      "research"
+    ]
   },
   {
     "id": "sailor2:8b",
@@ -848,7 +1205,10 @@
     "ramGb": 5,
     "sizeMb": 4360,
     "quality": 81,
-    "useCase": "multilingual sea"
+    "useCase": "multilingual sea",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "exaone3.5:7.8b",
@@ -856,7 +1216,10 @@
     "ramGb": 4.9,
     "sizeMb": 4256,
     "quality": 83,
-    "useCase": "korean, english"
+    "useCase": "korean, english",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "aya:23-8b",
@@ -864,7 +1227,10 @@
     "ramGb": 5,
     "sizeMb": 4360,
     "quality": 82,
-    "useCase": "multilingual"
+    "useCase": "multilingual",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "aya:23-35b",
@@ -872,7 +1238,10 @@
     "ramGb": 20.7,
     "sizeMb": 18400,
     "quality": 90,
-    "useCase": "multilingual large"
+    "useCase": "multilingual large",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "nemotron-mini:4b",
@@ -880,7 +1249,10 @@
     "ramGb": 2.9,
     "sizeMb": 2280,
     "quality": 76,
-    "useCase": "nvidia small"
+    "useCase": "nvidia small",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "nemotron:70b",
@@ -888,7 +1260,10 @@
     "ramGb": 38.9,
     "sizeMb": 36600,
     "quality": 92,
-    "useCase": "nvidia frontier"
+    "useCase": "nvidia frontier",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "snowflake-arctic-embed:335m",
@@ -897,6 +1272,9 @@
     "sizeMb": 294,
     "quality": 58,
     "useCase": "embeddings",
+    "categories": [
+      "research"
+    ],
     "kind": "embed"
   },
   {
@@ -906,6 +1284,9 @@
     "sizeMb": 193,
     "quality": 60,
     "useCase": "embeddings",
+    "categories": [
+      "research"
+    ],
     "kind": "embed"
   },
   {
@@ -915,6 +1296,9 @@
     "sizeMb": 297,
     "quality": 62,
     "useCase": "embeddings",
+    "categories": [
+      "research"
+    ],
     "kind": "embed"
   },
   {
@@ -924,6 +1308,9 @@
     "sizeMb": 297,
     "quality": 61,
     "useCase": "embeddings",
+    "categories": [
+      "research"
+    ],
     "kind": "embed"
   },
   {
@@ -933,6 +1320,9 @@
     "sizeMb": 162,
     "quality": 55,
     "useCase": "embeddings",
+    "categories": [
+      "research"
+    ],
     "kind": "embed"
   },
   {
@@ -942,6 +1332,9 @@
     "sizeMb": 7480,
     "quality": 88,
     "useCase": "reasoning",
+    "categories": [
+      "research"
+    ],
     "verified": true
   },
   {
@@ -950,7 +1343,11 @@
     "ramGb": 8.5,
     "sizeMb": 7480,
     "quality": 88,
-    "useCase": "chat"
+    "useCase": "chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "qwen2.5:32b",
@@ -958,7 +1355,10 @@
     "ramGb": 19.1,
     "sizeMb": 16840,
     "quality": 90,
-    "useCase": "frontier local"
+    "useCase": "frontier local",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "qwen2.5:72b",
@@ -966,7 +1366,10 @@
     "ramGb": 39.9,
     "sizeMb": 37640,
     "quality": 94,
-    "useCase": "frontier"
+    "useCase": "frontier",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "llama3.1:70b",
@@ -974,7 +1377,10 @@
     "ramGb": 38.9,
     "sizeMb": 36600,
     "quality": 92,
-    "useCase": "frontier"
+    "useCase": "frontier",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "llama3.1:70b-instruct-q4_K_M",
@@ -982,7 +1388,10 @@
     "ramGb": 38.9,
     "sizeMb": 36600,
     "quality": 92,
-    "useCase": "frontier"
+    "useCase": "frontier",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "mixtral:8x7b",
@@ -990,7 +1399,10 @@
     "ramGb": 26.9,
     "sizeMb": 24640,
     "quality": 91,
-    "useCase": "MoE quality"
+    "useCase": "MoE quality",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "mixtral:8x22b",
@@ -998,7 +1410,10 @@
     "ramGb": 75.8,
     "sizeMb": 73520,
     "quality": 95,
-    "useCase": "MoE frontier"
+    "useCase": "MoE frontier",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "solar-pro:22b",
@@ -1006,7 +1421,10 @@
     "ramGb": 12.6,
     "sizeMb": 11640,
     "quality": 89,
-    "useCase": "reasoning"
+    "useCase": "reasoning",
+    "categories": [
+      "research"
+    ]
   },
   {
     "id": "dbrx:132b",
@@ -1014,7 +1432,10 @@
     "ramGb": 71.1,
     "sizeMb": 68840,
     "quality": 96,
-    "useCase": "enterprise MoE"
+    "useCase": "enterprise MoE",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "internlm2:7b",
@@ -1022,7 +1443,10 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 82,
-    "useCase": "multilingual"
+    "useCase": "multilingual",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "internlm2:20b",
@@ -1030,7 +1454,10 @@
     "ramGb": 11.6,
     "sizeMb": 10600,
     "quality": 88,
-    "useCase": "multilingual large"
+    "useCase": "multilingual large",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "wizardlm:13b",
@@ -1038,7 +1465,11 @@
     "ramGb": 8,
     "sizeMb": 6960,
     "quality": 80,
-    "useCase": "instructions"
+    "useCase": "instructions",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "nous-hermes2:10.7b",
@@ -1046,7 +1477,11 @@
     "ramGb": 6.8,
     "sizeMb": 5764,
     "quality": 83,
-    "useCase": "chat"
+    "useCase": "chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "starcoder2:7b",
@@ -1054,7 +1489,10 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 82,
-    "useCase": "code"
+    "useCase": "code",
+    "categories": [
+      "coding"
+    ]
   },
   {
     "id": "starcoder2:15b",
@@ -1062,7 +1500,10 @@
     "ramGb": 9,
     "sizeMb": 8000,
     "quality": 86,
-    "useCase": "code large"
+    "useCase": "code large",
+    "categories": [
+      "coding"
+    ]
   },
   {
     "id": "shieldgemma:9b",
@@ -1070,7 +1511,10 @@
     "ramGb": 5.5,
     "sizeMb": 4880,
     "quality": 78,
-    "useCase": "safety"
+    "useCase": "safety",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "mathstral:7b",
@@ -1078,7 +1522,10 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 84,
-    "useCase": "math"
+    "useCase": "math",
+    "categories": [
+      "research"
+    ]
   },
   {
     "id": "llama3-groq-tool-use:8b",
@@ -1086,7 +1533,10 @@
     "ramGb": 5,
     "sizeMb": 4360,
     "quality": 85,
-    "useCase": "tool calling"
+    "useCase": "tool calling",
+    "categories": [
+      "research"
+    ]
   },
   {
     "id": "firefunction-v2:70b",
@@ -1094,7 +1544,10 @@
     "ramGb": 38.9,
     "sizeMb": 36600,
     "quality": 91,
-    "useCase": "function calling"
+    "useCase": "function calling",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "granite3-moe:3b",
@@ -1102,7 +1555,10 @@
     "ramGb": 2.1,
     "sizeMb": 1760,
     "quality": 77,
-    "useCase": "efficient MoE"
+    "useCase": "efficient MoE",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "granite-code:8b",
@@ -1110,7 +1566,11 @@
     "ramGb": 5,
     "sizeMb": 4360,
     "quality": 84,
-    "useCase": "code enterprise"
+    "useCase": "code enterprise",
+    "categories": [
+      "coding",
+      "chat"
+    ]
   },
   {
     "id": "stable-code:3b",
@@ -1118,7 +1578,10 @@
     "ramGb": 2.1,
     "sizeMb": 1760,
     "quality": 73,
-    "useCase": "code"
+    "useCase": "code",
+    "categories": [
+      "coding"
+    ]
   },
   {
     "id": "stablelm2:12b",
@@ -1126,7 +1589,11 @@
     "ramGb": 7.4,
     "sizeMb": 6440,
     "quality": 82,
-    "useCase": "chat"
+    "useCase": "chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "mpt:7b",
@@ -1134,7 +1601,11 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 74,
-    "useCase": "legacy chat"
+    "useCase": "legacy chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "mpt:30b",
@@ -1142,7 +1613,10 @@
     "ramGb": 18.1,
     "sizeMb": 15800,
     "quality": 86,
-    "useCase": "legacy large"
+    "useCase": "legacy large",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "yarn-mistral:7b-128k",
@@ -1150,7 +1624,10 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 81,
-    "useCase": "long context"
+    "useCase": "long context",
+    "categories": [
+      "pdfs"
+    ]
   },
   {
     "id": "llama-pro:8b",
@@ -1158,7 +1635,10 @@
     "ramGb": 5,
     "sizeMb": 4360,
     "quality": 83,
-    "useCase": "block expansion"
+    "useCase": "block expansion",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "openhermes:7b-mistral-v2.5",
@@ -1166,7 +1646,11 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 80,
-    "useCase": "chat"
+    "useCase": "chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "nous-capybara:7b",
@@ -1174,7 +1658,11 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 79,
-    "useCase": "chat"
+    "useCase": "chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "neural-chat:7b-v3-3",
@@ -1182,7 +1670,11 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 80,
-    "useCase": "chat"
+    "useCase": "chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "wizard-math:7b",
@@ -1190,7 +1682,10 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 82,
-    "useCase": "math"
+    "useCase": "math",
+    "categories": [
+      "research"
+    ]
   },
   {
     "id": "wizard-math:13b",
@@ -1198,7 +1693,10 @@
     "ramGb": 8,
     "sizeMb": 6960,
     "quality": 85,
-    "useCase": "math"
+    "useCase": "math",
+    "categories": [
+      "research"
+    ]
   },
   {
     "id": "deepseek-llm:7b",
@@ -1206,7 +1704,11 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 81,
-    "useCase": "general"
+    "useCase": "general",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "deepseek-llm:67b",
@@ -1214,7 +1716,10 @@
     "ramGb": 37.3,
     "sizeMb": 35040,
     "quality": 91,
-    "useCase": "frontier"
+    "useCase": "frontier",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "qwen:7b",
@@ -1222,7 +1727,11 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 78,
-    "useCase": "legacy chat"
+    "useCase": "legacy chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "qwen:14b",
@@ -1230,7 +1739,11 @@
     "ramGb": 8.5,
     "sizeMb": 7480,
     "quality": 84,
-    "useCase": "legacy chat"
+    "useCase": "legacy chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "qwen:72b",
@@ -1238,7 +1751,10 @@
     "ramGb": 39.9,
     "sizeMb": 37640,
     "quality": 92,
-    "useCase": "legacy frontier"
+    "useCase": "legacy frontier",
+    "categories": [
+      "chat"
+    ]
   },
   {
     "id": "qwen2:7b",
@@ -1246,7 +1762,11 @@
     "ramGb": 4.5,
     "sizeMb": 3840,
     "quality": 82,
-    "useCase": "chat"
+    "useCase": "chat",
+    "categories": [
+      "chat",
+      "writing"
+    ]
   },
   {
     "id": "qwen2:72b",
@@ -1254,6 +1774,9 @@
     "ramGb": 39.9,
     "sizeMb": 37640,
     "quality": 93,
-    "useCase": "frontier"
+    "useCase": "frontier",
+    "categories": [
+      "chat"
+    ]
   }
 ]

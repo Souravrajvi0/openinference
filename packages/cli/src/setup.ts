@@ -1,8 +1,21 @@
 import type { Recommendation } from './recommend';
-import { fitTier, loadCatalog, recommendTop } from './recommend';
-import { detectHardware, formatHardware } from './hardware';
-import { saveConfig } from './config';
-import { printRecommendations, pickRecommendation } from './prompt';
+import {
+  buildRecommendPool,
+  fitTier,
+  loadCatalog,
+  recommendTop,
+  scoreModel,
+} from './recommend';
+import { detectHardware, ollamaModelsPath } from './hardware';
+import { saveConfig, type SavedConfig } from './config';
+import {
+  confirmInstall,
+  pickRecommendation,
+  printHardwareResults,
+  printHardwareScan,
+  printRecommendations,
+  printWizardRecommendations,
+} from './prompt';
 import {
   ensureHostOllamaRunning,
   ensureRemoteOllama,
@@ -14,71 +27,78 @@ import {
   resolveOllamaUrl,
   verifyModel,
 } from './ollama';
+import {
+  parseUseCaseArg,
+  pickUseCase,
+  useCaseLabel,
+  type UseCaseId,
+} from './use-cases';
+
+export const WIZARD_PICK_COUNT = 10;
 
 export type SetupOptions = {
   yes?: boolean;
   model?: string;
+  useCase?: UseCaseId;
   skipInstall?: boolean;
   docker?: boolean;
   ollamaUrl?: string;
-  /** Beginner mode: minimal output, no jargon */
-  quick?: boolean;
-  /** Show 5 models and let user pick */
-  choose?: boolean;
+  all?: boolean;
 };
 
 export async function runSetup(opts: SetupOptions): Promise<void> {
   const remote = Boolean(opts.docker);
   const baseUrl = resolveOllamaUrl(opts.ollamaUrl);
-  const quick = Boolean(opts.quick) && !opts.choose;
-  const interactive = Boolean(opts.choose) || (!opts.yes && !opts.model && !quick);
+  const auto = Boolean(opts.yes);
 
-  if (quick) {
-    console.log('\n  OpenInference — setting up local AI on your computer\n');
-    console.log('  This takes a few minutes the first time. We will:\n');
-    console.log('    • find the best open-source model for your hardware');
-    console.log('    • install what you need (no account required)');
-    console.log('    • download the model and run a quick test\n');
-  } else {
-    console.log('\n  OpenInference — local model setup\n');
-    if (remote) console.log(`  Remote runtime at ${baseUrl}\n`);
+  let useCase: UseCaseId = opts.useCase ?? 'chat';
+  if (!auto && !opts.useCase && !opts.model) {
+    useCase = await pickUseCase();
+    console.log(`\n  → ${useCaseLabel(useCase)}\n`);
+  } else if (opts.useCase) {
+    useCase = opts.useCase;
   }
 
   const hw = detectHardware();
-  if (!quick) {
-    console.log(`  System: ${formatHardware(hw)}`);
-    console.log(`  Memory budget for models: ~${hw.budgetGb} GB\n`);
-  } else {
-    console.log(`  Detected: ${formatHardware(hw)}\n`);
-  }
-
   const catalog = loadCatalog();
-  const chatVerified = catalog.filter((m) => m.kind !== 'embed' && m.verified);
-  const pool = chatVerified.length >= 3 ? chatVerified : catalog.filter((m) => m.kind !== 'embed');
+  const { pool, runnable } = buildRecommendPool(catalog, hw, useCase, opts.all);
 
-  if (!quick) {
-    console.log(`  Scoring ${pool.length} open-source models for your hardware…\n`);
+  if (!auto) {
+    printHardwareScan(hw);
+    console.log(`  Use case: ${useCaseLabel(useCase)}`);
+    console.log(`  Catalog: ${pool.length} models for this goal`);
+    if (runnable.length === 0) {
+      throw new Error(
+        `No models fit (~${hw.budgetGb} GB RAM${hw.diskFreeGb > 0 ? `, ${hw.diskFreeGb} GB disk` : ''}). ` +
+          'Free space or pick a different use case.',
+      );
+    }
+    console.log(`  ${runnable.length} models fit your hardware\n`);
   } else {
-    console.log('  Finding the best model for you…\n');
+    console.log('\n  OpenInference — quick setup (-y)\n');
+    printHardwareResults(hw);
+    console.log(`  Use case: ${useCaseLabel(useCase)}\n`);
   }
 
-  const recs = recommendTop(pool, hw.budgetGb, 5);
+  const recs = recommendTop(runnable, hw.budgetGb, WIZARD_PICK_COUNT, useCase, hw.diskFreeGb);
+  const picks = recs.length > 0 ? recs : runnable
+    .map((m) => scoreModel(m, hw.budgetGb, useCase))
+    .filter((r): r is Recommendation => r !== null)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, WIZARD_PICK_COUNT);
 
-  if (recs.length === 0) {
-    throw new Error(
-      `No models fit this computer (~${hw.budgetGb} GB free for AI). Try freeing RAM or use a machine with more memory.`,
-    );
+  if (picks.length === 0) {
+    throw new Error('No runnable models found for this use case and hardware.');
   }
 
-  if (interactive) {
-    console.log('  Top 5 models for your machine:\n');
-    printRecommendations(recs);
+  if (!auto && !opts.model) {
+    printWizardRecommendations(picks, runnable.length);
   }
 
   let chosen: Recommendation;
 
   if (opts.model) {
-    const fromRecs = recs.find((r) => r.id === opts.model);
+    const fromRecs = picks.find((r) => r.id === opts.model);
     if (fromRecs) {
       chosen = fromRecs;
     } else {
@@ -88,57 +108,94 @@ export async function runSetup(opts: SetupOptions): Promise<void> {
       if (!fit) throw new Error(`Model "${opts.model}" does not fit this machine.`);
       chosen = { ...m, fit, score: 0 };
     }
-    if (!quick) console.log(`Using --model ${chosen.id}\n`);
-  } else if (opts.yes || quick) {
-    chosen = recs[0]!;
-    console.log(`  → ${chosen.name} (best match for your computer)\n`);
+    if (!auto) console.log(`  Using model: ${chosen.name} (${chosen.id})\n`);
+  } else if (auto) {
+    chosen = picks[0]!;
+    console.log(`  → ${chosen.name} (best match)\n`);
   } else {
-    chosen = await pickRecommendation(recs);
-    console.log(`\nSelected: ${chosen.name} (${chosen.id})\n`);
+    chosen = await pickRecommendation(picks);
+    console.log(`\n  Selected: ${chosen.name}\n`);
   }
 
-  if (chosen.fit === 'marginal' && !quick) {
+  if (chosen.fit === 'marginal' && !auto) {
     console.log('  Note: this model is a tight fit — it may run slowly.\n');
   }
 
+  const needsOllama =
+    !remote &&
+    !opts.skipInstall &&
+    !(await pingOllama(baseUrl)) &&
+    !isOllamaInstalled();
+
+  if (!auto) {
+    const ok = await confirmInstall({
+      modelName: chosen.name,
+      sizeMb: chosen.sizeMb,
+      needsOllama,
+    });
+    if (!ok) return;
+    console.log('');
+  }
+
   if (remote) {
-    console.log('  Connecting to AI runtime…\n');
+    console.log('  Connecting to Ollama…\n');
     await ensureRemoteOllama(baseUrl);
     console.log('  Downloading model…\n');
     await pullModelRemote(baseUrl, chosen.id);
   } else {
-    const needsInstall = !opts.skipInstall && !(await pingOllama(baseUrl)) && !isOllamaInstalled();
-    if (needsInstall) {
-      console.log('  Installing local AI runtime (one-time)…\n');
+    if (needsOllama) {
+      console.log('  Installing Ollama…\n');
       installOllama();
       if (!isOllamaInstalled()) {
         throw new Error(
-          'Install finished but the runtime was not found. Restart your terminal and run `oi` again.',
+          'Install finished but Ollama was not found. Restart your terminal and run `oi` again.',
         );
       }
     } else if (!opts.skipInstall && !isOllamaInstalled() && !(await pingOllama(baseUrl))) {
-      throw new Error('Local AI runtime not found. Run `oi` again to install it.');
+      throw new Error('Ollama not found. Run `oi` again to install it.');
     }
 
-    if (!quick) console.log('  Starting runtime…\n');
+    console.log('  Starting Ollama…\n');
     await ensureHostOllamaRunning(baseUrl);
     console.log('  Downloading model…\n');
     await pullModelHost(chosen.id);
   }
 
-  if (!quick) console.log('  Running test…');
+  console.log('  Running a quick test…');
   await verifyModel(baseUrl, chosen.id);
 
-  saveConfig({
+  const cfg: SavedConfig = {
     ollamaUrl: baseUrl,
     model: chosen.id,
     modelName: chosen.name,
+    useCase,
     setupAt: new Date().toISOString(),
-  });
+  };
+  saveConfig(cfg);
 
   console.log('\n  ✓ Ready — you can use open-source AI on this computer.\n');
-  if (!quick) {
-    console.log(`  Model: ${chosen.name}`);
-    console.log(`  Config: ~/.openinference/config.json\n`);
+  console.log(`  Model:   ${chosen.name}`);
+  console.log(`  Stored:  ${ollamaModelsPath()}`);
+  console.log(`  Config:  ~/.openinference/config.json\n`);
+}
+
+export function printRecommendPreview(
+  recs: Recommendation[],
+  hw: ReturnType<typeof detectHardware>,
+  meta: { useCase: UseCaseId; poolSize: number; runnableSize: number; all?: boolean },
+): void {
+  console.log('\n  OpenInference — model recommendations\n');
+  printHardwareResults(hw);
+  console.log(`  Use case: ${useCaseLabel(meta.useCase)}`);
+  console.log(
+    `  ${meta.poolSize} models for this goal · ${meta.runnableSize} fit your hardware` +
+      `${meta.all ? '' : ' (verified tags preferred; use --all for full catalog)'}\n`,
+  );
+  if (recs.length === 0) {
+    console.log('  No models fit this machine.\n');
+    return;
   }
+  console.log(`  Top ${recs.length}:\n`);
+  printRecommendations(recs);
+  console.log('  Run `oi` for the setup wizard, or `oi -y` to auto-install the top pick.\n');
 }

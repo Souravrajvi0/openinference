@@ -145,7 +145,7 @@ function CliHeroCta() {
         Run local AI — one command
       </div>
       <code className="mt-2 block font-mono text-[13px] text-cream sm:text-sm">{CLI_ONE_LINER}</code>
-      <div className="mt-2 text-xs text-cream/45 group-hover:text-cream/60">Click to copy · no Ollama setup required</div>
+      <div className="mt-2 text-xs text-cream/45 group-hover:text-cream/60">Click to copy · wizard asks before installing</div>
     </button>
   );
 }

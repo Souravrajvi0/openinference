@@ -1,6 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import type { UseCaseId } from './use-cases';
+import { filterByUseCase, useCaseScoreBoost } from './use-cases';
+import { fitsDisk, type HardwareProfile } from './hardware';
+
 export type FitTier = 'perfect' | 'good' | 'marginal';
 
 export type CatalogModel = {
@@ -10,6 +14,7 @@ export type CatalogModel = {
   sizeMb: number;
   quality: number;
   useCase: string;
+  categories?: UseCaseId[];
   kind?: 'embed';
   verified?: boolean;
 };
@@ -17,6 +22,14 @@ export type CatalogModel = {
 export type Recommendation = CatalogModel & {
   fit: FitTier;
   score: number;
+};
+
+export type RecommendOptions = {
+  budgetGb: number;
+  diskFreeGb?: number;
+  useCase?: UseCaseId;
+  verifiedOnly?: boolean;
+  includeEmbed?: boolean;
 };
 
 function modelsPath(): string {
@@ -54,36 +67,76 @@ export function fitLabel(fit: FitTier): string {
   return FIT_LABEL[fit];
 }
 
+/** Filter catalog by hardware, disk, and optional verified flag. */
+export function filterRunnable(
+  catalog: CatalogModel[],
+  opts: RecommendOptions,
+): CatalogModel[] {
+  const disk = opts.diskFreeGb ?? 0;
+
+  return catalog.filter((m) => {
+    if (!opts.includeEmbed && m.kind === 'embed') return false;
+    if (opts.verifiedOnly && !m.verified) return false;
+    if (!fitTier(m.ramGb, opts.budgetGb)) return false;
+    if (disk > 0 && !fitsDisk(m.sizeMb, disk)) return false;
+    return true;
+  });
+}
+
+export function scoreModel(
+  model: CatalogModel,
+  budgetGb: number,
+  useCase?: UseCaseId,
+): Recommendation | null {
+  const fit = fitTier(model.ramGb, budgetGb);
+  if (!fit) return null;
+
+  let score = FIT_POINTS[fit] + model.quality * 0.35;
+  if (useCase) score += useCaseScoreBoost(model, useCase);
+  if (model.verified) score += 3;
+
+  return { ...model, fit, score };
+}
+
 export function recommendTop(
   catalog: CatalogModel[],
   budgetGb: number,
   limit = 5,
+  useCase?: UseCaseId,
+  diskFreeGb?: number,
 ): Recommendation[] {
-  const chatCatalog = catalog.filter((m) => m.kind !== 'embed');
+  const pool = filterRunnable(catalog, { budgetGb, diskFreeGb, includeEmbed: false });
   const scored: Recommendation[] = [];
 
-  for (const model of chatCatalog) {
-    const fit = fitTier(model.ramGb, budgetGb);
-    if (!fit) continue;
-    const score = FIT_POINTS[fit] + model.quality * 0.35;
-    scored.push({ ...model, fit, score });
+  for (const model of pool) {
+    const rec = scoreModel(model, budgetGb, useCase);
+    if (rec) scored.push(rec);
   }
 
   scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit);
+}
 
-  if (scored.length >= limit) return scored.slice(0, limit);
+export function buildRecommendPool(
+  catalog: CatalogModel[],
+  hw: HardwareProfile,
+  useCase: UseCaseId,
+  all?: boolean,
+): { pool: CatalogModel[]; runnable: CatalogModel[] } {
+  let pool = catalog.filter((m) => m.kind !== 'embed');
 
-  // Fill with smallest runnable models if budget is very tight
-  const extra = chatCatalog
-    .filter((m) => m.ramGb <= budgetGb)
-    .filter((m) => !scored.some((s) => s.id === m.id))
-    .sort((a, b) => a.ramGb - b.ramGb)
-    .slice(0, limit - scored.length)
-    .map((m) => ({
-      ...m,
-      fit: fitTier(m.ramGb, budgetGb) ?? ('marginal' as FitTier),
-      score: (fitTier(m.ramGb, budgetGb) ? FIT_POINTS[fitTier(m.ramGb, budgetGb)!] : 40) + m.quality * 0.35,
-    }));
+  if (!all) {
+    const verified = pool.filter((m) => m.verified);
+    if (verified.length >= 10) pool = verified;
+  }
 
-  return [...scored, ...extra].slice(0, limit);
+  pool = filterByUseCase(pool, useCase);
+
+  const runnable = filterRunnable(pool, {
+    budgetGb: hw.budgetGb,
+    diskFreeGb: hw.diskFreeGb,
+    includeEmbed: false,
+  });
+
+  return { pool, runnable };
 }

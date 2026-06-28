@@ -1,8 +1,14 @@
 {
   "name": "@openinference/cli",
-  "version": "0.3.0",
-  "description": "OpenInference CLI — local model setup and gateway tools",
+  "version": "1.0.0",
+  "description": "OpenInference Core — hardware-aware model discovery, Ollama setup, and local chat",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Souravrajvi0/openinference.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://openinference.tech/cli",
   "bin": {
     "oi": "./dist/index.js"
   },

@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import { loadConfig } from './config';
-import { runSetup } from './setup';
 import { runStart } from './start';
-import { runRecommend } from './recommend-run';
+import { runBrowse, runRecommend, parseUseCaseArg } from './recommend-run';
 import { runChat, listInstalledModels } from './chat';
 import { runChatRepl } from './chat-repl';
+import { runPull, runStorage, runUse } from './manage';
+import { useCaseLabel } from './use-cases';
+import { ollamaModelsPath } from './hardware';
 
 const program = new Command();
 
@@ -17,77 +19,131 @@ function fail(e: unknown): never {
 
 const urlOption = {
   flags: '--ollama-url <url>',
-  description: 'AI runtime URL (default: $OLLAMA_URL, saved config, or localhost)',
+  description: 'Ollama API URL (default: $OLLAMA_URL, saved config, or localhost)',
 };
 
 const dockerOption = {
   flags: '--docker',
-  description: 'server/Docker: use remote runtime over HTTP (no local install)',
+  description: 'remote Ollama over HTTP (no local install)',
 };
+
+const setupOptions = [
+  { flags: '-y, --yes', description: 'skip wizard — auto-pick best model and install' },
+  { flags: '-m, --model <id>', description: 'use a specific model tag' },
+  {
+    flags: '--use-case <id>',
+    description: 'goal: coding | chat | pdfs | writing | image | research',
+  },
+  { flags: '--all', description: 'include unverified catalog tags' },
+  { flags: '--skip-install', description: 'do not install Ollama if missing' },
+  dockerOption,
+  urlOption,
+] as const;
+
+function attachSetupOptions(cmd: Command): Command {
+  for (const o of setupOptions) {
+    cmd.option(o.flags, o.description);
+  }
+  return cmd;
+}
+
+function setupFlags(opts: Record<string, unknown>) {
+  const useCase = parseUseCaseArg(opts.useCase as string | undefined);
+  return {
+    yes: Boolean(opts.yes),
+    model: opts.model as string | undefined,
+    useCase,
+    all: Boolean(opts.all),
+    skipInstall: Boolean(opts.skipInstall),
+    docker: Boolean(opts.docker),
+    ollamaUrl: opts.ollamaUrl as string | undefined,
+  };
+}
 
 program
   .name('oi')
-  .description('OpenInference — one command to run open-source AI on your computer')
-  .version('0.3.0');
+  .description('OpenInference — find, install, and chat with local open-source models')
+  .version('1.0.0');
 
-program
+const startCmd = program
   .command('start', { isDefault: true })
-  .description('One command: set up the best model, then chat (default)')
-  .option('-m, --model <id>', 'use a specific model tag')
-  .option('--choose', 'pick from 5 recommendations instead of auto-select')
+  .description('Wizard: use case → scan → pick → confirm → install → chat')
   .option('--force', 'run setup again even if already configured')
-  .option('--no-chat', 'setup only, do not open chat after')
-  .option('--skip-install', 'do not install local runtime if missing')
-  .option(dockerOption.flags, dockerOption.description)
-  .option(urlOption.flags, urlOption.description)
-  .action(async (opts) => {
-    try {
-      await runStart({
-        model: opts.model,
-        choose: opts.choose,
-        force: opts.force,
-        chat: opts.chat,
-        skipInstall: opts.skipInstall,
-        docker: opts.docker,
-        ollamaUrl: opts.ollamaUrl,
-      });
-    } catch (e) {
-      fail(e);
-    }
-  });
+  .option('--no-chat', 'setup only, do not open chat after');
 
-program
-  .command('setup')
-  .description('Same as oi start (use --choose to pick a model manually)')
-  .option('-m, --model <id>', 'use a specific model tag')
-  .option('--choose', 'pick from 5 recommendations')
-  .option('--skip-install', 'do not install local runtime if missing')
-  .option(dockerOption.flags, dockerOption.description)
-  .option(urlOption.flags, urlOption.description)
-  .action(async (opts) => {
-    try {
-      await runStart({
-        model: opts.model,
-        choose: opts.choose,
-        chat: false,
-        skipInstall: opts.skipInstall,
-        docker: opts.docker,
-        ollamaUrl: opts.ollamaUrl,
-      });
-    } catch (e) {
-      fail(e);
-    }
-  });
+attachSetupOptions(startCmd);
+startCmd.action(async (opts) => {
+  try {
+    await runStart({ ...setupFlags(opts), force: Boolean(opts.force), chat: opts.chat });
+  } catch (e) {
+    fail(e);
+  }
+});
+
+const setupCmd = program.command('setup').description('Wizard without opening chat');
+attachSetupOptions(setupCmd);
+setupCmd.action(async (opts) => {
+  try {
+    await runStart({ ...setupFlags(opts), chat: false });
+  } catch (e) {
+    fail(e);
+  }
+});
 
 program
   .command('recommend')
-  .description('Preview model picks without installing')
-  .option('-n, --limit <n>', 'number of recommendations', '5')
-  .option('--all', 'full catalog, not just verified tags')
-  .action((opts: { limit: string; all?: boolean }) => {
+  .description('Preview recommendations (no install)')
+  .option('-n, --limit <n>', 'number of results', '10')
+  .option('--use-case <id>', 'coding | chat | pdfs | writing | image | research')
+  .option('--all', 'full catalog')
+  .action((opts: { limit: string; useCase?: string; all?: boolean }) => {
     try {
-      const n = Math.min(Math.max(parseInt(opts.limit, 10) || 5, 1), 20);
-      runRecommend({ limit: n, all: opts.all });
+      const n = Math.min(Math.max(parseInt(opts.limit, 10) || 10, 1), 25);
+      runRecommend({ limit: n, all: opts.all, useCase: parseUseCaseArg(opts.useCase) });
+    } catch (e) {
+      fail(e);
+    }
+  });
+
+program
+  .command('browse')
+  .description('Browse catalog picks for your hardware and use case')
+  .option('--use-case <id>', 'coding | chat | pdfs | writing | image | research')
+  .option('--all', 'full catalog')
+  .action((opts: { useCase?: string; all?: boolean }) => {
+    try {
+      runBrowse({ all: opts.all, useCase: parseUseCaseArg(opts.useCase) });
+    } catch (e) {
+      fail(e);
+    }
+  });
+
+program
+  .command('use <model>')
+  .description('Switch active model (pulls first if needed)')
+  .option(urlOption.flags, urlOption.description)
+  .option('--docker', 'remote Ollama')
+  .action(async (model: string, opts) => {
+    try {
+      await runUse(model, { ollamaUrl: opts.ollamaUrl, docker: opts.docker });
+    } catch (e) {
+      fail(e);
+    }
+  });
+
+program
+  .command('pull <model>')
+  .description('Download a model without switching')
+  .option('--default', 'also set as active model')
+  .option(urlOption.flags, urlOption.description)
+  .option('--docker', 'remote Ollama')
+  .action(async (model: string, opts) => {
+    try {
+      await runPull(model, {
+        ollamaUrl: opts.ollamaUrl,
+        docker: opts.docker,
+        setDefault: Boolean(opts.default),
+      });
     } catch (e) {
       fail(e);
     }
@@ -95,10 +151,11 @@ program
 
 program
   .command('chat [message]')
-  .description('Chat with your local model (no message = interactive)')
-  .option('-m, --model <id>', 'override model')
+  .description('Chat with active model (no message = interactive)')
+  .option('-y, --yes', 'if setup needed, skip wizard')
+  .option('-m, --model <id>', 'override model for this session')
   .option(urlOption.flags, urlOption.description)
-  .option('--docker', 'remote runtime; do not start local serve')
+  .option('--docker', 'remote Ollama')
   .action(async (message: string | undefined, opts) => {
     try {
       const chatOpts = {
@@ -108,8 +165,12 @@ program
       };
       if (!message?.trim()) {
         if (!loadConfig() && !opts.model) {
-          console.log('\n  Not set up yet. Running setup first…\n');
-          await runStart({ chat: false, ollamaUrl: opts.ollamaUrl, docker: opts.docker });
+          console.log('\n  Not set up yet. Starting setup wizard…\n');
+          await runStart({ chat: false, yes: opts.yes, ollamaUrl: opts.ollamaUrl, docker: opts.docker });
+        }
+        if (!loadConfig() && !opts.model) {
+          console.log('  Setup not complete. Run `oi` to finish.\n');
+          return;
         }
         await runChatRepl(chatOpts);
         return;
@@ -134,7 +195,18 @@ program
       }
       console.log('\n  Models on this computer:\n');
       names.forEach((n) => console.log(`    ${n}`));
-      console.log('');
+      console.log(`\n  Stored under: ${ollamaModelsPath()}\n`);
+    } catch (e) {
+      fail(e);
+    }
+  });
+
+program
+  .command('storage')
+  .description('Where models are stored and what is downloaded')
+  .action(async () => {
+    try {
+      await runStorage();
     } catch (e) {
       fail(e);
     }
@@ -150,9 +222,11 @@ program
       return;
     }
     console.log('\n  OpenInference\n');
-    console.log(`  Model:  ${cfg.modelName}`);
-    console.log(`  Since:  ${new Date(cfg.setupAt).toLocaleDateString()}\n`);
-    console.log('  Run `oi` to chat again.\n');
+    console.log(`  Model:    ${cfg.modelName} (${cfg.model})`);
+    if (cfg.useCase) console.log(`  Use case: ${useCaseLabel(cfg.useCase)}`);
+    console.log(`  Since:    ${new Date(cfg.setupAt).toLocaleDateString()}`);
+    console.log(`  Storage:  ${ollamaModelsPath()}\n`);
+    console.log('  Run `oi` to chat · `oi use <model>` to switch\n');
   });
 
 program.parse();

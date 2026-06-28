@@ -194,6 +194,28 @@ function estimateSizeMb(paramsB) {
   return Math.round(paramsB * 520 + (paramsB < 1 ? 120 : 200));
 }
 
+function categorize(useCase, kind) {
+  const u = useCase.toLowerCase();
+  const cats = new Set();
+
+  if (kind === 'embed') {
+    cats.add('research');
+    return [...cats];
+  }
+
+  if (/code|coding|sql|completion/.test(u)) cats.add('coding');
+  if (/vision|multimodal|moondream|llava/.test(u)) cats.add('image');
+  if (/rag|research|reasoning|math|tool|agent|biomedical|medical/.test(u)) cats.add('research');
+  if (/chat|general|instruction|helpful|teaching|bilingual|multilingual|enterprise|roleplay/.test(u)) {
+    cats.add('chat');
+  }
+  if (/chat|general|instruction|helpful|writing/.test(u)) cats.add('writing');
+  if (/rag|long context/.test(u)) cats.add('pdfs');
+
+  if (cats.size === 0) cats.add('chat');
+  return [...cats];
+}
+
 const models = SEEDS.map(([id, name, paramsB, quality, useCase, kind]) => {
   const entry = {
     id,
@@ -202,6 +224,7 @@ const models = SEEDS.map(([id, name, paramsB, quality, useCase, kind]) => {
     sizeMb: estimateSizeMb(paramsB),
     quality,
     useCase,
+    categories: categorize(useCase, kind),
   };
   if (kind) entry.kind = kind;
   if (VERIFIED.has(id)) entry.verified = true;

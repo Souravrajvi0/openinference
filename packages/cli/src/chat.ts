@@ -1,6 +1,7 @@
 import { loadConfig } from './config';
 import {
   ensureHostOllamaRunning,
+  listModelTags,
   pingOllama,
   resolveOllamaUrl,
 } from './ollama';
@@ -59,9 +60,5 @@ export async function listInstalledModels(ollamaUrl?: string): Promise<string[]>
     );
   }
 
-  const res = await fetch(`${base}/api/tags`, { signal: AbortSignal.timeout(15_000) });
-  if (!res.ok) throw new Error(`Could not list models (${res.status})`);
-
-  const body = (await res.json()) as { models?: { name: string }[] };
-  return (body.models ?? []).map((m) => m.name).sort();
+  return listModelTags(base);
 }

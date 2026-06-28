@@ -10,8 +10,8 @@ export type StartOptions = SetupOptions & {
 };
 
 /**
- * The beginner path: one command — auto-pick model, install, download, chat.
- * If already set up, jumps straight to chat.
+ * Default: interactive wizard (scan → pick → confirm → install → chat).
+ * Use -y to skip prompts. If already set up, jumps straight to chat.
  */
 export async function runStart(opts: StartOptions = {}): Promise<void> {
   const existing = loadConfig();
@@ -24,14 +24,9 @@ export async function runStart(opts: StartOptions = {}): Promise<void> {
     return;
   }
 
-  await runSetup({
-    ...opts,
-    yes: !opts.choose && !opts.model,
-    quick: !opts.choose,
-    choose: opts.choose,
-  });
+  await runSetup(opts);
 
-  if (openChat) {
+  if (openChat && loadConfig()) {
     console.log('  You can chat now — type a question below.\n');
     await runChatRepl({ ollamaUrl: opts.ollamaUrl, remote: opts.docker });
   }

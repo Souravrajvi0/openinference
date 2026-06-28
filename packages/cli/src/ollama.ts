@@ -49,19 +49,19 @@ export function installOllama(): void {
     return;
   }
 
-  if (process.platform === 'linux') {
+  if (process.platform === 'linux' || process.platform === 'darwin') {
     const sh = spawnSync('sh', ['-c', 'curl -fsSL https://ollama.com/install.sh | sh'], {
       stdio: 'inherit',
     });
     if (sh.status !== 0) {
       throw new Error(
-        'Could not install Ollama automatically. Run: curl -fsSL https://ollama.com/install.sh | sh',
+        'Could not install Ollama automatically. Install from https://ollama.com/download then run `oi` again.',
       );
     }
     return;
   }
 
-  throw new Error('Automatic Ollama install supports Linux and Windows only. Install from https://ollama.com');
+  throw new Error('Automatic Ollama install supports Windows, macOS, and Linux. Install from https://ollama.com');
 }
 
 function spawnDetached(command: string, args: string[]): void {
@@ -206,4 +206,12 @@ export async function verifyModel(baseUrl: string, modelId: string): Promise<voi
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+export async function listModelTags(ollamaUrl?: string): Promise<string[]> {
+  const base = resolveOllamaUrl(ollamaUrl);
+  const res = await fetch(`${base}/api/tags`, { signal: AbortSignal.timeout(15_000) });
+  if (!res.ok) throw new Error(`Could not list models (${res.status})`);
+  const body = (await res.json()) as { models?: { name: string }[] };
+  return (body.models ?? []).map((m) => m.name).sort();
 }

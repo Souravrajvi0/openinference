@@ -1,11 +1,14 @@
-import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import fs from 'node:fs';
+
+export type UseCaseId = import('./use-cases').UseCaseId;
 
 export type SavedConfig = {
   ollamaUrl: string;
   model: string;
   modelName: string;
+  useCase?: UseCaseId;
   setupAt: string;
 };
 
@@ -29,4 +32,10 @@ export function loadConfig(): SavedConfig | null {
   } catch {
     return null;
   }
+}
+
+export function setActiveModel(modelId: string, modelName: string): void {
+  const cfg = loadConfig();
+  if (!cfg) throw new Error('Not set up yet. Run: oi');
+  saveConfig({ ...cfg, model: modelId, modelName });
 }

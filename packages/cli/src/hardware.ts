@@ -10,6 +10,8 @@ export type HardwareProfile = {
   hasGpu: boolean;
   gpuName: string | null;
   platform: NodeJS.Platform;
+  osLabel: string;
+  diskFreeGb: number;
   /** Usable memory budget for model weights (GB). */
   budgetGb: number;
 };
@@ -38,11 +40,44 @@ function detectVram(): { vramGb: number; name: string | null } {
   }
 }
 
+function detectDiskFreeGb(): number {
+  const home = os.homedir();
+
+  if (process.platform === 'win32') {
+    const drive = path.parse(home).root || 'C:\\';
+    const ps = spawnSync(
+      'powershell',
+      ['-NoProfile', '-Command', `(Get-PSDrive -Name '${drive.replace(':\\', '')}').Free`],
+      { encoding: 'utf8', timeout: 8000, windowsHide: true },
+    );
+    if (ps.status === 0 && ps.stdout?.trim()) {
+      const bytes = parseInt(ps.stdout.trim(), 10);
+      if (!Number.isNaN(bytes)) return roundGb(bytes);
+    }
+  }
+
+  try {
+    const st = fs.statfsSync(home);
+    return roundGb(st.bfree * st.bsize);
+  } catch {
+    return 0;
+  }
+}
+
+function osLabel(): string {
+  const type = os.type();
+  const rel = os.release();
+  if (type === 'Windows_NT') return `Windows ${rel}`;
+  if (type === 'Darwin') return `macOS ${rel}`;
+  return `${type} ${rel}`;
+}
+
 export function detectHardware(): HardwareProfile {
   const ramGb = roundGb(os.totalmem());
   const cpuCores = os.cpus().length;
   const { vramGb, name } = detectVram();
   const hasGpu = vramGb > 0;
+  const diskFreeGb = detectDiskFreeGb();
 
   const osHeadroom = 4;
   const vramBudget = hasGpu ? Math.max(0, vramGb - 1) : 0;
@@ -56,6 +91,8 @@ export function detectHardware(): HardwareProfile {
     hasGpu,
     gpuName: name,
     platform: process.platform,
+    osLabel: osLabel(),
+    diskFreeGb,
     budgetGb: Math.round(budgetGb * 10) / 10,
   };
 }
@@ -65,4 +102,15 @@ export function formatHardware(hw: HardwareProfile): string {
     ? `${hw.gpuName ?? 'GPU'} (${hw.vramGb} GB VRAM)`
     : 'CPU inference';
   return `${hw.ramGb} GB RAM · ${hw.cpuCores} cores · ${gpu}`;
+}
+
+export function ollamaModelsPath(): string {
+  return path.join(os.homedir(), '.ollama', 'models');
+}
+
+/** Model fits if RAM budget ok and ~1.2× download size fits on disk (with 2 GB headroom). */
+export function fitsDisk(modelSizeMb: number, diskFreeGb: number): boolean {
+  if (diskFreeGb <= 0) return true;
+  const needGb = modelSizeMb / 1024 + 2;
+  return diskFreeGb >= needGb;
 }
