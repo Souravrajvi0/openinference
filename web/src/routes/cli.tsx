@@ -84,8 +84,7 @@ const TERMINAL_LINES: { prompt?: boolean; text: string; dim?: boolean; accent?: 
   { text: "  │ Iterative: keep prev, curr, next pointers…", dim: true },
 ];
 
-function CopyInstallCta({ variant = "dark" }: { variant?: "dark" | "light" }) {
-  const dark = variant === "dark";
+function CopyInstallCta({ onOrange = false }: { onOrange?: boolean }) {
   return (
     <button
       type="button"
@@ -94,24 +93,17 @@ function CopyInstallCta({ variant = "dark" }: { variant?: "dark" | "light" }) {
         toast.success("Copied — paste in your terminal");
       }}
       className={
-        dark
-          ? "group w-full rounded-md border border-cream/15 bg-cream/5 p-4 text-left transition hover:border-flame-red/50 hover:bg-cream/10"
-          : "group w-full rounded-md border border-border bg-ink p-4 text-left transition hover:border-flame-red/40"
+        onOrange
+          ? "group mt-6 w-full rounded-md border border-cream/15 bg-cream/5 p-4 text-left transition hover:border-flame-red/50 hover:bg-cream/10"
+          : "group mt-6 w-full rounded-md border border-border bg-ink p-4 text-left transition hover:border-flame-red/40"
       }
     >
-      <div
-        className={
-          dark
-            ? "text-[10px] font-medium uppercase tracking-[0.16em] text-cream/40"
-            : "text-[10px] font-medium uppercase tracking-[0.16em] text-cream/40"
-        }
-      >
-        Copy &amp; paste
+      <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-cream/40">
+        Run local AI — one command
       </div>
       <code className="mt-2 block font-mono text-[13px] text-cream sm:text-sm">{INSTALL_CMD}</code>
-      <div className={dark ? "mt-2 text-xs text-cream/45 group-hover:text-cream/65" : "mt-2 text-xs text-cream/45 group-hover:text-cream/60"}>
-        Installs globally, opens <span className="font-mono">oi</span>. After that, just type{" "}
-        <span className="font-mono">oi</span> anytime.
+      <div className="mt-2 text-xs text-cream/45 group-hover:text-cream/60">
+        Click to copy · installs globally, then opens <span className="font-mono">oi</span>
       </div>
     </button>
   );
@@ -151,54 +143,54 @@ function TerminalPreview() {
 export function CliPage() {
   return (
     <div className="bg-cream text-ink">
-      {/* Hero */}
-      <section className="grid grid-cols-1 border-b border-border lg:grid-cols-[1fr_420px]">
-        <div className="relative min-h-[48vh] overflow-hidden border-b border-border lg:min-h-[72vh] lg:border-b-0">
+      {/* Hero — same layout as overview */}
+      <section className="grid grid-cols-1 border-b border-border lg:grid-cols-[1fr_380px]">
+        <div className="relative min-h-[52vh] overflow-hidden border-b border-border sm:min-h-[60vh] lg:min-h-[72vh] lg:border-b-0">
           <div className="absolute inset-0">
-            <PixelFlame cols={28} rows={14} seed={2} />
+            <PixelFlame cols={28} rows={14} />
           </div>
-          <div className="absolute inset-x-0 top-0 h-[55%] bg-gradient-to-b from-cream via-cream/95 to-transparent" />
-          <div className="relative flex h-full min-h-[48vh] flex-col justify-end px-4 py-10 sm:px-8 sm:py-12 md:px-12 lg:min-h-[72vh]">
-            <div>
-              <h1 className="max-w-[12ch] text-[clamp(2rem,9vw,5.5rem)] font-semibold leading-[0.95] tracking-[-0.04em]">
-                The package manager for local AI.
-              </h1>
-              <p className="mt-5 max-w-md text-base leading-relaxed text-ink/75 sm:text-lg">
-                Find, install, and run models on your machine — the way{" "}
-                <span className="font-mono text-ink">apt</span>,{" "}
-                <span className="font-mono text-ink">brew</span>, and{" "}
-                <span className="font-mono text-ink">npm</span> manage software.
-              </p>
-              <div className="mt-6 max-w-lg lg:hidden">
-                <CopyInstallCta />
-              </div>
-            </div>
-            <div className="mt-8 flex flex-wrap items-center gap-2 text-[10px] font-medium uppercase tracking-[0.16em] text-ink/55 sm:text-[11px]">
-              <span className="rounded-sm bg-cream px-2 py-1">150+ models</span>
-              <span className="rounded-sm bg-cream px-2 py-1">Hardware-aware</span>
-              <span className="rounded-sm bg-cream px-2 py-1">Windows · macOS · Linux</span>
+          <div className="absolute inset-x-0 top-0 h-[50%] bg-gradient-to-b from-cream via-cream/95 to-transparent" />
+          <div className="relative flex h-full min-h-[52vh] flex-col justify-between px-4 py-10 sm:min-h-[60vh] sm:px-6 sm:py-12 md:px-12 lg:min-h-[72vh]">
+            <h1 className="max-w-[14ch] text-[clamp(2rem,10vw,7rem)] font-semibold leading-[0.92] tracking-[-0.04em]">
+              The package manager
+              <br />
+              for local AI.
+            </h1>
+            <div className="flex flex-col gap-2 text-[10px] font-medium uppercase tracking-[0.16em] text-ink/70 sm:flex-row sm:items-end sm:justify-between sm:text-[11px] sm:tracking-[0.2em]">
+              <span className="w-fit rounded-sm bg-cream px-2 py-1">150+ models · Hardware-aware</span>
+              <span className="w-fit rounded-sm bg-cream px-2 py-1">Windows · macOS · Linux</span>
             </div>
           </div>
         </div>
 
-        <aside className="flex flex-col justify-between bg-surface lg:border-l lg:border-border">
-          <div className="hidden p-6 sm:p-8 lg:block lg:p-10">
+        <aside className="flex flex-col justify-between lg:border-l lg:border-border">
+          <div className="p-5 sm:p-8 md:p-10">
+            <p className="text-base leading-relaxed text-ink/90 sm:text-lg">
+              Find, install, and run models on your machine — the way{" "}
+              <span className="font-mono text-ink">apt</span>,{" "}
+              <span className="font-mono text-ink">brew</span>, and{" "}
+              <span className="font-mono text-ink">npm</span> manage software.
+            </p>
             <CopyInstallCta />
+            <div className="mt-6 flex flex-wrap gap-3">
+              <CtaButton href="/models#local">Browse models →</CtaButton>
+              <CtaButton
+                href="https://www.npmjs.com/package/@openinference/cli"
+                variant="outline"
+              >
+                View on npm
+              </CtaButton>
+            </div>
             <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
               Node 18+. On Linux:{" "}
               <span className="font-mono text-ink">sudo npm install -g @openinference/cli</span> then{" "}
               <span className="font-mono text-ink">oi</span>.
             </p>
-            <a
-              href="https://www.npmjs.com/package/@openinference/cli"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 inline-flex text-sm font-medium text-ink underline-offset-4 hover:underline"
-            >
-              View on npm →
-            </a>
           </div>
-          <div className="border-t border-border p-6 sm:p-8 lg:p-10">
+          <div className="border-t border-border p-5 sm:p-8 md:p-10">
+            <div className="mb-4 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              Preview
+            </div>
             <TerminalPreview />
           </div>
         </aside>
@@ -379,7 +371,7 @@ export function CliPage() {
             The package manager for local AI — hardware-aware, MIT licensed.
           </p>
           <div className="mt-8 max-w-xl">
-            <CopyInstallCta variant="dark" />
+            <CopyInstallCta onOrange />
           </div>
           <div className="mt-8 flex flex-wrap gap-3">
             <CtaButton
