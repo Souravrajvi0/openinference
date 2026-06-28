@@ -115,12 +115,11 @@ function printFirstRunWelcome(): void {
   console.log('');
 }
 
-/** Returning users: logo + active model + provider + Ready. No scan, no wizard. */
+/** Returning users: logo + active model + Ready. No scan, no wizard. */
 function printReadyHeader(cfg: NonNullable<ReturnType<typeof loadConfig>>): void {
   printLogo();
   console.log('');
   console.log(`  ${dim('Model'.padEnd(10))}${bold(cfg.modelName)}`);
-  console.log(`  ${dim('Runtime'.padEnd(10))}local`);
   console.log('');
   console.log(`  ${green('Ready.')}`);
   console.log('');
@@ -148,7 +147,7 @@ function printHelp(): void {
   }
   console.log('');
   console.log(`  ${dim('goals:')} ${USE_CASE_IDS.join(' · ')}`);
-  console.log(dim('  Custom model? /install or /use any tag from ollama.com/library'));
+  console.log(dim('  Custom model? /install <tag> — any tag from the catalog'));
   console.log(dim('  Anything that is not a /command is sent to the active model.'));
   console.log('');
 }
@@ -176,32 +175,22 @@ function printConfig(opts: ShellOptions): void {
   if (!cfg) {
     const hw = detectHardware();
     const gpu = !hw.hasGpu
-      ? 'none — CPU inference'
+      ? 'none — CPU'
       : hw.gpuUsable
         ? `${hw.gpuName ?? 'GPU'} (${hw.vramGb} GB)`
-        : `${hw.gpuName ?? 'GPU'} (${hw.vramGb} GB — too small, using CPU)`;
+        : `${hw.gpuName ?? 'GPU'} (${hw.vramGb} GB — using CPU)`;
     const label = (s: string) => s.padEnd(12);
     console.log('  No configuration yet — type /setup to create one.');
     console.log('');
     console.log(`  ${dim('Current defaults')}`);
-    console.log(`  ${label('Provider')}Ollama`);
     console.log(`  ${label('Model')}none`);
-    console.log(`  ${label('Host')}${resolveOllamaUrl(opts.ollamaUrl)}`);
-    console.log(`  ${label('🎮 GPU')}${gpu}`);
+    console.log(`  ${label('GPU')}${gpu}`);
     console.log(`  ${label('Config')}${configPath()}`);
     console.log('');
     return;
   }
 
   const entry = loadCatalog().find((m) => m.id === cfg.model);
-  const base = resolveOllamaUrl(opts.ollamaUrl);
-  const urlSource = opts.ollamaUrl
-    ? 'from --ollama-url'
-    : process.env.OLLAMA_URL
-      ? 'from $OLLAMA_URL'
-      : cfg.ollamaUrl
-        ? 'from config'
-        : 'default';
 
   const label = (s: string) => s.padEnd(15);
   console.log(`  ${label('Active model')}${bold(cfg.modelName)} ${dim('(' + cfg.model + ')')}`);
@@ -210,15 +199,14 @@ function printConfig(opts: ShellOptions): void {
     console.log(`  ${label('')}${dim(`~${entry.ramGb} GB RAM · ${size} download · quality ${entry.quality}/100`)}`);
   }
   if (cfg.useCase) console.log(`  ${label('Use case')}${useCaseLabel(cfg.useCase)}`);
-  console.log(`  ${label('Ollama URL')}${base} ${dim('(' + urlSource + ')')}`);
-  console.log(`  ${label('Model storage')}${ollamaModelsPath()}`);
+  console.log(`  ${label('Model files')}${ollamaModelsPath()}`);
   console.log(`  ${label('Config file')}${configPath()}`);
   console.log(`  ${label('Set up')}${new Date(cfg.setupAt).toLocaleDateString()}`);
   const hw = detectHardware();
   console.log(`  ${label('Hardware')}${formatHardware(hw)}`);
   console.log(`  ${label('Last scan')}${formatAgo(hw.scannedAt)} ${dim('· /scan to refresh')}`);
   console.log('');
-  console.log(dim('  Switch model: /use <model>   ·   Reconfigure: /setup'));
+  console.log(dim('  Switch model: /use   ·   Reconfigure: /setup'));
   console.log('');
 }
 

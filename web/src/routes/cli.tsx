@@ -29,7 +29,7 @@ const PILLARS = [
   {
     tag: "Install",
     title: "You pick. We pull.",
-    description: "Confirm before download. Ollama installs if needed. Quick verify test before chat.",
+    description: "Confirm before download. Local inference set up if needed. Quick verify test before chat.",
     accent: "var(--flame-deep)",
   },
   {
@@ -63,7 +63,7 @@ const COMMANDS = [
 const COMPARE: [string, string][] = [
   ["Scroll Reddit for “best local LLM”", "Pick a use case — we filter for you"],
   ["Download 4 GB, model segfaults", "Only models that fit your RAM/GPU"],
-  ["Install Ollama separately", "Ollama + model in one guided flow"],
+  ["Install a runtime separately", "Model + inference in one guided flow"],
   ["Remember CLI flags", "Familiar: search, install, use, remove"],
 ];
 

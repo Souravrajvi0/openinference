@@ -154,17 +154,17 @@ async function ensureOllama(ctx: InstallCtx): Promise<void> {
     await ensureRemoteOllama(ctx.baseUrl);
   } else {
     if (ctx.needsOllama) {
-      console.log('  Installing Ollama…\n');
+      console.log('  Setting up local inference…\n');
       installOllama();
       if (!isOllamaInstalled()) {
         throw new Error(
-          'Install finished but Ollama was not found. Restart your terminal and run `oi` again.',
+          'Setup did not finish. Restart your terminal and run `oi` again.',
         );
       }
     } else if (!isOllamaInstalled() && !(await pingOllama(ctx.baseUrl))) {
-      throw new Error('Ollama not found. Run `oi` again to install it.');
+      throw new Error('Local inference is not available. Run `oi` again to set up.');
     }
-    console.log('  Starting Ollama…\n');
+    console.log('  Starting local inference…\n');
     await ensureHostOllamaRunning(ctx.baseUrl);
   }
   ctx.ollamaReady = true;
@@ -356,7 +356,7 @@ export async function runSetup(opts: SetupOptions): Promise<void> {
     candidates = idx >= 0 ? picks.slice(idx) : [chosen];
   }
 
-  if (remote) console.log('  Connecting to Ollama…\n');
+  if (remote) console.log('  Connecting…\n');
 
   const ctx: InstallCtx = {
     remote,

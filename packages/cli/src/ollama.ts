@@ -26,7 +26,7 @@ export async function pingOllama(baseUrl?: string): Promise<boolean> {
 }
 
 export function installOllama(): void {
-  console.log('\nInstalling Ollama…\n');
+  console.log('\n  Setting up local inference…\n');
 
   if (process.platform === 'win32') {
     const winget = spawnSync(
@@ -43,7 +43,7 @@ export function installOllama(): void {
     );
     if (winget.status !== 0) {
       throw new Error(
-        'Could not install Ollama automatically. Install from https://ollama.com/download/windows then run `oi setup` again.',
+        'Could not set up local inference automatically. Run `oi` again or see openinference.tech/cli for help.',
       );
     }
     return;
@@ -55,13 +55,13 @@ export function installOllama(): void {
     });
     if (sh.status !== 0) {
       throw new Error(
-        'Could not install Ollama automatically. Install from https://ollama.com/download then run `oi` again.',
+        'Could not set up local inference automatically. Run `oi` again or see openinference.tech/cli for help.',
       );
     }
     return;
   }
 
-  throw new Error('Automatic Ollama install supports Windows, macOS, and Linux. Install from https://ollama.com');
+  throw new Error('Automatic local inference setup supports Windows, macOS, and Linux.');
 }
 
 function spawnDetached(command: string, args: string[]): void {
@@ -77,9 +77,9 @@ function spawnDetached(command: string, args: string[]): void {
 export async function ensureHostOllamaRunning(baseUrl: string): Promise<void> {
   if (await pingOllama(baseUrl)) return;
 
-  console.log('Starting Ollama…');
+  console.log('Starting local inference…');
   if (!isOllamaInstalled()) {
-    throw new Error('Ollama is not installed.');
+    throw new Error('Local inference is not set up. Run `oi` again.');
   }
 
   spawnDetached('ollama', ['serve']);
@@ -87,7 +87,7 @@ export async function ensureHostOllamaRunning(baseUrl: string): Promise<void> {
   const deadline = Date.now() + 45_000;
   while (Date.now() < deadline) {
     if (await pingOllama(baseUrl)) {
-      console.log('Ollama is running.\n');
+      console.log('Ready.\n');
       return;
     }
     await sleep(1500);
@@ -95,20 +95,20 @@ export async function ensureHostOllamaRunning(baseUrl: string): Promise<void> {
 
   if (process.platform === 'win32') {
     throw new Error(
-      'Ollama did not start in time. Open the Ollama app from the Start menu, then run `oi setup` again.',
+      'Local inference did not start in time. Run `oi` again.',
     );
   }
-  throw new Error('Ollama did not start in time. Try: ollama serve');
+  throw new Error('Local inference did not start in time. Run `oi` again.');
 }
 
 /** Docker / remote mode — Ollama must already be reachable over HTTP. */
 export async function ensureRemoteOllama(baseUrl: string): Promise<void> {
   if (await pingOllama(baseUrl)) {
-    console.log(`  Ollama reachable at ${baseUrl}\n`);
+    console.log(`  Connected.\n`);
     return;
   }
   throw new Error(
-    `Cannot reach Ollama at ${baseUrl}. Check the URL, Docker network, and that the container is running.`,
+    `Cannot reach the inference host at ${baseUrl}. Check the URL and that the service is running.`,
   );
 }
 

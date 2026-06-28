@@ -175,7 +175,6 @@ export async function runInfo(modelId: string, opts: { ollamaUrl?: string } = {}
   if (known) {
     console.log(`  ${label('Installed')}${inst ? (active ? 'yes — active model' : 'yes') : 'no'}`);
   }
-  console.log(`  ${label('Runtime')}${DIM}Ollama (powered by)${RESET}`);
   console.log('');
   console.log(`  ${DIM}License, context length, quantization and benchmarks: coming soon.${RESET}`);
   console.log('');
@@ -448,8 +447,7 @@ export async function runStorage(): Promise<void> {
   const base = resolveOllamaUrl(cfg?.ollamaUrl);
 
   console.log('\n  OpenInference — model storage\n');
-  console.log('  Models are stored by Ollama, not OpenInference.\n');
-  console.log(`  Default path: ${ollamaModelsPath()}\n`);
+  console.log(`  Model files on this machine:\n  ${ollamaModelsPath()}\n`);
 
   if (await pingOllama(base)) {
     const tags = await listModelTags(base);
@@ -461,7 +459,7 @@ export async function runStorage(): Promise<void> {
       console.log('');
     }
   } else {
-    console.log('  Ollama is not running — start it with `oi` or open the Ollama app.\n');
+    console.log('  Local inference is not running — run `oi` to start.\n');
   }
 
   if (cfg) {

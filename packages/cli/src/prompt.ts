@@ -212,10 +212,10 @@ export async function confirmInstall(opts: {
 
   console.log('  This will:\n');
   if (opts.needsOllama) {
-    console.log('    • Install Ollama (local AI runtime, one-time)');
+    console.log('    • Set up local inference (one-time)');
   }
   console.log(`    • Download ${size}${opts.sizeMb > 0 ? ` — ${opts.modelName}` : `: ${opts.modelName}`}`);
-  console.log('    • Store models in ~/.ollama/models (managed by Ollama)\n');
+  console.log('    • Store model files on this computer\n');
 
   const choices: { value: InstallAction; label: string; hint?: string }[] = [
     { value: 'install', label: 'Install this model', hint: opts.modelName },
