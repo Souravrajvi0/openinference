@@ -12,3 +12,4 @@ coverage/
 /package-lock.json
 infra/nginx/certs/
 *.tsbuildinfo
+web/src/data/oi-models.json

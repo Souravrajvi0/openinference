@@ -16,6 +16,7 @@ WORKDIR /web
 COPY web/package.json web/package-lock.json* ./
 RUN npm install
 COPY web/ ./
+COPY packages/cli/data/models.json ./src/data/oi-models.json
 RUN npm run build
 
 FROM node:20-alpine

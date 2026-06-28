@@ -1,5 +1,5 @@
 /** Same registry as `packages/cli/data/models.json` — single source for `oi install`. */
-import raw from "../../../packages/cli/data/models.json";
+import raw from "@/data/oi-models.json";
 
 export type OiCatalogModel = {
   id: string;
