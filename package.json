@@ -4,11 +4,13 @@
   "private": true,
   "workspaces": [
     "shared",
-    "services/*"
+    "services/*",
+    "packages/*"
   ],
   "scripts": {
     "dev": "npm run dev --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
+    "cli": "npm run build -w @openinference/cli && node packages/cli/dist/index.js",
     "lint": "eslint 'services/*/src/**/*.ts' 'shared/src/**/*.ts'",
     "typecheck": "tsc --build"
   },

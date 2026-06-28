@@ -1,0 +1,33 @@
+{
+  "name": "@openinference/cli",
+  "version": "0.1.0",
+  "description": "OpenInference CLI — local model setup and gateway tools",
+  "license": "MIT",
+  "bin": {
+    "oi": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "files": [
+    "dist",
+    "data"
+  ],
+  "scripts": {
+    "build": "node scripts/build-catalog.mjs && tsc && node -e \"require('fs').cpSync('data','dist/data',{recursive:true})\"",
+    "catalog": "node scripts/build-catalog.mjs",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.4.5"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
