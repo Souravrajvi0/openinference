@@ -157,13 +157,13 @@ export function CliPage() {
           <div className="absolute inset-0">
             <PixelFlame cols={28} rows={14} seed={2} />
           </div>
-          <div className="absolute inset-x-0 top-0 h-[62%] bg-gradient-to-b from-cream via-cream/98 to-transparent" />
-          <div className="relative z-10 flex h-full min-h-[48vh] flex-col justify-between px-4 py-10 sm:px-8 sm:py-12 md:px-12 lg:min-h-[72vh]">
-            <div className="max-w-xl">
+          <div className="absolute inset-x-0 top-0 h-[55%] bg-gradient-to-b from-cream via-cream/95 to-transparent" />
+          <div className="relative flex h-full min-h-[48vh] flex-col justify-end px-4 py-10 sm:px-8 sm:py-12 md:px-12 lg:min-h-[72vh]">
+            <div>
               <h1 className="max-w-[12ch] text-[clamp(2rem,9vw,5.5rem)] font-semibold leading-[0.95] tracking-[-0.04em]">
                 The package manager for local AI.
               </h1>
-              <p className="mt-5 max-w-md text-base leading-relaxed text-ink/80 sm:text-lg">
+              <p className="mt-5 max-w-md text-base leading-relaxed text-ink/75 sm:text-lg">
                 Find, install, and run models on your machine — the way{" "}
                 <span className="font-mono text-ink">apt</span>,{" "}
                 <span className="font-mono text-ink">brew</span>, and{" "}
@@ -173,7 +173,7 @@ export function CliPage() {
                 <CopyInstallCta />
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 text-[10px] font-medium uppercase tracking-[0.16em] text-ink/70 sm:text-[11px]">
+            <div className="mt-8 flex flex-wrap items-center gap-2 text-[10px] font-medium uppercase tracking-[0.16em] text-ink/55 sm:text-[11px]">
               <span className="rounded-sm bg-cream px-2 py-1">150+ models</span>
               <span className="rounded-sm bg-cream px-2 py-1">Hardware-aware</span>
               <span className="rounded-sm bg-cream px-2 py-1">Windows · macOS · Linux</span>
