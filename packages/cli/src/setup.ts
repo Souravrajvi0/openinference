@@ -379,7 +379,7 @@ export async function runSetup(opts: SetupOptions): Promise<void> {
   };
   saveConfig(cfg);
 
-  console.log('\n  ✓ Ready — you can use open-source AI on this computer.\n');
+  console.log('\n  ✓ Ready — type oi anytime to chat.\n');
   console.log(`  Model:   ${working.name}`);
   console.log(`  Stored:  ${ollamaModelsPath()}`);
   console.log(`  Config:  ~/.openinference/config.json\n`);

@@ -70,7 +70,7 @@ const COMPARE: [string, string][] = [
 const TERMINAL_LINES: { prompt?: boolean; text: string; dim?: boolean; accent?: boolean }[] = [
   { text: "$ npm install -g @openinference/cli && oi", prompt: true },
   { text: "" },
-  { text: "  OpenInference — local open-source AI", dim: true },
+  { text: "  oi — package manager for local AI", dim: true },
   { text: "" },
   { text: "  > What do you want AI for?", accent: true },
   { text: "    1) Coding  2) Chat  3) PDFs  …", dim: true },
@@ -162,14 +162,14 @@ export function CliPage() {
           <div className="relative flex h-full min-h-[48vh] flex-col justify-between px-4 py-10 sm:px-8 sm:py-12 md:px-12 lg:min-h-[72vh]">
             <div className="flex items-center gap-3">
               <PixelLogo size={22} />
-              <span className="text-xs font-medium text-ink/60 sm:text-sm">@openinference/cli</span>
+              <span className="font-mono text-sm font-semibold text-ink">oi</span>
             </div>
             <div>
               <h1 className="max-w-[12ch] text-[clamp(2rem,9vw,5.5rem)] font-semibold leading-[0.95] tracking-[-0.04em]">
                 The package manager for local AI.
               </h1>
               <p className="mt-5 max-w-md text-base leading-relaxed text-ink/75 sm:text-lg">
-                Find, install, and run open-source models on your machine — the way{" "}
+                Find, install, and run models on your machine — the way{" "}
                 <span className="font-mono text-ink">apt</span>,{" "}
                 <span className="font-mono text-ink">brew</span>, and{" "}
                 <span className="font-mono text-ink">npm</span> manage software.
@@ -379,7 +379,7 @@ export function CliPage() {
             Install once. Type oi.
           </h2>
           <p className="mt-4 max-w-lg text-sm leading-relaxed text-cream/70 sm:text-base">
-            The package manager for local AI — hardware-aware, open source, MIT licensed.
+            The package manager for local AI — hardware-aware, MIT licensed.
           </p>
           <div className="mt-8 max-w-xl">
             <CopyInstallCta variant="dark" />

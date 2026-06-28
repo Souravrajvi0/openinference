@@ -1,6 +1,6 @@
 {
   "name": "@openinference/cli",
-  "version": "1.6.2",
+  "version": "1.6.3",
   "description": "OpenInference Core — a hardware-aware package manager for local AI models: search, install, run, and chat",
   "license": "MIT",
   "repository": {

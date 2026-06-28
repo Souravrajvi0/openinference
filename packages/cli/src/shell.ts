@@ -111,7 +111,7 @@ function printFirstRunWelcome(): void {
   printLogo();
   console.log('');
   console.log(`  ${bold('Welcome!')} ${dim("Looks like this is your first time.")}`);
-  console.log(`  ${dim("Let’s find an open-source AI model that runs on this computer.")}`);
+  console.log(`  ${dim("Let’s find a model that runs on this computer.")}`);
   console.log('');
 }
 
