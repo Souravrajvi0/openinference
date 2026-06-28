@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { PixelFlame } from "@/components/PixelFlame";
 import {
   CtaButton,
@@ -128,6 +129,27 @@ const SUGGESTIONS = [
   { icon: "</>", text: "Run a regression suite against gemma3:1b" },
 ];
 
+const CLI_ONE_LINER = "npx @openinference/cli";
+
+function CliHeroCta() {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void navigator.clipboard?.writeText(CLI_ONE_LINER);
+        toast.success("Copied — paste in your terminal");
+      }}
+      className="group mt-6 w-full rounded-md border border-border bg-ink p-4 text-left transition hover:border-flame-red/40"
+    >
+      <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-cream/40">
+        Run local AI — one command
+      </div>
+      <code className="mt-2 block font-mono text-[13px] text-cream sm:text-sm">{CLI_ONE_LINER}</code>
+      <div className="mt-2 text-xs text-cream/45 group-hover:text-cream/60">Click to copy · no Ollama setup required</div>
+    </button>
+  );
+}
+
 export function Overview() {
   return (
     <div className="bg-cream text-ink">
@@ -158,9 +180,10 @@ export function Overview() {
               enforces human approval steps, retrieves your documents, and records full traces —
               one deployable stack.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <CtaButton to="/playground">Try the playground →</CtaButton>
-              <CtaButton to="/inference" variant="outline">Run benchmarks</CtaButton>
+            <CliHeroCta />
+            <div className="mt-6 flex flex-wrap gap-3">
+              <CtaButton to="/cli">CLI setup guide →</CtaButton>
+              <CtaButton to="/playground" variant="outline">Try the playground</CtaButton>
             </div>
           </div>
           <div className="border-t border-border p-5 sm:p-8 md:p-10">
@@ -392,8 +415,24 @@ export function Overview() {
           <h2 className="mt-4 max-w-3xl text-[clamp(2rem,5vw,3.5rem)] font-semibold leading-tight tracking-[-0.03em]">
             Build, customize, and deploy tailored AI solutions with complete control.
           </h2>
-          <div className="mt-10 flex flex-wrap gap-3">
-            <CtaButton to="/playground" className="!bg-cream !text-ink hover:!opacity-90">
+          <div className="mt-8 max-w-xl">
+            <button
+              type="button"
+              onClick={() => {
+                void navigator.clipboard?.writeText(CLI_ONE_LINER);
+                toast.success("Copied — paste in your terminal");
+              }}
+              className="w-full rounded-md border border-cream/20 bg-cream/10 px-4 py-3 text-left font-mono text-sm text-cream transition hover:bg-cream/15"
+            >
+              {CLI_ONE_LINER}
+            </button>
+            <p className="mt-2 text-sm text-cream/50">Or self-host the full gateway with Docker.</p>
+          </div>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <CtaButton to="/cli" className="!bg-cream !text-ink hover:!opacity-90">
+              Local AI CLI →
+            </CtaButton>
+            <CtaButton to="/playground" variant="outline" className="!border-cream/30 !bg-transparent !text-cream hover:!bg-cream/10">
               Start building →
             </CtaButton>
             <CtaButton to="/admin" variant="outline" className="!border-cream/30 !bg-transparent !text-cream hover:!bg-cream/10">
