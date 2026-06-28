@@ -1,5 +1,5 @@
 #!/bin/sh
-# OpenInference CLI — one-command install (Linux / macOS)
+# OpenInference CLI — install globally and start oi (Linux / macOS)
 # Usage: curl -fsSL https://openinference.tech/install-cli.sh | sh
 set -e
 
@@ -9,12 +9,18 @@ echo ""
 
 if ! command -v node >/dev/null 2>&1; then
   echo "  Node.js is required. Install Node 18+ from https://nodejs.org"
-  echo "  Then run:  npx @openinference/cli"
+  echo "  Then run:"
+  echo "    npm install -g @openinference/cli"
+  echo "    oi"
   echo ""
   exit 1
 fi
 
-echo "  Starting setup (this may take a few minutes)..."
+echo "  Installing @openinference/cli globally..."
+npm install -g @openinference/cli@latest
+
+echo ""
+echo "  Starting oi..."
 echo ""
 
-exec npx -y @openinference/cli@latest
+exec oi

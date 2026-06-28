@@ -146,7 +146,7 @@ function CliHeroCta() {
       </div>
       <code className="mt-2 block font-mono text-[13px] text-cream sm:text-sm">{CLI_ONE_LINER}</code>
       <div className="mt-2 text-xs text-cream/45 group-hover:text-cream/60">
-        Click to copy · or try <span className="font-mono">npx @openinference/cli</span>
+        Click to copy · installs globally, then opens <span className="font-mono">oi</span>
       </div>
     </button>
   );

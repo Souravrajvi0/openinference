@@ -1,7 +1,7 @@
+import { toast } from "sonner";
 import { PageHeader, CtaButton, Kicker } from "@/components/marketing/shared";
 
-const INSTALL_GLOBAL = "npm install -g @openinference/cli && oi";
-const INSTALL_NPX = "npx @openinference/cli";
+const INSTALL_CMD = "npm install -g @openinference/cli && oi";
 
 const USE_CASES = [
   "Coding",
@@ -36,13 +36,33 @@ function CodeBlock({ children }: { children: string }) {
   );
 }
 
+function CopyInstallCta({ className = "" }: { className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void navigator.clipboard?.writeText(INSTALL_CMD);
+        toast.success("Copied — paste in your terminal");
+      }}
+      className={`group w-full rounded-md border border-border bg-ink p-4 text-left transition hover:border-flame-red/40 ${className}`}
+    >
+      <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-cream/40">Copy &amp; paste</div>
+      <code className="mt-2 block font-mono text-[13px] text-cream sm:text-sm">{INSTALL_CMD}</code>
+      <div className="mt-2 text-xs text-cream/45 group-hover:text-cream/60">
+        Installs globally, then opens the <span className="font-mono">oi</span> terminal. After that, just type{" "}
+        <span className="font-mono">oi</span> anytime.
+      </div>
+    </button>
+  );
+}
+
 export function CliPage() {
   return (
     <div className="bg-cream text-ink">
       <PageHeader
         kicker="OpenInference CLI"
         title="A package manager for local open-source models."
-        description="Hardware-aware: scan your machine, filter 150+ models, you pick, Ollama installs, you chat. Not an agent — model discovery and setup."
+        description="Install once, type oi. Hardware-aware scan, 150+ models, you pick, Ollama installs, you chat. Not an agent — model discovery and setup."
         action={
           <a
             href="https://www.npmjs.com/package/@openinference/cli"
@@ -57,19 +77,13 @@ export function CliPage() {
 
       <section className="border-b border-border bg-ink text-cream">
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 md:px-10 md:py-16">
-          <p className="text-sm uppercase tracking-[0.2em] text-cream/40">Install</p>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <div>
-              <p className="mb-2 text-xs text-cream/50">Global (recommended)</p>
-              <CodeBlock>{INSTALL_GLOBAL}</CodeBlock>
-            </div>
-            <div>
-              <p className="mb-2 text-xs text-cream/50">Try once, no install</p>
-              <CodeBlock>{INSTALL_NPX}</CodeBlock>
-            </div>
+          <div className="max-w-2xl">
+            <CopyInstallCta />
           </div>
           <p className="mt-4 text-sm text-cream/50">
-            Requires Node 18+. Works on Windows, macOS, and Linux. Powered by{" "}
+            Requires Node 18+. Works on Windows, macOS, and Linux. On Linux you may need{" "}
+            <span className="font-mono text-cream/70">sudo npm install -g @openinference/cli</span>, then run{" "}
+            <span className="font-mono text-cream/70">oi</span>. Powered by{" "}
             <a href="https://ollama.com" className="underline hover:text-cream/70" target="_blank" rel="noopener noreferrer">
               Ollama
             </a>
@@ -85,17 +99,16 @@ export function CliPage() {
             <div className="bg-surface p-6 sm:p-8">
               <h3 className="text-lg font-semibold">Interactive shell</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                Run <span className="font-mono text-ink">oi</span> — chat when you already have a model. Use slash
-                commands: <span className="font-mono text-ink">/setup</span>,{" "}
-                <span className="font-mono text-ink">/search</span>,{" "}
-                <span className="font-mono text-ink">/install</span>.
+                Type <span className="font-mono text-ink">oi</span> — opens your local AI terminal. Chat when you
+                already have a model. Slash commands: <span className="font-mono text-ink">/setup</span>,{" "}
+                <span className="font-mono text-ink">/search</span>, <span className="font-mono text-ink">/install</span>.
               </p>
             </div>
             <div className="bg-surface p-6 sm:p-8">
               <h3 className="text-lg font-semibold">Setup wizard</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                Run <span className="font-mono text-ink">oi start</span> — pick a use case, scan hardware, confirm
-                download. Auto-retries if a model crashes on your machine.
+                Run <span className="font-mono text-ink">oi start</span> inside the shell — pick a use case, scan
+                hardware, confirm download. Auto-retries if a model crashes on your machine.
               </p>
             </div>
           </div>
@@ -106,12 +119,12 @@ export function CliPage() {
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 md:px-10 md:py-14">
           <Kicker>How it works</Kicker>
           <ol className="mt-6 space-y-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
-            <li>1. Tell us your goal — coding, chat, PDFs, writing, vision, or research</li>
-            <li>2. We scan RAM, CPU, GPU, disk, and OS</li>
-            <li>3. Filter 150+ catalog models → only what fits your hardware</li>
-            <li>4. You pick and confirm before anything downloads</li>
-            <li>5. Ollama installs (if needed), model pulls, quick verify test runs</li>
-            <li>6. Chat in the shell or run <span className="font-mono text-ink">oi chat</span></li>
+            <li>1. Install the package and run <span className="font-mono text-ink">oi</span></li>
+            <li>2. Tell us your goal — coding, chat, PDFs, writing, vision, or research</li>
+            <li>3. We scan RAM, CPU, GPU, disk, and OS</li>
+            <li>4. Filter 150+ catalog models → only what fits your hardware</li>
+            <li>5. You pick and confirm before anything downloads</li>
+            <li>6. Ollama installs (if needed), model pulls, quick verify test — then you chat</li>
           </ol>
         </div>
       </section>

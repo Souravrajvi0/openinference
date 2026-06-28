@@ -11,18 +11,20 @@ you manage *models*, not the engine.
 
 ## Quick start
 
-**Global install (recommended — type `oi` anytime):**
+**Install globally, then type `oi` anytime:**
 
 ```bash
 npm install -g @openinference/cli
 oi
 ```
 
-**Or run once without installing:**
+One line (install + open the terminal):
 
 ```bash
-npx @openinference/cli
+npm install -g @openinference/cli && oi
 ```
+
+On Linux you may need `sudo npm install -g @openinference/cli`, then run `oi`.
 
 The default is an **interactive shell** — chat when you already have a model, or `/setup` to run the wizard.
 
