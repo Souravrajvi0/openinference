@@ -129,7 +129,7 @@ const SUGGESTIONS = [
   { icon: "</>", text: "Run a regression suite against gemma3:1b" },
 ];
 
-const CLI_ONE_LINER = "npx @openinference/cli";
+const CLI_ONE_LINER = "npm install -g @openinference/cli && oi";
 
 function CliHeroCta() {
   return (
@@ -145,7 +145,9 @@ function CliHeroCta() {
         Run local AI — one command
       </div>
       <code className="mt-2 block font-mono text-[13px] text-cream sm:text-sm">{CLI_ONE_LINER}</code>
-      <div className="mt-2 text-xs text-cream/45 group-hover:text-cream/60">Click to copy · wizard asks before installing</div>
+      <div className="mt-2 text-xs text-cream/45 group-hover:text-cream/60">
+        Click to copy · or try <span className="font-mono">npx @openinference/cli</span>
+      </div>
     </button>
   );
 }
