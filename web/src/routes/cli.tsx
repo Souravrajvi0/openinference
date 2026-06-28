@@ -84,8 +84,8 @@ const TERMINAL_LINES: { prompt?: boolean; text: string; dim?: boolean; accent?: 
   { text: "  │ Iterative: keep prev, curr, next pointers…", dim: true },
 ];
 
-function CopyInstallCta({ variant = "dark" }: { variant?: "dark" | "light" }) {
-  const dark = variant === "dark";
+function CopyInstallCta({ variant = "light" }: { variant?: "dark" | "light" }) {
+  const onDark = variant === "dark";
   return (
     <button
       type="button"
@@ -94,14 +94,14 @@ function CopyInstallCta({ variant = "dark" }: { variant?: "dark" | "light" }) {
         toast.success("Copied — paste in your terminal");
       }}
       className={
-        dark
+        onDark
           ? "group w-full rounded-md border border-cream/15 bg-cream/5 p-4 text-left transition hover:border-flame-red/50 hover:bg-cream/10"
           : "group w-full rounded-md border border-border bg-ink p-4 text-left transition hover:border-flame-red/40"
       }
     >
       <div
         className={
-          dark
+          onDark
             ? "text-[10px] font-medium uppercase tracking-[0.16em] text-cream/40"
             : "text-[10px] font-medium uppercase tracking-[0.16em] text-cream/40"
         }
@@ -109,7 +109,13 @@ function CopyInstallCta({ variant = "dark" }: { variant?: "dark" | "light" }) {
         Copy &amp; paste
       </div>
       <code className="mt-2 block font-mono text-[13px] text-cream sm:text-sm">{INSTALL_CMD}</code>
-      <div className={dark ? "mt-2 text-xs text-cream/45 group-hover:text-cream/65" : "mt-2 text-xs text-cream/45 group-hover:text-cream/60"}>
+      <div
+        className={
+          onDark
+            ? "mt-2 text-xs text-cream/45 group-hover:text-cream/65"
+            : "mt-2 text-xs text-cream/50 group-hover:text-cream/70"
+        }
+      >
         Installs globally, opens <span className="font-mono">oi</span>. After that, just type{" "}
         <span className="font-mono">oi</span> anytime.
       </div>
@@ -153,17 +159,16 @@ export function CliPage() {
     <div className="bg-cream text-ink">
       {/* Hero */}
       <section className="grid grid-cols-1 border-b border-border lg:grid-cols-[1fr_420px]">
-        <div className="relative min-h-[48vh] overflow-hidden border-b border-border lg:min-h-[72vh] lg:border-b-0">
-          <div className="absolute inset-0">
-            <PixelFlame cols={28} rows={14} seed={2} />
+        <div className="relative min-h-[48vh] overflow-hidden border-b border-border bg-cream lg:min-h-[72vh] lg:border-b-0">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-36 overflow-hidden opacity-30 sm:h-44">
+            <PixelFlame cols={28} rows={6} seed={2} />
           </div>
-          <div className="absolute inset-x-0 top-0 h-[62%] bg-gradient-to-b from-cream via-cream/98 to-transparent" />
           <div className="relative z-10 flex h-full min-h-[48vh] flex-col justify-between px-4 py-10 sm:px-8 sm:py-12 md:px-12 lg:min-h-[72vh]">
             <div className="max-w-xl">
               <h1 className="max-w-[12ch] text-[clamp(2rem,9vw,5.5rem)] font-semibold leading-[0.95] tracking-[-0.04em]">
                 The package manager for local AI.
               </h1>
-              <p className="mt-5 max-w-md text-base leading-relaxed text-ink/80 sm:text-lg">
+              <p className="mt-5 max-w-md text-base leading-relaxed text-muted-foreground sm:text-lg">
                 Find, install, and run models on your machine — the way{" "}
                 <span className="font-mono text-ink">apt</span>,{" "}
                 <span className="font-mono text-ink">brew</span>, and{" "}
@@ -174,9 +179,9 @@ export function CliPage() {
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-[10px] font-medium uppercase tracking-[0.16em] text-ink/70 sm:text-[11px]">
-              <span className="rounded-sm bg-cream px-2 py-1">150+ models</span>
-              <span className="rounded-sm bg-cream px-2 py-1">Hardware-aware</span>
-              <span className="rounded-sm bg-cream px-2 py-1">Windows · macOS · Linux</span>
+              <span className="rounded-sm border border-border bg-surface px-2 py-1">150+ models</span>
+              <span className="rounded-sm border border-border bg-surface px-2 py-1">Hardware-aware</span>
+              <span className="rounded-sm border border-border bg-surface px-2 py-1">Windows · macOS · Linux</span>
             </div>
           </div>
         </div>
