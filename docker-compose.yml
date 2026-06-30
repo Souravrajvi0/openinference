@@ -20,16 +20,18 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: redis-server --appendonly yes
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+      - ./infra/redis/entrypoint.sh:/entrypoint.sh:ro
     healthcheck:
       test: ["CMD", "redis-cli", "SET", "oi:healthcheck", "1", "EX", "10"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 5s
 
   gateway:
     build:
