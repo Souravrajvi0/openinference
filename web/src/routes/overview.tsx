@@ -131,14 +131,14 @@ const SUGGESTIONS = [
 export function Overview() {
   return (
     <div className="bg-cream text-ink">
-      {/* Hero — split grid */}
-      <section className="grid grid-cols-1 border-b border-border lg:grid-cols-[1fr_380px]">
-        <div className="relative min-h-[52vh] overflow-hidden border-b border-border sm:min-h-[60vh] lg:min-h-[72vh] lg:border-b-0">
+      {/* Hero — split grid; min-height matches pre–CLI-box layout so flame rows keep cream gaps */}
+      <section className="grid grid-cols-1 border-b border-border lg:grid-cols-[1fr_380px] lg:min-h-[80vh]">
+        <div className="relative min-h-[52vh] overflow-hidden border-b border-border sm:min-h-[60vh] lg:min-h-[80vh] lg:border-b-0">
           <div className="absolute inset-0">
             <PixelFlame cols={28} rows={14} />
           </div>
           <div className="absolute inset-x-0 top-0 h-[50%] bg-gradient-to-b from-cream via-cream/95 to-transparent" />
-          <div className="relative flex h-full min-h-[52vh] flex-col justify-between px-4 py-10 sm:min-h-[60vh] sm:px-6 sm:py-12 md:px-12 lg:min-h-[72vh]">
+          <div className="relative flex h-full min-h-[52vh] flex-col justify-between px-4 py-10 sm:min-h-[60vh] sm:px-6 sm:py-12 md:px-12 lg:min-h-[80vh]">
             <h1 className="max-w-[14ch] text-[clamp(2rem,10vw,7rem)] font-semibold leading-[0.92] tracking-[-0.04em] fadein">
               AI infrastructure,
               <br />
@@ -158,7 +158,8 @@ export function Overview() {
               enforces human approval steps, retrieves your documents, and records full traces —
               one deployable stack.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-8 min-h-[7rem]" aria-hidden />
+            <div className="mt-6 flex flex-wrap gap-3">
               <CtaButton to="/playground">Try the playground →</CtaButton>
               <CtaButton to="/inference" variant="outline">Run benchmarks</CtaButton>
             </div>
