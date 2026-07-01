@@ -143,8 +143,8 @@ function TerminalPreview() {
 export function CliPage() {
   return (
     <div className="bg-cream text-ink">
-      {/* Hero — overview layout; items-start stops tall terminal preview from stretching flame */}
-      <section className="grid grid-cols-1 border-b border-border lg:grid-cols-[1fr_380px] lg:min-h-[80vh] lg:items-start">
+      {/* Hero — same grid + sidebar structure as overview */}
+      <section className="grid grid-cols-1 border-b border-border lg:grid-cols-[1fr_380px] lg:min-h-[80vh]">
         <div className="relative min-h-[52vh] overflow-hidden border-b border-border sm:min-h-[60vh] lg:min-h-[80vh] lg:border-b-0">
           <div className="absolute inset-0">
             <PixelFlame cols={28} rows={14} />
@@ -184,16 +184,37 @@ export function CliPage() {
           </div>
           <div className="border-t border-border p-5 sm:p-8 md:p-10">
             <div className="mb-4 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              Preview
+              Featured
             </div>
-            <TerminalPreview />
-            <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-              Node 18+. On Linux:{" "}
-              <span className="font-mono text-ink">sudo npm install -g @openinference/cli</span> then{" "}
-              <span className="font-mono text-ink">oi</span>.
-            </p>
+            <a
+              href="/models#local"
+              className="group flex items-stretch gap-0 overflow-hidden rounded-md border border-border bg-surface transition hover:border-flame-red/40"
+            >
+              <div className="relative w-24 shrink-0 bg-flame-red">
+                <PixelFlame cols={5} rows={5} seed={2} className="opacity-90" />
+              </div>
+              <div className="flex flex-1 flex-col justify-center p-4">
+                <div className="text-sm font-semibold group-hover:text-flame-red transition">150+ local models</div>
+                <div className="mt-1 text-xs text-muted-foreground">Hardware-aware catalog for your machine</div>
+              </div>
+            </a>
           </div>
         </aside>
+      </section>
+
+      {/* Terminal preview — below hero so sidebar height matches overview */}
+      <section className="border-b border-border px-4 py-10 sm:px-6 sm:py-12 md:px-12">
+        <div className="mx-auto max-w-2xl">
+          <div className="mb-4 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            Preview
+          </div>
+          <TerminalPreview />
+          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+            Node 18+. On Linux:{" "}
+            <span className="font-mono text-ink">sudo npm install -g @openinference/cli</span> then{" "}
+            <span className="font-mono text-ink">oi</span>.
+          </p>
+        </div>
       </section>
 
       {/* Analogy strip */}
