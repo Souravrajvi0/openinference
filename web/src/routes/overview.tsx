@@ -131,6 +131,27 @@ const SUGGESTIONS = [
 
 const CLI_ONE_LINER = "npm install -g @openinference/cli && oi";
 
+function CliHeroCta() {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void navigator.clipboard?.writeText(CLI_ONE_LINER);
+        toast.success("Copied — paste in your terminal");
+      }}
+      className="group mt-6 w-full rounded-md border border-border bg-ink p-4 text-left transition hover:border-flame-red/40"
+    >
+      <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-cream/40">
+        Run local AI — one command
+      </div>
+      <code className="mt-2 block font-mono text-[13px] text-cream sm:text-sm">{CLI_ONE_LINER}</code>
+      <div className="mt-2 text-xs text-cream/45 group-hover:text-cream/60">
+        Click to copy · installs globally, then opens <span className="font-mono">oi</span>
+      </div>
+    </button>
+  );
+}
+
 export function Overview() {
   return (
     <div className="bg-cream text-ink">
@@ -161,6 +182,7 @@ export function Overview() {
               enforces human approval steps, retrieves your documents, and records full traces —
               one deployable stack.
             </p>
+            <CliHeroCta />
             <div className="mt-6 flex flex-wrap gap-3">
               <CtaButton to="/cli">CLI setup guide →</CtaButton>
               <CtaButton to="/playground" variant="outline">Try the playground</CtaButton>
