@@ -9,53 +9,35 @@ import {
   PixelGateway,
   PixelIdea,
   PixelNews,
-  PixelShield,
-  PixelTrace,
 } from "@/components/pixel/icons";
 
 type IconCmp = ComponentType<{ size?: number; className?: string }>;
 
+/**
+ * Exactly four ship areas — same order as the intro copy and the icon strip.
+ *
+ *   gateway   → bars     — API / routing / platform / ops / security
+ *   dashboard → document — web UI / marketing / console / brand
+ *   cli       → terminal — oi / npm / hardware fit / local models
+ *   more      → idea     — identity, teams glue, anything else “in between”
+ */
+export type ShipArea = "gateway" | "dashboard" | "cli" | "more";
+
+const AREAS: Record<ShipArea, { label: string; Icon: IconCmp }> = {
+  gateway: { label: "Gateway", Icon: PixelGateway },
+  dashboard: { label: "Dashboard", Icon: PixelNews },
+  cli: { label: "CLI", Icon: PixelCli },
+  more: { label: "In between", Icon: PixelIdea },
+};
+
+const STRIP: ShipArea[] = ["gateway", "dashboard", "cli", "more"];
+
 type ShipItem = {
   title: string;
   body: string;
-  tag?: string;
+  /** Required — pick one of the four areas above. */
+  area: ShipArea;
 };
-
-/** Map changelog tags → Mistral-style pixel icons */
-function iconForTag(tag?: string): IconCmp {
-  switch ((tag ?? "").toLowerCase()) {
-    case "cli":
-    case "npm":
-    case "fit check":
-    case "models":
-      return PixelCli;
-    case "product":
-    case "platform":
-    case "build":
-    case "ops":
-      return PixelGateway;
-    case "web":
-    case "brand":
-    case "teams":
-      return PixelNews;
-    case "security":
-    case "auth":
-    case "govern":
-      return PixelShield;
-    case "reliability":
-    case "providers":
-      return PixelTrace;
-    default:
-      return PixelIdea;
-  }
-}
-
-const STRIP: { Icon: IconCmp; label: string }[] = [
-  { Icon: PixelGateway, label: "Product" },
-  { Icon: PixelCli, label: "CLI" },
-  { Icon: PixelIdea, label: "Ideas" },
-  { Icon: PixelNews, label: "Notes" },
-];
 
 type Week = {
   id: string;
@@ -69,7 +51,7 @@ type Week = {
 /**
  * Public weekly ship notes — newest first.
  * Safe for external readers: no secrets, no infra paths, no internal code dumps.
- * Prepend a new week when you ship.
+ * Prepend a new week when you ship. Every item must set `area`.
  */
 const WEEKS: Week[] = [
   {
@@ -81,12 +63,12 @@ const WEEKS: Week[] = [
       "We added this Updates page so you can follow what lands each week — product, CLI, and platform — in one place.",
     items: [
       {
-        tag: "Product",
+        area: "dashboard",
         title: "Weekly Updates page",
         body: "New /updates in the nav (after CLI). We’ll post a short “what we shipped” note at the end of each week.",
       },
       {
-        tag: "CLI",
+        area: "cli",
         title: "Ongoing oi improvements",
         body: "Focus stays on the local model package manager: clearer hardware fit, catalog quality, and install reliability.",
       },
@@ -101,12 +83,12 @@ const WEEKS: Week[] = [
       "Kept the public site solid under load and cleaned up marketing pages so Overview and CLI feel consistent.",
     items: [
       {
-        tag: "Reliability",
+        area: "gateway",
         title: "Rate-limit & cache health",
         body: "Hardened Redis so write operations (rate limits, queues) stay available — fewer full-site errors when infrastructure drifts.",
       },
       {
-        tag: "Web",
+        area: "dashboard",
         title: "Overview & CLI heroes",
         body: "Aligned layout and spacing on the landing and CLI pages; install CTAs live where they belong without crowding the flame art.",
       },
@@ -121,22 +103,22 @@ const WEEKS: Week[] = [
       "Biggest product moment of the month: @openinference/cli (oi) went public on npm. Hardware-aware install, interactive shell, 150+ model catalog.",
     items: [
       {
-        tag: "npm",
+        area: "cli",
         title: "@openinference/cli on npm",
         body: "Install with npm install -g @openinference/cli, then type oi. First run walks you through use case → hardware scan → pick a model that fits.",
       },
       {
-        tag: "Fit check",
+        area: "cli",
         title: "Don’t pull what won’t run",
         body: "oi scans RAM, CPU, GPU, and disk, computes a memory budget, and only offers models that fit — before multi‑GB downloads.",
       },
       {
-        tag: "CLI",
+        area: "cli",
         title: "Shell + package-manager commands",
         body: "Default oi is an interactive shell. Familiar verbs: search, install, use, list, remove, recommend. Tiny VMs get safer small-model defaults.",
       },
       {
-        tag: "Web",
+        area: "dashboard",
         title: "CLI page & local catalog",
         body: "Dedicated /cli marketing page and a Local · oi section on Models, powered by the same catalog the CLI uses.",
       },
@@ -151,27 +133,27 @@ const WEEKS: Week[] = [
       "Multi-seat orgs, clearer free/pro/admin plans, security hardening across MCP and data access, plus a full marketing UI refresh.",
     items: [
       {
-        tag: "Product",
+        area: "dashboard",
         title: "Free / Pro / Admin plans",
         body: "Three-tier access so playground and console features match your plan — without forcing everyone through an admin wall.",
       },
       {
-        tag: "Teams",
+        area: "more",
         title: "Org workspaces",
         body: "Memberships, invites, and roles so teams can share an OpenInference workspace with audit-friendly actor tracking.",
       },
       {
-        tag: "Security",
+        area: "gateway",
         title: "Hardening pass",
         body: "Stronger MCP credential handling, agent guardrails at startup, circuit breakers, streaming resilience, and database row-level isolation.",
       },
       {
-        tag: "Web",
+        area: "dashboard",
         title: "UI refresh",
         body: "New marketing components, pixel icons, overview redesign, and better mobile layouts across public pages.",
       },
       {
-        tag: "Ops",
+        area: "gateway",
         title: "Deploy reliability",
         body: "Gateway migrations run automatically on deploy so schema changes land with the release.",
       },
@@ -186,32 +168,32 @@ const WEEKS: Week[] = [
       "Guardrails, agents, approvals, budgets, MCP governance, and regression tests landed — alongside Google sign-in, public browsing, and CI auto-deploy.",
     items: [
       {
-        tag: "Govern",
+        area: "gateway",
         title: "Policies, approvals & MCP",
         body: "Guardrail policies, human-in-the-loop approvals, hierarchical budgets, MCP tool governance, and regression suites with assertions.",
       },
       {
-        tag: "Build",
+        area: "gateway",
         title: "Agent runtime & registry",
         body: "Governed agent runs with tool access, a registry in the UI, and traces/sessions for debugging multi-step work.",
       },
       {
-        tag: "Models",
+        area: "dashboard",
         title: "Catalogue & Inference",
         body: "Public Models page with local and cloud options; Inference page with CPU vs cloud framing, benchmarks, and cost comparison.",
       },
       {
-        tag: "Auth",
+        area: "more",
         title: "Google OAuth + public site",
         body: "Sign in with Google; public routes stay open for browsing while admin and pro tools stay gated.",
       },
       {
-        tag: "Web",
+        area: "dashboard",
         title: "Clean URLs & homepage V2",
         body: "Browser-history routing (no hash URLs), Swagger at /api-docs, and a homepage that reflects the full governed stack.",
       },
       {
-        tag: "Ops",
+        area: "gateway",
         title: "CI/CD on production",
         body: "Pushes to the production branch auto-deploy; migration system and tests support safer releases.",
       },
@@ -226,22 +208,22 @@ const WEEKS: Week[] = [
       "Rebranded from the early gateway name, added email/password accounts, and put the site on HTTPS.",
     items: [
       {
-        tag: "Brand",
+        area: "dashboard",
         title: "OpenInference",
         body: "UI and product naming unified under OpenInference — one stack for routing, agents, and observability.",
       },
       {
-        tag: "Auth",
+        area: "more",
         title: "Email & password accounts",
         body: "Sign up and log in with email; JWT sessions for the dashboard and API.",
       },
       {
-        tag: "Ops",
+        area: "gateway",
         title: "HTTPS",
         body: "TLS on the edge with HTTP → HTTPS redirect for a standard secure browsing experience.",
       },
       {
-        tag: "Platform",
+        area: "gateway",
         title: "Unified gateway + local models",
         body: "Brought local inference options into the same gateway as cloud providers, with plan-aware access.",
       },
@@ -256,17 +238,17 @@ const WEEKS: Week[] = [
       "Day one: a self-hosted AI gateway and observability platform — route, guard, retrieve, and trace LLM traffic from a single deploy.",
     items: [
       {
-        tag: "Platform",
+        area: "gateway",
         title: "OpenInference foundation",
         body: "Multi-provider routing, request auditing, RAG-ready document pipeline, async quality evals, and an admin console.",
       },
       {
-        tag: "Providers",
+        area: "gateway",
         title: "Cloud model adapters",
         body: "Support for major LLM APIs including Gemini, with room to add more behind one API.",
       },
       {
-        tag: "Ops",
+        area: "gateway",
         title: "Automated deploy pipeline",
         body: "CI hooked up to ship the stack to hosting from a designated release branch.",
       },
@@ -288,19 +270,22 @@ export function Updates() {
             Written for users and partners, not a dump of internal commits.
           </p>
 
-          {/* Mistral-style pixel icon strip */}
-          <div
-            className="mt-8 inline-flex items-center gap-0 border border-border bg-cream"
-            aria-hidden
-          >
-            {STRIP.map(({ Icon, label }, i) => (
-              <div key={label} className="flex items-center">
-                {i > 0 && <div className="h-8 w-px bg-border" />}
-                <div className="flex items-center justify-center px-4 py-3" title={label}>
-                  <Icon size={22} />
+          {/* Legend: one icon per ship area, same order as the sentence above */}
+          <div className="mt-8 inline-flex items-stretch gap-0 border border-border bg-cream">
+            {STRIP.map((area, i) => {
+              const { Icon, label } = AREAS[area];
+              return (
+                <div key={area} className="flex items-center">
+                  {i > 0 && <div className="self-stretch w-px bg-border" />}
+                  <div className="flex flex-col items-center gap-1.5 px-4 py-3">
+                    <Icon size={22} />
+                    <span className="text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                      {label}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="mt-8 flex flex-wrap gap-3">
@@ -329,18 +314,16 @@ export function Updates() {
 
               <ul className="mt-8 space-y-0 divide-y divide-border border-y border-border">
                 {week.items.map((item) => {
-                  const Icon = iconForTag(item.tag);
+                  const { Icon, label } = AREAS[item.area];
                   return (
                     <li key={`${week.id}-${item.title}`} className="flex gap-4 py-5">
-                      <div className="mt-0.5 shrink-0">
+                      <div className="mt-0.5 shrink-0" title={label}>
                         <Icon size={20} />
                       </div>
                       <div className="min-w-0">
-                        {item.tag && (
-                          <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                            {item.tag}
-                          </div>
-                        )}
+                        <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                          {label}
+                        </div>
                         <h3 className="mt-1 text-base font-semibold tracking-tight">{item.title}</h3>
                         <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
                           {item.body}
