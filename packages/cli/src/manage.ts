@@ -1,5 +1,6 @@
 import { clearConfig, loadConfig, saveConfig, setActiveModel } from './config';
 import { fitsHardware, loadCatalog, type CatalogModel } from './recommend';
+import { estimateSpeed, findFasterAlternative, formatSpeed, tierNote } from './perf';
 import { detectDiskFreeGb, detectHardware, fitsDisk } from './hardware';
 import { askYesNo } from './prompt';
 import { useCaseLabel } from './use-cases';
@@ -171,6 +172,8 @@ export async function runInfo(modelId: string, opts: { ollamaUrl?: string } = {}
   console.log(`  ${label('Download size')}${formatMb(m.sizeMb)}`);
   console.log(`  ${label('Quality')}${m.quality}/100`);
   console.log(`  ${label('Best for')}${catLabels(m)}`);
+  const est = estimateSpeed(m, hw);
+  console.log(`  ${label('Speed (est.)')}${formatSpeed(est)} ${DIM}· ${tierNote(est.tier)}${RESET}`);
   console.log(`  ${label('Fits this machine')}${fit ? `yes (${fit} fit)` : 'no — needs more RAM or disk'}`);
   if (known) {
     console.log(`  ${label('Installed')}${inst ? (active ? 'yes — active model' : 'yes') : 'no'}`);
@@ -336,7 +339,41 @@ export async function runPull(
 ): Promise<void> {
   const base = resolveOllamaUrl(opts.ollamaUrl);
   const catalog = loadCatalog();
-  const entry = catalog.find((m) => m.id === modelId);
+  let entry = catalog.find((m) => m.id === modelId);
+  let targetId = modelId;
+
+  // Speed nudge: if a catalog model will likely feel slow on THIS machine, offer
+  // a faster comparable one before committing to a multi-GB download. Only when
+  // interactive (never silently substitute in scripts) and for local hardware
+  // (skip for --docker/remote, where the machine isn't ours to estimate).
+  if (entry && !opts.docker && process.stdin.isTTY) {
+    const hw = detectHardware();
+    const est = estimateSpeed(entry, hw);
+    if (est.tier === 'slow' || est.tier === 'very-slow') {
+      console.log('');
+      console.log(
+        `  ⚠ ${entry.name} is ${tierNote(est.tier)} on this machine ` +
+          `(${formatSpeed(est)} on your ${hw.gpuUsable ? 'GPU' : 'CPU'}).`,
+      );
+      const alt = findFasterAlternative(entry, catalog, hw);
+      if (alt) {
+        console.log(
+          `  ${TEAL}${alt.model.name}${RESET} runs ${formatSpeed(alt.est)} here ` +
+            `${DIM}· quality ${alt.model.quality} vs ${entry.quality}${RESET}`,
+        );
+        const ok = await askYesNo(`  Install ${alt.model.name} instead? (Y/n): `, true);
+        if (ok) {
+          entry = alt.model;
+          targetId = alt.model.id;
+          console.log(`\n  → ${entry.name} (${targetId})\n`);
+        } else {
+          console.log('');
+        }
+      } else {
+        console.log(`  ${DIM}No faster model of similar quality fits — installing as requested.${RESET}\n`);
+      }
+    }
+  }
 
   if (entry) {
     const hw = detectHardware();
@@ -354,17 +391,17 @@ export async function runPull(
     }
   }
 
-  if (opts.docker) await pullModelRemote(base, modelId);
+  if (opts.docker) await pullModelRemote(base, targetId);
   else {
     if (!(await pingOllama(base))) await ensureHostOllamaRunning(base);
-    await pullModelHost(modelId);
+    await pullModelHost(targetId);
   }
 
   if (opts.setDefault) {
-    setActiveModel(modelId, entry?.name ?? modelId);
-    console.log(`\n  ✓ Downloaded and set as active: ${entry?.name ?? modelId}\n`);
+    setActiveModel(targetId, entry?.name ?? targetId);
+    console.log(`\n  ✓ Downloaded and set as active: ${entry?.name ?? targetId}\n`);
   } else {
-    console.log(`\n  ✓ Downloaded: ${modelId}\n`);
+    console.log(`\n  ✓ Downloaded: ${targetId}\n`);
   }
 }
 
