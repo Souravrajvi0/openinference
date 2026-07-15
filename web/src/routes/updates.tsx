@@ -1,8 +1,11 @@
+import { PixelFlame } from "@/components/PixelFlame";
 import {
   CtaButton,
-  Kicker,
+  FeatureCard,
+  SectionHeading,
   SiteFooter,
 } from "@/components/marketing/shared";
+import { cn } from "@/lib/utils";
 
 type ShipItem = {
   title: string;
@@ -227,67 +230,148 @@ const WEEKS: Week[] = [
   },
 ];
 
+const TAG_ACCENT: Record<string, string> = {
+  Product: "var(--flame-orange)",
+  CLI: "var(--flame-red)",
+  npm: "var(--flame-deep)",
+  "Fit check": "var(--flame-bright)",
+  Web: "var(--flame-amber)",
+  Reliability: "var(--flame-orange)",
+  Security: "var(--flame-deep)",
+  Teams: "var(--flame-red)",
+  Ops: "var(--flame-amber)",
+  Govern: "var(--flame-deep)",
+  Build: "var(--flame-red)",
+  Models: "var(--flame-orange)",
+  Auth: "var(--flame-bright)",
+  Brand: "var(--flame-red)",
+  Platform: "var(--flame-orange)",
+  Providers: "var(--flame-amber)",
+  Shell: "var(--flame-red)",
+  Commands: "var(--flame-deep)",
+};
+
 export function Updates() {
+  const latest = WEEKS[0];
+
   return (
     <div className="bg-cream text-ink">
-      <section className="border-b border-border px-4 py-12 sm:px-6 sm:py-16 md:px-12 md:py-20">
-        <div className="mx-auto max-w-3xl">
-          <Kicker>Changelog</Kicker>
-          <h1 className="mt-3 text-[clamp(2rem,5vw,3.5rem)] font-semibold leading-[1.05] tracking-[-0.03em]">
-            What we shipped.
-          </h1>
-          <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-            Weekly notes since we started — gateway, dashboard, CLI, and the pieces in between.
-            Written for users and partners, not a dump of internal commits.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <CtaButton to="/cli">Try the CLI →</CtaButton>
-            <CtaButton to="/" variant="outline">
-              Overview
+      {/* Hero — same split grid language as overview */}
+      <section className="grid grid-cols-1 border-b border-border lg:grid-cols-[1fr_380px] lg:min-h-[80vh]">
+        <div className="relative min-h-[52vh] overflow-hidden border-b border-border sm:min-h-[60vh] lg:min-h-[80vh] lg:border-b-0">
+          <div className="absolute inset-0">
+            <PixelFlame cols={28} rows={14} seed={5} />
+          </div>
+          <div className="absolute inset-x-0 top-0 h-[50%] bg-gradient-to-b from-cream via-cream/95 to-transparent" />
+          <div className="relative flex h-full min-h-[52vh] flex-col justify-between px-4 py-10 sm:min-h-[60vh] sm:px-6 sm:py-12 md:px-12 lg:min-h-[80vh]">
+            <h1 className="max-w-[12ch] text-[clamp(2rem,10vw,7rem)] font-semibold leading-[0.92] tracking-[-0.04em] fadein">
+              What we
+              <br />
+              shipped.
+            </h1>
+            <div className="flex flex-col gap-2 text-[10px] font-medium uppercase tracking-[0.16em] text-ink/70 sm:flex-row sm:items-end sm:justify-between sm:text-[11px] sm:tracking-[0.2em]">
+              <span className="w-fit rounded-sm bg-cream px-2 py-1">Weekly changelog</span>
+              <span className="w-fit rounded-sm bg-cream px-2 py-1">Jun 11 → now</span>
+            </div>
+          </div>
+        </div>
+
+        <aside className="flex flex-col justify-between lg:border-l lg:border-border">
+          <div className="p-5 sm:p-8 md:p-10">
+            <p className="text-base leading-relaxed text-ink/90 sm:text-lg">
+              Sprint notes since day one — platform, dashboard, governance, and{" "}
+              <span className="font-mono text-ink">oi</span>. Written like a product team update, not
+              a commit dump.
+            </p>
+            <div className="mt-8 min-h-[7rem]" aria-hidden />
+            <div className="mt-6 flex flex-wrap gap-3">
+              <CtaButton href={`#${latest.id}`}>Latest week →</CtaButton>
+              <CtaButton to="/cli" variant="outline">
+                Try the CLI
+              </CtaButton>
+            </div>
+          </div>
+          <div className="border-t border-border p-5 sm:p-8 md:p-10">
+            <div className="mb-4 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              Latest
+            </div>
+            <a
+              href={`#${latest.id}`}
+              className="group flex items-stretch gap-0 overflow-hidden rounded-md border border-border bg-surface transition hover:border-flame-red/40"
+            >
+              <div className="relative w-24 shrink-0 bg-flame-red">
+                <PixelFlame cols={5} rows={5} seed={9} className="opacity-90" />
+              </div>
+              <div className="flex flex-1 flex-col justify-center p-4">
+                <div className="text-sm font-semibold transition group-hover:text-flame-red">
+                  {latest.headline}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">{latest.dateRange}</div>
+              </div>
+            </a>
+          </div>
+        </aside>
+      </section>
+
+      {/* Weeks — editorial sections + hairline feature grids */}
+      {WEEKS.map((week, i) => (
+        <section
+          key={week.id}
+          id={week.id}
+          className={cn(
+            "scroll-mt-20 border-b border-border",
+            i % 2 === 1 && "bg-muted/30",
+          )}
+        >
+          <div className="px-4 py-12 sm:px-6 sm:py-16 md:px-12 md:py-20">
+            <SectionHeading
+              kicker={`${week.label} · ${week.dateRange}`}
+              title={week.headline}
+              description={week.summary}
+              className="mb-8 md:mb-12"
+            />
+            <div className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2 lg:grid-cols-3">
+              {week.items.map((item) => (
+                <FeatureCard
+                  key={`${week.id}-${item.title}`}
+                  stacked
+                  tag={item.tag}
+                  title={item.title}
+                  description={item.body}
+                  accent={item.tag ? TAG_ACCENT[item.tag] ?? "var(--flame-orange)" : undefined}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+      ))}
+
+      {/* Orange CTA — matches overview */}
+      <section className="bg-flame-red px-6 py-20 text-cream md:px-12">
+        <div className="mx-auto max-w-6xl">
+          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-cream/50">
+            Keep building
+          </div>
+          <h2 className="mt-4 max-w-3xl text-[clamp(2rem,5vw,3.5rem)] font-semibold leading-tight tracking-[-0.03em]">
+            Run local models with oi — or open the playground on the full stack.
+          </h2>
+          <div className="mt-10 flex flex-wrap gap-3">
+            <CtaButton to="/cli" className="!bg-cream !text-ink hover:!opacity-90">
+              CLI setup →
+            </CtaButton>
+            <CtaButton
+              to="/playground"
+              variant="outline"
+              className="!border-cream/30 !bg-transparent !text-cream hover:!bg-cream/10"
+            >
+              Playground →
             </CtaButton>
           </div>
         </div>
       </section>
 
-      <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 md:px-12 md:py-16">
-        <div className="space-y-16">
-          {WEEKS.map((week) => (
-            <article key={week.id} id={week.id} className="scroll-mt-24">
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-flame-red">
-                  {week.label}
-                </span>
-                <span className="text-sm text-muted-foreground">{week.dateRange}</span>
-              </div>
-              <h2 className="mt-3 text-[clamp(1.35rem,3vw,1.85rem)] font-semibold tracking-[-0.02em]">
-                {week.headline}
-              </h2>
-              <p className="mt-3 text-base leading-relaxed text-ink/80">{week.summary}</p>
-
-              <ul className="mt-8 space-y-0 divide-y divide-border border-y border-border">
-                {week.items.map((item) => (
-                  <li key={`${week.id}-${item.title}`} className="py-5">
-                    {item.tag && (
-                      <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                        {item.tag}
-                      </div>
-                    )}
-                    <h3 className="mt-1 text-base font-semibold tracking-tight">{item.title}</h3>
-                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{item.body}</p>
-                  </li>
-                ))}
-              </ul>
-            </article>
-          ))}
-        </div>
-
-        <p className="mt-16 text-sm text-muted-foreground">
-          New entries land at the top each week. Questions? Reach us from the site footer or npm
-          package page for <span className="font-mono text-ink">@openinference/cli</span>.
-        </p>
-      </div>
-
       <SiteFooter />
     </div>
   );
 }
+
