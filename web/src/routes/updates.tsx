@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import {
   CtaButton,
   Kicker,
@@ -10,6 +10,9 @@ import {
   PixelIdea,
   PixelNews,
 } from "@/components/pixel/icons";
+
+/** How many weekly entries to show per page (newest first). */
+const WEEKS_PER_PAGE = 3;
 
 type IconCmp = ComponentType<{ size?: number; className?: string }>;
 
@@ -257,6 +260,28 @@ const WEEKS: Week[] = [
 ];
 
 export function Updates() {
+  const listRef = useRef<HTMLDivElement>(null);
+  const [page, setPage] = useState(0);
+
+  const totalPages = Math.max(1, Math.ceil(WEEKS.length / WEEKS_PER_PAGE));
+  const safePage = Math.min(page, totalPages - 1);
+  const slice = useMemo(
+    () => WEEKS.slice(safePage * WEEKS_PER_PAGE, safePage * WEEKS_PER_PAGE + WEEKS_PER_PAGE),
+    [safePage],
+  );
+
+  useEffect(() => {
+    if (page === 0) return;
+    listRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [page]);
+
+  function goTo(next: number) {
+    setPage(Math.max(0, Math.min(next, totalPages - 1)));
+  }
+
+  const from = safePage * WEEKS_PER_PAGE + 1;
+  const to = Math.min((safePage + 1) * WEEKS_PER_PAGE, WEEKS.length);
+
   return (
     <div className="bg-cream text-ink">
       <section className="border-b border-border px-4 py-12 sm:px-6 sm:py-16 md:px-12 md:py-20">
@@ -297,9 +322,25 @@ export function Updates() {
         </div>
       </section>
 
-      <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 md:px-12 md:py-16">
+      <div
+        ref={listRef}
+        id="ship-notes"
+        className="mx-auto max-w-3xl scroll-mt-24 px-4 py-12 sm:px-6 md:px-12 md:py-16"
+      >
+        <div className="mb-10 flex flex-wrap items-baseline justify-between gap-2">
+          <p className="text-sm text-muted-foreground">
+            Showing weeks {from}–{to} of {WEEKS.length}
+            {safePage === 0 ? " · newest first" : ""}
+          </p>
+          {totalPages > 1 && (
+            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+              Page {safePage + 1} / {totalPages}
+            </p>
+          )}
+        </div>
+
         <div className="space-y-16">
-          {WEEKS.map((week) => (
+          {slice.map((week) => (
             <article key={week.id} id={week.id} className="scroll-mt-24">
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-flame-red">
@@ -336,6 +377,48 @@ export function Updates() {
             </article>
           ))}
         </div>
+
+        {totalPages > 1 && (
+          <nav
+            className="mt-12 flex flex-wrap items-center justify-center gap-3"
+            aria-label="Changelog pages"
+          >
+            <button
+              type="button"
+              disabled={safePage === 0}
+              onClick={() => goTo(safePage - 1)}
+              className="border border-border bg-surface px-4 py-2 text-sm transition hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+            >
+              Newer
+            </button>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {Array.from({ length: totalPages }, (_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  aria-label={`Page ${i + 1}`}
+                  aria-current={i === safePage ? "page" : undefined}
+                  onClick={() => goTo(i)}
+                  className={
+                    i === safePage
+                      ? "min-w-9 border border-ink bg-ink px-3 py-2 text-sm text-cream"
+                      : "min-w-9 border border-border bg-surface px-3 py-2 text-sm transition hover:bg-muted"
+                  }
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              disabled={safePage >= totalPages - 1}
+              onClick={() => goTo(safePage + 1)}
+              className="border border-border bg-surface px-4 py-2 text-sm transition hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+            >
+              Older
+            </button>
+          </nav>
+        )}
 
         <p className="mt-16 text-sm text-muted-foreground">
           New entries land at the top each week. Questions? Reach us from the site footer or npm
