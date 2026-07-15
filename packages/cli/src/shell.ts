@@ -10,6 +10,7 @@ import { parseUseCaseArg, pickUseCase, useCaseLabel, USE_CASES } from './use-cas
 import { formatChatMetrics, listInstalledModels, streamChatTurn, type ChatMessage } from './chat';
 import { loadCatalog } from './recommend';
 import { runInfo, runPull, runRemove, runSearch, runStorage, runUse, runUsePicker } from './manage';
+import { runDoctor } from './doctor';
 import { printHardwareScan } from './prompt';
 import { VERSION } from './version';
 import { LineReader, type Suggestion } from './linereader';
@@ -48,6 +49,7 @@ const COMMANDS: CommandSpec[] = [
   { name: '/storage', help: 'Where models are stored', group: 'Setup & models' },
   { name: '/config', help: 'Show model & connection settings', group: 'Setup & models' },
   { name: '/status', help: 'Show current setup', group: 'Session' },
+  { name: '/doctor', help: 'Diagnose setup, GPU usage, and speed', group: 'Session' },
   { name: '/scan', help: 'Re-scan this computer', group: 'Session' },
   { name: '/clear', help: 'Clear screen and conversation', group: 'Session' },
   { name: '/help', help: 'Show this help', group: 'Session' },
@@ -376,6 +378,11 @@ async function dispatch(
 
     case 'status':
       printStatus();
+      return {};
+
+    case 'doctor':
+    case 'diagnose':
+      await runDoctor({ ollamaUrl: opts.ollamaUrl });
       return {};
 
     case 'scan':
