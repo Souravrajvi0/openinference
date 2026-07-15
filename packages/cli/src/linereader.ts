@@ -282,11 +282,13 @@ export class LineReader {
   }
 
   /** Box width + the horizontally-scrolled slice of the buffer that is visible. */
-  private window(): { boxW: number; text: string; cursorCol: number } {
+  private window(): { boxW: number; text: string; cursorCol: number; prefixW: number } {
     const margin = 1; // leading space before the box
+    // Full line is margin + │ + boxW + │ — must fit in cols or the box wraps
+    // and the cursor drifts outside the frame.
     const boxW = Math.max(20, Math.min(this.cols - 2 - margin, 100));
     const prefixW = this.markerWidth + 2; // " <marker> "
-    const avail = boxW - prefixW;
+    const avail = Math.max(1, boxW - prefixW);
 
     let off = 0;
     if (this.buf.length > avail) {
@@ -295,8 +297,9 @@ export class LineReader {
       off = Math.max(0, off);
     }
     const text = this.buf.slice(off, off + avail);
+    // margin + │ + " " + marker + " " + typed chars
     const cursorCol = margin + 1 /* │ */ + prefixW + (this.cursor - off);
-    return { boxW, text, cursorCol };
+    return { boxW, text, cursorCol, prefixW };
   }
 
   private render(first = false): void {
@@ -306,9 +309,11 @@ export class LineReader {
     readline.cursorTo(out, 0);
     readline.clearScreenDown(out);
 
-    const { boxW, text, cursorCol } = this.window();
+    const { boxW, text, cursorCol, prefixW } = this.window();
     const m = ' '; // margin
-    const pad = ' '.repeat(Math.max(0, boxW - 3 - text.length));
+    // Interior between the two │ must be exactly boxW (was hardcoded for a
+    // 1-char › marker; shell uses "oi ❯" so the old pad overflowed & wrapped).
+    const pad = ' '.repeat(Math.max(0, boxW - prefixW - text.length));
 
     const top = `${m}${DIM}╭${'─'.repeat(boxW)}╮${RESET}`;
     const input = `${m}${DIM}│${RESET} ${this.marker} ${text}${pad}${DIM}│${RESET}`;
