@@ -29,6 +29,12 @@ export type ReaderConfig = {
 const DIM = '\x1b[2m';
 const RESET = '\x1b[0m';
 const TEAL = '\x1b[38;5;43m';
+const ANSI_RE = /\x1b\[[0-9;]*m/g;
+
+/** Visible character count after stripping ANSI SGR codes. */
+function visibleLen(s: string): number {
+  return s.replace(ANSI_RE, '').length;
+}
 
 /** Truncate a plain (ANSI-free) string so it never wraps the terminal. */
 function clamp(s: string, max: number): string {
@@ -82,8 +88,9 @@ export class LineReader {
     return this.cfg.marker ?? `${TEAL}›${RESET}`;
   }
 
-  private get markerWidth(): number {
-    return this.cfg.markerWidth ?? 1;
+  /** Visible width of " <marker> " inside the box (derived from marker, not config). */
+  private get prefixW(): number {
+    return visibleLen(this.marker) + 2;
   }
 
   question(): Promise<string | null> {
@@ -287,7 +294,7 @@ export class LineReader {
     // Full line is margin + │ + boxW + │ — must fit in cols or the box wraps
     // and the cursor drifts outside the frame.
     const boxW = Math.max(20, Math.min(this.cols - 2 - margin, 100));
-    const prefixW = this.markerWidth + 2; // " <marker> "
+    const prefixW = this.prefixW;
     const avail = Math.max(1, boxW - prefixW);
 
     let off = 0;
