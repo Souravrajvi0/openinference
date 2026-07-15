@@ -11,9 +11,46 @@ export type ChatOptions = {
   ollamaUrl?: string;
   /** Skip trying to start local `ollama serve` (use with --docker / remote URL). */
   remote?: boolean;
+  /** Suppress the per-reply tok/s footer. */
+  quiet?: boolean;
 };
 
-export async function runChat(message: string, opts: ChatOptions = {}): Promise<string> {
+/** Performance truth for one reply, straight from Ollama's own timing fields. */
+export type ChatMetrics = {
+  tokensPerSec: number | null;
+  ttftMs: number | null;
+};
+
+export type ChatResult = { text: string; metrics: ChatMetrics };
+
+type OllamaTiming = {
+  eval_count?: number;
+  eval_duration?: number;
+  load_duration?: number;
+  prompt_eval_duration?: number;
+};
+
+function metricsFrom(o: OllamaTiming): ChatMetrics {
+  const tokensPerSec =
+    o.eval_count && o.eval_duration
+      ? Math.round((o.eval_count / (o.eval_duration / 1e9)) * 10) / 10
+      : null;
+  const ttftMs =
+    o.load_duration != null || o.prompt_eval_duration != null
+      ? Math.round(((o.load_duration ?? 0) + (o.prompt_eval_duration ?? 0)) / 1e6)
+      : null;
+  return { tokensPerSec, ttftMs };
+}
+
+/** "42 tok/s · 0.4s to first token", or null if Ollama reported no timings. */
+export function formatChatMetrics(m: ChatMetrics): string | null {
+  const parts: string[] = [];
+  if (m.tokensPerSec != null) parts.push(`${m.tokensPerSec} tok/s`);
+  if (m.ttftMs != null) parts.push(`${(m.ttftMs / 1000).toFixed(1)}s to first token`);
+  return parts.length ? parts.join(' · ') : null;
+}
+
+export async function runChat(message: string, opts: ChatOptions = {}): Promise<ChatResult> {
   const cfg = loadConfig();
   const model = opts.model ?? cfg?.model;
   const base = resolveOllamaUrl(opts.ollamaUrl);
@@ -45,10 +82,10 @@ export async function runChat(message: string, opts: ChatOptions = {}): Promise<
     throw new Error(`Chat failed (${res.status}): ${text || res.statusText}`);
   }
 
-  const body = (await res.json()) as { message?: { content?: string } };
+  const body = (await res.json()) as { message?: { content?: string } } & OllamaTiming;
   const content = body.message?.content?.trim();
   if (!content) throw new Error('Empty response from Ollama');
-  return content;
+  return { text: content, metrics: metricsFrom(body) };
 }
 
 export type ChatMessage = { role: 'user' | 'assistant' | 'system'; content: string };
@@ -61,7 +98,7 @@ export async function streamChatTurn(
   messages: ChatMessage[],
   onToken: (chunk: string) => void,
   opts: ChatOptions = {},
-): Promise<string> {
+): Promise<ChatResult> {
   const cfg = loadConfig();
   const model = opts.model ?? cfg?.model;
   const base = resolveOllamaUrl(opts.ollamaUrl);
@@ -93,6 +130,7 @@ export async function streamChatTurn(
   const decoder = new TextDecoder();
   let buffer = '';
   let full = '';
+  let metrics: ChatMetrics = { tokensPerSec: null, ttftMs: null };
 
   while (true) {
     const { done, value } = await reader.read();
@@ -103,7 +141,7 @@ export async function streamChatTurn(
 
     for (const line of parts) {
       if (!line.trim()) continue;
-      let ev: { message?: { content?: string }; error?: string };
+      let ev: { message?: { content?: string }; error?: string; done?: boolean } & OllamaTiming;
       try {
         ev = JSON.parse(line);
       } catch {
@@ -115,10 +153,12 @@ export async function streamChatTurn(
         full += chunk;
         onToken(chunk);
       }
+      // Ollama sends timing fields in the final `done` message.
+      if (ev.done) metrics = metricsFrom(ev);
     }
   }
 
-  return full.trim();
+  return { text: full.trim(), metrics };
 }
 
 export async function listInstalledModels(ollamaUrl?: string): Promise<string[]> {

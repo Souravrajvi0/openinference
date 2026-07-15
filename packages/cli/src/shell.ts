@@ -7,7 +7,7 @@ import { detectHardware, formatHardware, ollamaModelsPath } from './hardware';
 import { runStart } from './start';
 import { runBrowse, runRecommend } from './recommend-run';
 import { parseUseCaseArg, pickUseCase, useCaseLabel, USE_CASES } from './use-cases';
-import { listInstalledModels, streamChatTurn, type ChatMessage } from './chat';
+import { formatChatMetrics, listInstalledModels, streamChatTurn, type ChatMessage } from './chat';
 import { loadCatalog } from './recommend';
 import { runInfo, runPull, runRemove, runSearch, runStorage, runUse, runUsePicker } from './manage';
 import { printHardwareScan } from './prompt';
@@ -25,6 +25,8 @@ const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
 export type ShellOptions = {
   ollamaUrl?: string;
   remote?: boolean;
+  /** Suppress the per-reply tok/s footer. */
+  quiet?: boolean;
 };
 
 type CommandSpec = {
@@ -227,7 +229,7 @@ async function chat(history: ChatMessage[], message: string, opts: ShellOptions)
 
   process.stdout.write('\n' + dim('  thinking…'));
   let started = false;
-  const reply = await streamChatTurn(
+  const { text, metrics } = await streamChatTurn(
     history,
     (chunk) => {
       if (!started) {
@@ -240,8 +242,11 @@ async function chat(history: ChatMessage[], message: string, opts: ShellOptions)
   );
 
   if (!started) process.stdout.write('\r' + ' '.repeat(12) + '\r');
-  history.push({ role: 'assistant', content: reply });
-  process.stdout.write('\n\n');
+  history.push({ role: 'assistant', content: text });
+  process.stdout.write('\n');
+  const footer = formatChatMetrics(metrics);
+  if (footer && !opts.quiet) console.log(dim(`  ⎯ ${footer}`));
+  process.stdout.write('\n');
 }
 
 async function dispatch(

@@ -266,6 +266,111 @@ export async function modelSizeBytes(baseUrl: string, modelId: string): Promise<
   }
 }
 
+/** Ollama release string (e.g. "0.5.1"), or null if unreachable. */
+export async function getOllamaVersion(baseUrl?: string): Promise<string | null> {
+  const base = resolveOllamaUrl(baseUrl);
+  try {
+    const res = await fetch(`${base}/api/version`, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { version?: string };
+    return body.version ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export type RunningModel = {
+  name: string;
+  /** Total memory the model occupies (bytes). */
+  size: number;
+  /** Portion of `size` resident in VRAM (bytes). 0 = fully on CPU. */
+  sizeVram: number;
+  paramSize?: string;
+  quant?: string;
+};
+
+/** Models currently loaded in memory (via `/api/ps`). Empty if none/unreachable. */
+export async function listRunningModels(baseUrl?: string): Promise<RunningModel[]> {
+  const base = resolveOllamaUrl(baseUrl);
+  try {
+    const res = await fetch(`${base}/api/ps`, { signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return [];
+    const body = (await res.json()) as {
+      models?: {
+        name: string;
+        size?: number;
+        size_vram?: number;
+        details?: { parameter_size?: string; quantization_level?: string };
+      }[];
+    };
+    return (body.models ?? []).map((m) => ({
+      name: m.name,
+      size: m.size ?? 0,
+      sizeVram: m.size_vram ?? 0,
+      paramSize: m.details?.parameter_size,
+      quant: m.details?.quantization_level,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export type GenerateMetrics = {
+  response: string;
+  /** Generation throughput (tokens/sec), or null if Ollama didn't report it. */
+  tokensPerSec: number | null;
+  /** Time to first token (ms): model load + prompt eval, or null. */
+  ttftMs: number | null;
+};
+
+/**
+ * Run one non-streamed generation and pull Ollama's own timing metrics from the
+ * response (`eval_count`/`eval_duration` → tok/s, `load`+`prompt_eval` → TTFT).
+ * Throws with the raw payload on failure so callers can `classifyCrash()`.
+ */
+export async function measureGenerate(
+  baseUrl: string,
+  modelId: string,
+  prompt = 'Say OK.',
+): Promise<GenerateMetrics> {
+  const url = resolveOllamaUrl(baseUrl);
+  const res = await fetch(`${url}/api/generate`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: modelId,
+      prompt,
+      stream: false,
+      options: { num_predict: 48 },
+    }),
+    signal: AbortSignal.timeout(300_000),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(text || `${res.status} ${res.statusText}`);
+  }
+
+  const body = (await res.json()) as {
+    response?: string;
+    eval_count?: number;
+    eval_duration?: number;
+    load_duration?: number;
+    prompt_eval_duration?: number;
+  };
+
+  const tokensPerSec =
+    body.eval_count && body.eval_duration
+      ? Math.round((body.eval_count / (body.eval_duration / 1e9)) * 10) / 10
+      : null;
+  const ttftMs =
+    body.load_duration != null || body.prompt_eval_duration != null
+      ? Math.round(((body.load_duration ?? 0) + (body.prompt_eval_duration ?? 0)) / 1e6)
+      : null;
+
+  return { response: (body.response ?? '').trim(), tokensPerSec, ttftMs };
+}
+
 /** Delete a model via the Ollama HTTP API (works for local CLI and remote/Docker). */
 export async function deleteModel(baseUrl: string, modelId: string): Promise<void> {
   const base = resolveOllamaUrl(baseUrl);

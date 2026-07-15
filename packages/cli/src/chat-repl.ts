@@ -1,6 +1,6 @@
 import readline from 'node:readline';
 
-import { runChat, type ChatOptions } from './chat';
+import { formatChatMetrics, runChat, type ChatOptions } from './chat';
 
 function ask(rl: readline.Interface, prompt: string): Promise<string> {
   return new Promise((resolve) => rl.question(prompt, resolve));
@@ -18,8 +18,11 @@ export async function runChatRepl(opts: ChatOptions = {}): Promise<void> {
 
       try {
         process.stdout.write('\n  …\n\n');
-        const reply = await runChat(line, opts);
-        console.log(`ai › ${reply}\n`);
+        const { text, metrics } = await runChat(line, opts);
+        console.log(`ai › ${text}`);
+        const footer = formatChatMetrics(metrics);
+        if (footer && !opts.quiet) console.log(`\x1b[2m  ⎯ ${footer}\x1b[0m`);
+        console.log('');
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         console.error(`  (error: ${msg})\n`);

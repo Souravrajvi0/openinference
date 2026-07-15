@@ -3,12 +3,13 @@ import { Command } from 'commander';
 import { loadConfig } from './config';
 import { runStart } from './start';
 import { runBrowse, runRecommend, parseUseCaseArg } from './recommend-run';
-import { runChat, listInstalledModels } from './chat';
+import { runChat, listInstalledModels, formatChatMetrics } from './chat';
 import { runChatRepl } from './chat-repl';
 import { runInfo, runPull, runRemove, runSearch, runStorage, runUse, runUsePicker } from './manage';
 import { useCaseLabel } from './use-cases';
 import { ollamaModelsPath } from './hardware';
 import { runShell } from './shell';
+import { runDoctor } from './doctor';
 import { VERSION } from './version';
 
 const program = new Command();
@@ -71,11 +72,12 @@ const shellCmd = program
   .command('shell', { isDefault: true })
   .description('Interactive shell: banner + slash commands + chat')
   .option(urlOption.flags, urlOption.description)
-  .option(dockerOption.flags, dockerOption.description);
+  .option(dockerOption.flags, dockerOption.description)
+  .option('--quiet', 'hide the per-reply tok/s footer');
 
 shellCmd.action(async (opts) => {
   try {
-    await runShell({ ollamaUrl: opts.ollamaUrl, remote: opts.docker });
+    await runShell({ ollamaUrl: opts.ollamaUrl, remote: opts.docker, quiet: Boolean(opts.quiet) });
   } catch (e) {
     fail(e);
   }
@@ -203,6 +205,7 @@ program
   .description('Chat with active model (no message = interactive)')
   .option('-y, --yes', 'if setup needed, skip wizard')
   .option('-m, --model <id>', 'override model for this session')
+  .option('--quiet', 'hide the per-reply tok/s footer')
   .option(urlOption.flags, urlOption.description)
   .option('--docker', 'remote Ollama')
   .action(async (message: string | undefined, opts) => {
@@ -211,6 +214,7 @@ program
         model: opts.model,
         ollamaUrl: opts.ollamaUrl,
         remote: opts.docker,
+        quiet: Boolean(opts.quiet),
       };
       if (!message?.trim()) {
         if (!loadConfig() && !opts.model) {
@@ -224,8 +228,10 @@ program
         await runChatRepl(chatOpts);
         return;
       }
-      const reply = await runChat(message.trim(), chatOpts);
-      console.log(`\n${reply}\n`);
+      const { text, metrics } = await runChat(message.trim(), chatOpts);
+      console.log(`\n${text}\n`);
+      const footer = formatChatMetrics(metrics);
+      if (footer && !chatOpts.quiet) console.log(`\x1b[2m  ⎯ ${footer}\x1b[0m\n`);
     } catch (e) {
       fail(e);
     }
@@ -265,6 +271,19 @@ program
       console.log('\n  Models on this computer:\n');
       names.forEach((n) => console.log(`    ${n}`));
       console.log(`\n  Stored under: ${ollamaModelsPath()}\n`);
+    } catch (e) {
+      fail(e);
+    }
+  });
+
+program
+  .command('doctor')
+  .description('Diagnose setup, GPU usage, and speed — and how to fix what is wrong')
+  .option('--json', 'machine-readable output')
+  .option(urlOption.flags, urlOption.description)
+  .action(async (opts: { json?: boolean; ollamaUrl?: string }) => {
+    try {
+      await runDoctor({ ollamaUrl: opts.ollamaUrl, json: Boolean(opts.json) });
     } catch (e) {
       fail(e);
     }
