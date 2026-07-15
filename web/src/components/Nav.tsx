@@ -20,6 +20,7 @@ const PRIMARY_NAV: NavEntry[] = [
   { to: "/models", label: "Models" },
   { to: "/docs", label: "Docs" },
   { to: "/cli", label: "CLI" },
+  { to: "/updates", label: "Updates" },
 ];
 
 const PRO_NAV: NavEntry[] = [
@@ -168,6 +169,7 @@ function StartBuildingDropdown() {
 
   const links = [
     { to: "/cli", label: "CLI setup" },
+    { to: "/updates", label: "What we shipped" },
     { to: "/playground", label: "Playground" },
     { to: "/docs", label: "Knowledge base" },
     { to: "/models", label: "Model catalogue" },
