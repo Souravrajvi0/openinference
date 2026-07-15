@@ -227,26 +227,55 @@ async function showModels(opts: ShellOptions): Promise<void> {
 async function chat(history: ChatMessage[], message: string, opts: ShellOptions): Promise<void> {
   history.push({ role: 'user', content: message });
 
+  const tty = Boolean(process.stdout.isTTY);
+
+  // Live tok/s in the terminal title bar while the reply streams. Approximate
+  // (counts stream chunks ≈ tokens); the end footer carries the exact figure.
+  let tokens = 0;
+  let firstAt = 0;
+  let titleTimer: ReturnType<typeof setInterval> | null = null;
+  const paintTitle = () => {
+    if (!firstAt) return;
+    const secs = (Date.now() - firstAt) / 1000;
+    const tps = secs > 0 ? Math.round(tokens / secs) : 0;
+    process.stdout.write(`\x1b]0;oi · ${tps} tok/s\x07`);
+  };
+  const resetTitle = () => {
+    if (tty) process.stdout.write('\x1b]0;oi\x07');
+  };
+
   process.stdout.write('\n' + dim('  thinking…'));
   let started = false;
-  const { text, metrics } = await streamChatTurn(
-    history,
-    (chunk) => {
-      if (!started) {
-        process.stdout.write('\r' + ' '.repeat(12) + '\r  ');
-        started = true;
-      }
-      process.stdout.write(chunk.replace(/\n/g, '\n  '));
-    },
-    { ollamaUrl: opts.ollamaUrl, remote: opts.remote },
-  );
+  try {
+    const { text, metrics } = await streamChatTurn(
+      history,
+      (chunk) => {
+        if (!started) {
+          process.stdout.write('\r' + ' '.repeat(12) + '\r  ');
+          started = true;
+        }
+        if (tty) {
+          if (!firstAt) {
+            firstAt = Date.now();
+            titleTimer = setInterval(paintTitle, 150);
+          }
+          tokens += 1;
+        }
+        process.stdout.write(chunk.replace(/\n/g, '\n  '));
+      },
+      { ollamaUrl: opts.ollamaUrl, remote: opts.remote },
+    );
 
-  if (!started) process.stdout.write('\r' + ' '.repeat(12) + '\r');
-  history.push({ role: 'assistant', content: text });
-  process.stdout.write('\n');
-  const footer = formatChatMetrics(metrics);
-  if (footer && !opts.quiet) console.log(dim(`  ⎯ ${footer}`));
-  process.stdout.write('\n');
+    if (!started) process.stdout.write('\r' + ' '.repeat(12) + '\r');
+    history.push({ role: 'assistant', content: text });
+    process.stdout.write('\n');
+    const footer = formatChatMetrics(metrics);
+    if (footer && !opts.quiet) console.log(dim(`  ⎯ ${footer}`));
+    process.stdout.write('\n');
+  } finally {
+    if (titleTimer) clearInterval(titleTimer);
+    resetTitle();
+  }
 }
 
 async function dispatch(
