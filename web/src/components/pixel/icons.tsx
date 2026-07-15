@@ -116,6 +116,47 @@ export function PixelRAG({ size = 20, className }: IconProps) {
   );
 }
 
+/** CLI / terminal — matches Mistral-style hardware accent */
+export function PixelCli({ size = 20, className }: IconProps) {
+  return (
+    <Px size={size} className={className}>
+      <rect x="2" y="11" width="12" height="3" fill="#3B82F6" />
+      <rect x="4" y="3" width="8" height="7" fill="#1E3A5F" />
+      <rect x="5" y="4" width="6" height="4" fill="#fff" opacity="0.9" />
+      <rect x="5" y="5" width="2" height="1" fill="var(--flame-red)" />
+      <rect x="8" y="5" width="2" height="1" fill="var(--flame-deep)" />
+      <rect x="6" y="7" width="3" height="1" fill="var(--flame-orange)" />
+    </Px>
+  );
+}
+
+/** News / changelog — document with accent mark */
+export function PixelNews({ size = 20, className }: IconProps) {
+  return (
+    <Px size={size} className={className}>
+      <rect x="3" y="2" width="8" height="12" fill="#3B82F6" />
+      <rect x="5" y="4" width="4" height="1" fill="#fff" opacity="0.85" />
+      <rect x="5" y="6" width="4" height="1" fill="#fff" opacity="0.65" />
+      <rect x="5" y="8" width="3" height="1" fill="#fff" opacity="0.65" />
+      <rect x="5" y="10" width="4" height="1" fill="#fff" opacity="0.5" />
+      <rect x="12" y="5" width="2" height="2" fill="var(--flame-orange)" />
+    </Px>
+  );
+}
+
+/** Idea / release highlight */
+export function PixelIdea({ size = 20, className }: IconProps) {
+  return (
+    <Px size={size} className={className}>
+      <rect x="5" y="11" width="6" height="3" fill="var(--flame-orange)" />
+      <rect x="4" y="5" width="8" height="5" fill="#fff" opacity="0.95" />
+      <rect x="5" y="3" width="6" height="2" fill="var(--flame-deep)" />
+      <rect x="6" y="6" width="2" height="2" fill="var(--flame-red)" />
+      <rect x="9" y="6" width="2" height="2" fill="#3B82F6" />
+    </Px>
+  );
+}
+
 export const PIXEL_ICONS = {
   gateway: PixelGateway,
   agent: PixelAgent,
@@ -124,4 +165,7 @@ export const PIXEL_ICONS = {
   budget: PixelBudget,
   mcp: PixelMCP,
   rag: PixelRAG,
+  cli: PixelCli,
+  news: PixelNews,
+  idea: PixelIdea,
 } as const;

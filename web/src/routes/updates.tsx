@@ -1,14 +1,61 @@
+import type { ComponentType } from "react";
 import {
   CtaButton,
   Kicker,
   SiteFooter,
 } from "@/components/marketing/shared";
+import {
+  PixelCli,
+  PixelGateway,
+  PixelIdea,
+  PixelNews,
+  PixelShield,
+  PixelTrace,
+} from "@/components/pixel/icons";
+
+type IconCmp = ComponentType<{ size?: number; className?: string }>;
 
 type ShipItem = {
   title: string;
   body: string;
   tag?: string;
 };
+
+/** Map changelog tags → Mistral-style pixel icons */
+function iconForTag(tag?: string): IconCmp {
+  switch ((tag ?? "").toLowerCase()) {
+    case "cli":
+    case "npm":
+    case "fit check":
+    case "models":
+      return PixelCli;
+    case "product":
+    case "platform":
+    case "build":
+    case "ops":
+      return PixelGateway;
+    case "web":
+    case "brand":
+    case "teams":
+      return PixelNews;
+    case "security":
+    case "auth":
+    case "govern":
+      return PixelShield;
+    case "reliability":
+    case "providers":
+      return PixelTrace;
+    default:
+      return PixelIdea;
+  }
+}
+
+const STRIP: { Icon: IconCmp; label: string }[] = [
+  { Icon: PixelGateway, label: "Product" },
+  { Icon: PixelCli, label: "CLI" },
+  { Icon: PixelIdea, label: "Ideas" },
+  { Icon: PixelNews, label: "Notes" },
+];
 
 type Week = {
   id: string;
@@ -240,6 +287,22 @@ export function Updates() {
             Weekly notes since we started — gateway, dashboard, CLI, and the pieces in between.
             Written for users and partners, not a dump of internal commits.
           </p>
+
+          {/* Mistral-style pixel icon strip */}
+          <div
+            className="mt-8 inline-flex items-center gap-0 border border-border bg-cream"
+            aria-hidden
+          >
+            {STRIP.map(({ Icon, label }, i) => (
+              <div key={label} className="flex items-center">
+                {i > 0 && <div className="h-8 w-px bg-border" />}
+                <div className="flex items-center justify-center px-4 py-3" title={label}>
+                  <Icon size={22} />
+                </div>
+              </div>
+            ))}
+          </div>
+
           <div className="mt-8 flex flex-wrap gap-3">
             <CtaButton to="/cli">Try the CLI →</CtaButton>
             <CtaButton to="/" variant="outline">
@@ -265,17 +328,27 @@ export function Updates() {
               <p className="mt-3 text-base leading-relaxed text-ink/80">{week.summary}</p>
 
               <ul className="mt-8 space-y-0 divide-y divide-border border-y border-border">
-                {week.items.map((item) => (
-                  <li key={`${week.id}-${item.title}`} className="py-5">
-                    {item.tag && (
-                      <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                        {item.tag}
+                {week.items.map((item) => {
+                  const Icon = iconForTag(item.tag);
+                  return (
+                    <li key={`${week.id}-${item.title}`} className="flex gap-4 py-5">
+                      <div className="mt-0.5 shrink-0">
+                        <Icon size={20} />
                       </div>
-                    )}
-                    <h3 className="mt-1 text-base font-semibold tracking-tight">{item.title}</h3>
-                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{item.body}</p>
-                  </li>
-                ))}
+                      <div className="min-w-0">
+                        {item.tag && (
+                          <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                            {item.tag}
+                          </div>
+                        )}
+                        <h3 className="mt-1 text-base font-semibold tracking-tight">{item.title}</h3>
+                        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                          {item.body}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             </article>
           ))}
