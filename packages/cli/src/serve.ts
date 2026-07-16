@@ -340,7 +340,13 @@ function openBrowser(url: string): void {
   const cmd = process.platform === 'win32' ? 'cmd' : process.platform === 'darwin' ? 'open' : 'xdg-open';
   const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url];
   try {
-    spawn(cmd, args, { stdio: 'ignore', detached: true, windowsHide: true }).unref();
+    const child = spawn(cmd, args, { stdio: 'ignore', detached: true, windowsHide: true });
+    // Headless box (no xdg-open) emits an async 'error' event — swallow it so the
+    // server keeps serving instead of crashing. The UI is still reachable at `url`.
+    child.on('error', () => {
+      console.log(`  (couldn't open a browser — open ${url} yourself)\n`);
+    });
+    child.unref();
   } catch {
     /* best-effort */
   }
