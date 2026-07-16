@@ -10,6 +10,7 @@ import { useCaseLabel } from './use-cases';
 import { ollamaModelsPath } from './hardware';
 import { runShell } from './shell';
 import { runDoctor } from './doctor';
+import { runServe } from './serve';
 import { VERSION } from './version';
 
 const program = new Command();
@@ -271,6 +272,24 @@ program
       console.log('\n  Models on this computer:\n');
       names.forEach((n) => console.log(`    ${n}`));
       console.log(`\n  Stored under: ${ollamaModelsPath()}\n`);
+    } catch (e) {
+      fail(e);
+    }
+  });
+
+program
+  .command('serve')
+  .description('Run a local OpenAI-compatible endpoint (correct context, timeouts, keep-alive)')
+  .option('--port <n>', 'port (default 11435)')
+  .option('--host <host>', 'bind address (default 127.0.0.1; non-local requires OI_API_KEY)')
+  .option(urlOption.flags, urlOption.description)
+  .action(async (opts: { port?: string; host?: string; ollamaUrl?: string }) => {
+    try {
+      await runServe({
+        port: opts.port ? parseInt(opts.port, 10) : undefined,
+        host: opts.host,
+        ollamaUrl: opts.ollamaUrl,
+      });
     } catch (e) {
       fail(e);
     }
