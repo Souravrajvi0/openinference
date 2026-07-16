@@ -11,6 +11,8 @@ import { formatChatMetrics, listInstalledModels, streamChatTurn, type ChatMessag
 import { loadCatalog } from './recommend';
 import { runInfo, runPull, runRemove, runSearch, runStorage, runUse, runUsePicker } from './manage';
 import { runDoctor } from './doctor';
+import { runServe } from './serve';
+import { runIntegrate } from './integrate';
 import { printHardwareScan } from './prompt';
 import { VERSION } from './version';
 import { LineReader, type Suggestion } from './linereader';
@@ -47,6 +49,9 @@ const COMMANDS: CommandSpec[] = [
   { name: '/list', help: 'List installed models', group: 'Setup & models' },
   { name: '/remove', args: '<model>', help: 'Delete a model (frees disk)', group: 'Setup & models' },
   { name: '/storage', help: 'Where models are stored', group: 'Setup & models' },
+  { name: '/serve', help: 'Start the local OpenAI-compatible endpoint', group: 'Setup & models' },
+  { name: '/ui', help: 'Open the control-plane UI in your browser', group: 'Setup & models' },
+  { name: '/integrate', args: '<tool>', help: 'Config for Cursor / Continue / aider / …', group: 'Setup & models' },
   { name: '/config', help: 'Show model & connection settings', group: 'Setup & models' },
   { name: '/status', help: 'Show current setup', group: 'Session' },
   { name: '/doctor', help: 'Diagnose setup, GPU usage, and speed', group: 'Session' },
@@ -371,6 +376,24 @@ async function dispatch(
       await runStorage();
       return {};
 
+    case 'serve':
+      await runServe({ ollamaUrl: opts.ollamaUrl });
+      return {};
+
+    case 'ui':
+      await runServe({ ollamaUrl: opts.ollamaUrl, openUi: true });
+      return {};
+
+    case 'integrate': {
+      const tool = arg.split(/\s+/)[0];
+      if (!tool) {
+        console.log('\n  Usage: /integrate <cursor|continue|aider|cline|openai>\n');
+        return {};
+      }
+      runIntegrate(tool, {});
+      return {};
+    }
+
     case 'config':
     case 'cfg':
       printConfig(opts);
@@ -462,6 +485,14 @@ function suggest(line: string): Suggestion[] {
     return hits;
   }
 
+  const integrateCmd = /^\/integrate\s+(.*)$/.exec(line);
+  if (integrateCmd) {
+    const [, partial] = integrateCmd;
+    return ['cursor', 'continue', 'aider', 'cline', 'openai']
+      .filter((t) => t.startsWith(partial))
+      .map((t) => ({ value: `/integrate ${t}`, label: t, submit: true }));
+  }
+
   const goal = /^(\/recommend|\/browse)\s+(.*)$/.exec(line);
   if (goal) {
     const [, cmd, partial] = goal;
@@ -476,7 +507,7 @@ function suggest(line: string): Suggestion[] {
   // Once a command has a space/args, stop showing the command menu.
   if (/\s/.test(line)) return [];
 
-  const ARG_CMDS = new Set(['/install', '/info', '/remove']);
+  const ARG_CMDS = new Set(['/install', '/info', '/remove', '/integrate']);
   return COMMANDS.filter((c) => c.name.startsWith(line)).map((c) => {
     const needsArg = ARG_CMDS.has(c.name);
     return {
