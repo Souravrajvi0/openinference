@@ -13,6 +13,7 @@ import { runInfo, runPull, runRemove, runSearch, runStorage, runUse, runUsePicke
 import { runDoctor } from './doctor';
 import { runServe } from './serve';
 import { runIntegrate } from './integrate';
+import { runUpdate } from './catalog';
 import { printHardwareScan } from './prompt';
 import { VERSION } from './version';
 import { LineReader, type Suggestion } from './linereader';
@@ -42,6 +43,7 @@ type CommandSpec = {
 const COMMANDS: CommandSpec[] = [
   { name: '/setup', help: 'Pick a goal, scan hardware, install a model', group: 'Setup & models' },
   { name: '/search', args: '[query]', help: 'Search models (installed + available)', group: 'Setup & models' },
+  { name: '/update', help: 'Refresh the model catalog', group: 'Setup & models' },
   { name: '/recommend', args: '[goal]', help: 'Best models for your hardware', group: 'Setup & models' },
   { name: '/install', args: '<model>', help: 'Download a model', group: 'Setup & models' },
   { name: '/use', args: '[model]', help: 'Pick from installed models (or switch by name)', group: 'Setup & models' },
@@ -374,6 +376,11 @@ async function dispatch(
 
     case 'storage':
       await runStorage();
+      return {};
+
+    case 'update':
+      await runUpdate({ currentCatalog: loadCatalog() });
+      catalogIds = []; // refresh tab-completion from the new catalog
       return {};
 
     case 'serve':

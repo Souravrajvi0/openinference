@@ -13,6 +13,8 @@ import { runDoctor } from './doctor';
 import { runServe } from './serve';
 import { runIntegrate } from './integrate';
 import { runMcp } from './mcp';
+import { runUpdate, catalogProvenance } from './catalog';
+import { loadCatalog } from './recommend';
 import { VERSION } from './version';
 
 const program = new Command();
@@ -343,6 +345,17 @@ program
   });
 
 program
+  .command('update')
+  .description('Refresh the model catalog (the repository index) — models and CLI are untouched')
+  .action(async () => {
+    try {
+      await runUpdate({ currentCatalog: loadCatalog() });
+    } catch (e) {
+      fail(e);
+    }
+  });
+
+program
   .command('doctor')
   .description('Diagnose setup, GPU usage, and speed — and how to fix what is wrong')
   .option('--json', 'machine-readable output')
@@ -379,7 +392,8 @@ program
     console.log(`  Model:    ${cfg.modelName} (${cfg.model})`);
     if (cfg.useCase) console.log(`  Use case: ${useCaseLabel(cfg.useCase)}`);
     console.log(`  Since:    ${new Date(cfg.setupAt).toLocaleDateString()}`);
-    console.log(`  Storage:  ${ollamaModelsPath()}\n`);
+    console.log(`  Storage:  ${ollamaModelsPath()}`);
+    console.log(`  Catalog:  ${loadCatalog().length} models · ${catalogProvenance()}\n`);
     console.log('  Run `oi` to chat · `oi use <model>` to switch\n');
   });
 

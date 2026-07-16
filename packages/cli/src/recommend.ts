@@ -42,6 +42,15 @@ function modelsPath(): string {
 }
 
 export function loadCatalog(): CatalogModel[] {
+  // Prefer a catalog fetched via `oi update` (cached per CLI version);
+  // fall back to the bundled baseline. Lazy require avoids an import cycle.
+  try {
+    const { loadCachedCatalog } = require('./catalog') as typeof import('./catalog');
+    const cached = loadCachedCatalog();
+    if (cached) return cached.models;
+  } catch {
+    /* fall through to bundled */
+  }
   const raw = fs.readFileSync(modelsPath(), 'utf8');
   return JSON.parse(raw) as CatalogModel[];
 }
