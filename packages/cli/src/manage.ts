@@ -478,30 +478,17 @@ export async function runRemove(
   }
 }
 
-export async function runStorage(): Promise<void> {
+/** `oi where` — the paths that matter, nothing else (`oi list` lists models). */
+export async function runWhere(): Promise<void> {
   const { ollamaModelsPath } = await import('./hardware');
-  const cfg = loadConfig();
-  const base = resolveOllamaUrl(cfg?.ollamaUrl);
+  const { configPath } = await import('./config');
+  const { catalogProvenance } = await import('./catalog');
 
-  console.log('\n  OpenInference — model storage\n');
-  console.log(`  Model files on this machine:\n  ${ollamaModelsPath()}\n`);
-
-  if (await pingOllama(base)) {
-    const tags = await listModelTags(base);
-    if (tags.length === 0) {
-      console.log('  No models downloaded yet. Run: oi\n');
-    } else {
-      console.log('  Downloaded on this machine:\n');
-      tags.forEach((t) => console.log(`    ${t}`));
-      console.log('');
-    }
-  } else {
-    console.log('  Local inference is not running — run `oi` to start.\n');
-  }
-
-  if (cfg) {
-    console.log(`  Active model: ${cfg.modelName} (${cfg.model})`);
-    if (cfg.useCase) console.log(`  Use case:     ${cfg.useCase}`);
-    console.log('');
-  }
+  const label = (s: string) => s.padEnd(10);
+  console.log('');
+  console.log(`  ${label('Models')}${ollamaModelsPath()}`);
+  console.log(`  ${label('Config')}${configPath()}`);
+  console.log(`  ${label('Catalog')}${DIM}${catalogProvenance()}${RESET}`);
+  console.log('');
+  console.log(`  ${DIM}oi list — what's downloaded · oi remove <model> — free space${RESET}\n`);
 }

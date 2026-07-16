@@ -3,9 +3,9 @@ import { Command } from 'commander';
 import { loadConfig } from './config';
 import { runStart } from './start';
 import { runBrowse, runRecommend, parseUseCaseArg } from './recommend-run';
-import { runChat, listInstalledModels, formatChatMetrics } from './chat';
-import { runChatRepl } from './chat-repl';
-import { runInfo, runPull, runRemove, runSearch, runStorage, runUse, runUsePicker } from './manage';
+import { listInstalledModels, formatChatMetrics } from './chat';
+import { runChatRepl, runOneShot } from './chat-repl';
+import { runInfo, runPull, runRemove, runSearch, runWhere, runUse, runUsePicker } from './manage';
 import { useCaseLabel } from './use-cases';
 import { ollamaModelsPath } from './hardware';
 import { runShell } from './shell';
@@ -129,7 +129,7 @@ program
   });
 
 program
-  .command('browse')
+  .command('browse', { hidden: true }) // folded into search/recommend — kept as a hidden alias
   .description('Browse catalog picks for your hardware and use case')
   .option('--use-case <id>', 'coding | chat | pdfs | writing | image | research')
   .option('--all', 'full catalog')
@@ -233,8 +233,9 @@ program
         await runChatRepl(chatOpts);
         return;
       }
-      const { text, metrics } = await runChat(message.trim(), chatOpts);
-      console.log(`\n${text}\n`);
+      console.log('');
+      const { text, metrics } = await runOneShot(message.trim(), chatOpts);
+      console.log(`${text}\n`);
       const footer = formatChatMetrics(metrics);
       if (footer && !chatOpts.quiet) console.log(`\x1b[2m  ⎯ ${footer}\x1b[0m\n`);
     } catch (e) {
@@ -302,8 +303,9 @@ program
   });
 
 program
-  .command('ui')
-  .description('Open the control-plane UI (catalog · monitor · doctor · playground) in your browser')
+  .command('web')
+  .alias('ui')
+  .description('Open the local dashboard in your browser (catalog · monitor · doctor · playground)')
   .option('--port <n>', 'port (default 11435)')
   .option('--aliases', 'enable capability aliases')
   .option(urlOption.flags, urlOption.description)
@@ -346,7 +348,7 @@ program
 
 program
   .command('update')
-  .description('Refresh the model catalog (the repository index) — models and CLI are untouched')
+  .description('Refresh the model catalog + check for CLI/runtime updates (downloads nothing)')
   .action(async () => {
     try {
       await runUpdate({ currentCatalog: loadCatalog() });
@@ -369,11 +371,35 @@ program
   });
 
 program
-  .command('storage')
-  .description('Where models are stored and what is downloaded')
+  .command('where')
+  .aliases(['storage', 'path'])
+  .description('Show where models, config, and the catalog live')
   .action(async () => {
     try {
-      await runStorage();
+      await runWhere();
+    } catch (e) {
+      fail(e);
+    }
+  });
+
+program
+  .command('run <model> [message...]')
+  .description("Chat with a model once — doesn't change your active model")
+  .option(urlOption.flags, urlOption.description)
+  .option('--docker', 'remote Ollama')
+  .action(async (model: string, messageParts: string[], opts) => {
+    try {
+      const chatOpts = { model, ollamaUrl: opts.ollamaUrl, remote: opts.docker };
+      const message = (messageParts ?? []).join(' ').trim();
+      if (!message) {
+        await runChatRepl(chatOpts);
+        return;
+      }
+      console.log('');
+      const { text, metrics } = await runOneShot(message, chatOpts);
+      console.log(`${text}\n`);
+      const footer = formatChatMetrics(metrics);
+      if (footer) console.log(`\x1b[2m  ⎯ ${footer} · ${model}\x1b[0m\n`);
     } catch (e) {
       fail(e);
     }

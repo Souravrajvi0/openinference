@@ -9,11 +9,13 @@ import { runBrowse, runRecommend } from './recommend-run';
 import { parseUseCaseArg, pickUseCase, useCaseLabel, USE_CASES } from './use-cases';
 import { formatChatMetrics, listInstalledModels, streamChatTurn, type ChatMessage } from './chat';
 import { loadCatalog } from './recommend';
-import { runInfo, runPull, runRemove, runSearch, runStorage, runUse, runUsePicker } from './manage';
+import { runInfo, runPull, runRemove, runSearch, runWhere, runUse, runUsePicker } from './manage';
 import { runDoctor } from './doctor';
 import { runServe } from './serve';
 import { runIntegrate } from './integrate';
 import { runUpdate } from './catalog';
+import { LiveMeter } from './meter';
+import { runOneShot } from './chat-repl';
 import { printHardwareScan } from './prompt';
 import { VERSION } from './version';
 import { LineReader, type Suggestion } from './linereader';
@@ -50,9 +52,10 @@ const COMMANDS: CommandSpec[] = [
   { name: '/info', args: '<model>', help: 'Show details for a model', group: 'Setup & models' },
   { name: '/list', help: 'List installed models', group: 'Setup & models' },
   { name: '/remove', args: '<model>', help: 'Delete a model (frees disk)', group: 'Setup & models' },
-  { name: '/storage', help: 'Where models are stored', group: 'Setup & models' },
+  { name: '/run', args: '<model> <msg>', help: "Try a model once (doesn't switch)", group: 'Setup & models' },
+  { name: '/where', help: 'Show model / config / catalog paths', group: 'Setup & models' },
   { name: '/serve', help: 'Start the local OpenAI-compatible endpoint', group: 'Setup & models' },
-  { name: '/ui', help: 'Open the control-plane UI in your browser', group: 'Setup & models' },
+  { name: '/web', help: 'Open the local dashboard in your browser', group: 'Setup & models' },
   { name: '/integrate', args: '<tool>', help: 'Config for Cursor / Continue / aider / …', group: 'Setup & models' },
   { name: '/config', help: 'Show model & connection settings', group: 'Setup & models' },
   { name: '/status', help: 'Show current setup', group: 'Session' },
@@ -232,59 +235,31 @@ async function showModels(opts: ShellOptions): Promise<void> {
   console.log('');
 }
 
-/** Run one chat turn with a streamed, live-printed reply and a thinking indicator. */
+/** One chat turn: live meter (spinner · rising tokens · tok/s · elapsed) while
+ *  generating, then the reply is revealed with the exact-metrics footer. */
 async function chat(history: ChatMessage[], message: string, opts: ShellOptions): Promise<void> {
   history.push({ role: 'user', content: message });
 
-  const tty = Boolean(process.stdout.isTTY);
-
-  // Live tok/s in the terminal title bar while the reply streams. Approximate
-  // (counts stream chunks ≈ tokens); the end footer carries the exact figure.
-  let tokens = 0;
-  let firstAt = 0;
-  let titleTimer: ReturnType<typeof setInterval> | null = null;
-  const paintTitle = () => {
-    if (!firstAt) return;
-    const secs = (Date.now() - firstAt) / 1000;
-    const tps = secs > 0 ? Math.round(tokens / secs) : 0;
-    process.stdout.write(`\x1b]0;oi · ${tps} tok/s\x07`);
-  };
-  const resetTitle = () => {
-    if (tty) process.stdout.write('\x1b]0;oi\x07');
-  };
-
-  process.stdout.write('\n' + dim('  thinking…'));
-  let started = false;
+  console.log('');
+  const meter = new LiveMeter();
+  meter.start();
+  let text: string;
+  let metrics;
   try {
-    const { text, metrics } = await streamChatTurn(
+    ({ text, metrics } = await streamChatTurn(
       history,
-      (chunk) => {
-        if (!started) {
-          process.stdout.write('\r' + ' '.repeat(12) + '\r  ');
-          started = true;
-        }
-        if (tty) {
-          if (!firstAt) {
-            firstAt = Date.now();
-            titleTimer = setInterval(paintTitle, 150);
-          }
-          tokens += 1;
-        }
-        process.stdout.write(chunk.replace(/\n/g, '\n  '));
-      },
+      () => meter.bump(),
       { ollamaUrl: opts.ollamaUrl, remote: opts.remote },
-    );
-
-    if (!started) process.stdout.write('\r' + ' '.repeat(12) + '\r');
-    history.push({ role: 'assistant', content: text });
-    process.stdout.write('\n');
-    const footer = formatChatMetrics(metrics);
-    if (footer && !opts.quiet) console.log(dim(`  ⎯ ${footer}`));
-    process.stdout.write('\n');
+    ));
   } finally {
-    if (titleTimer) clearInterval(titleTimer);
-    resetTitle();
+    meter.stop();
   }
+
+  history.push({ role: 'assistant', content: text });
+  console.log(`  ${text.replace(/\n/g, '\n  ')}`);
+  const footer = formatChatMetrics(metrics);
+  if (footer && !opts.quiet) console.log(dim(`  ⎯ ${footer}`));
+  console.log('');
 }
 
 async function dispatch(
@@ -374,9 +349,27 @@ async function dispatch(
       await showModels(opts);
       return {};
 
+    case 'where':
     case 'storage':
-      await runStorage();
+    case 'path':
+      await runWhere();
       return {};
+
+    case 'run': {
+      const [model, ...rest] = arg.split(/\s+/);
+      const prompt = rest.join(' ').trim();
+      if (!model || !prompt) {
+        console.log('\n  Usage: /run <model> <message>   (one-off — does not switch your active model)\n');
+        return {};
+      }
+      console.log('');
+      const out = await runOneShot(prompt, { model, ollamaUrl: opts.ollamaUrl, remote: opts.remote });
+      console.log(`  ${out.text.replace(/\n/g, '\n  ')}`);
+      const f = formatChatMetrics(out.metrics);
+      if (f) console.log(dim(`  ⎯ ${f} · ${model}`));
+      console.log('');
+      return {};
+    }
 
     case 'update':
       await runUpdate({ currentCatalog: loadCatalog() });
@@ -387,7 +380,9 @@ async function dispatch(
       await runServe({ ollamaUrl: opts.ollamaUrl });
       return {};
 
+    case 'web':
     case 'ui':
+    case 'dashboard':
       await runServe({ ollamaUrl: opts.ollamaUrl, openUi: true });
       return {};
 
@@ -465,6 +460,16 @@ async function refreshInstalled(opts: ShellOptions): Promise<void> {
 
 function suggest(line: string): Suggestion[] {
   if (!line.startsWith('/')) return [];
+
+  // /run: complete the model from installed, then keep typing the message.
+  const runCmd = /^\/run\s+(\S*)$/.exec(line);
+  if (runCmd) {
+    const [, partial] = runCmd;
+    return installedTags
+      .filter((id) => id.startsWith(partial))
+      .slice(0, 7)
+      .map((id) => ({ value: `/run ${id} `, label: id, hint: 'then type your message', submit: false }));
+  }
 
   // /use and /remove act on what you already have → complete from installed models.
   const installedCmd = /^(\/use|\/remove|\/rm|\/uninstall|\/delete)\s+(.*)$/.exec(line);
