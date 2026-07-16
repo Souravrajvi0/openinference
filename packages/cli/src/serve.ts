@@ -1,9 +1,14 @@
 import http from 'node:http';
 
 import { loadConfig } from './config';
-import { detectHardware, type HardwareProfile } from './hardware';
-import { classifyCrash, resolveOllamaUrl } from './ollama';
+import { detectHardware, formatHardware, type HardwareProfile } from './hardware';
+import { classifyCrash, listRunningModels, resolveOllamaUrl } from './ollama';
 import { runtime, type ChatMsg } from './runtime';
+import { parseUseCaseArg } from './use-cases';
+import { loadCatalog, scoreModel, fitsHardware } from './recommend';
+import { estimateSpeed } from './perf';
+import { collectDoctorReport } from './doctor';
+import { UI_HTML } from './ui';
 
 const DEFAULT_PORT = 11435; // 11434 is Ollama's — sit next to it
 
@@ -73,15 +78,55 @@ function chatId(): string {
   return `chatcmpl-${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 }
 
+// ── capability aliases (f3 Phase 5, opt-in) ──────────────
+// Resolve a reserved name ("coding", "chat", …, "default"/"active") to the best
+// INSTALLED model for that task. Always transparent (x-oi-resolved-model header).
+function resolveAlias(name: string, installed: string[]): string | null {
+  const lc = name.toLowerCase();
+  const active = loadConfig()?.model;
+  if (lc === 'default' || lc === 'active') return active ?? installed[0] ?? null;
+  const useCase = parseUseCaseArg(lc);
+  if (!useCase) return null;
+
+  const catalog = loadCatalog();
+  const hw = detectHardware();
+  const scored: { tag: string; score: number }[] = [];
+  for (const tag of installed) {
+    const baseName = tag.split(':')[0]!;
+    const entry = catalog.find((m) => m.id === tag) ?? catalog.find((m) => m.id.split(':')[0] === baseName);
+    if (!entry || !(entry.categories ?? []).includes(useCase)) continue;
+    const rec = scoreModel(entry, hw.budgetGb, useCase, hw);
+    scored.push({ tag, score: rec ? rec.score : entry.quality });
+  }
+  if (scored.length === 0) return null;
+  scored.sort((a, b) => b.score - a.score);
+  return scored[0]!.tag;
+}
+
 type ChatBody = { model?: string; messages?: ChatMsg[]; stream?: boolean };
 
-/** Resolve which concrete model to run: named tag (passthrough) → active → first installed. */
-async function resolveModel(requested: string | undefined, base: string): Promise<string | null> {
-  if (requested && requested.trim()) return requested.trim(); // transparent passthrough
+/** Which concrete model to run: alias (opt-in) → named tag passthrough → active → first installed. */
+async function resolveModel(
+  requested: string | undefined,
+  base: string,
+  aliases: boolean,
+): Promise<{ model: string | null; error?: string }> {
+  const req = requested?.trim();
+  if (aliases && req) {
+    const lc = req.toLowerCase();
+    const isAlias = lc === 'default' || lc === 'active' || Boolean(parseUseCaseArg(lc));
+    if (isAlias) {
+      const installed = await runtime.listModels(base).catch((): string[] => []);
+      const resolved = resolveAlias(lc, installed);
+      if (resolved) return { model: resolved };
+      return { model: null, error: `No installed model for "${req}". Try: oi install <model> (see: oi search ${lc})` };
+    }
+  }
+  if (req) return { model: req }; // transparent passthrough
   const active = loadConfig()?.model;
-  if (active) return active;
+  if (active) return { model: active };
   const installed = await runtime.listModels(base).catch((): string[] => []);
-  return installed[0] ?? null;
+  return { model: installed[0] ?? null };
 }
 
 async function handleChat(
@@ -89,6 +134,7 @@ async function handleChat(
   res: http.ServerResponse,
   base: string,
   numCtx: number,
+  aliases: boolean,
 ): Promise<void> {
   let body: ChatBody;
   try {
@@ -103,13 +149,13 @@ async function handleChat(
     return;
   }
 
-  const model = await resolveModel(body.model, base);
-  if (!model) {
-    openaiError(res, 400, 'No model specified and none installed — run: oi install <model>');
+  const resolved = await resolveModel(body.model, base, aliases);
+  if (!resolved.model) {
+    openaiError(res, 400, resolved.error ?? 'No model specified and none installed — run: oi install <model>');
     return;
   }
+  const model = resolved.model;
 
-  // Client-disconnect → abort the generation instead of leaking it.
   const ac = new AbortController();
   res.on('close', () => ac.abort());
 
@@ -144,16 +190,13 @@ async function handleChat(
       res.write('data: [DONE]\n\n');
       res.end();
     } catch (e) {
-      const friendly = friendlyRuntimeError(msg(e), base);
-      // Best-effort error inside the stream (headers already sent).
-      send({ error: { message: friendly, type: 'oi_error' } });
+      send({ error: { message: friendlyRuntimeError(msg(e), base), type: 'oi_error' } });
       res.write('data: [DONE]\n\n');
       res.end();
     }
     return;
   }
 
-  // Non-streaming
   try {
     const out = await runtime.chat(base, model, messages, opts, () => {}, ac.signal);
     res.setHeader('x-oi-resolved-model', model);
@@ -162,9 +205,7 @@ async function handleChat(
       object: 'chat.completion',
       created,
       model,
-      choices: [
-        { index: 0, message: { role: 'assistant', content: out.content }, finish_reason: 'stop' },
-      ],
+      choices: [{ index: 0, message: { role: 'assistant', content: out.content }, finish_reason: 'stop' }],
       usage: {
         prompt_tokens: out.promptTokens ?? 0,
         completion_tokens: out.completionTokens ?? 0,
@@ -176,15 +217,38 @@ async function handleChat(
   }
 }
 
-export async function runServe(opts: { port?: number; host?: string; ollamaUrl?: string } = {}): Promise<void> {
+// ── /api/* for the UI (f3 Phase 2) ───────────────────────
+async function apiCatalog(base: string): Promise<unknown[]> {
+  const hw = detectHardware();
+  const installed = new Set(await runtime.listModels(base).catch((): string[] => []));
+  return loadCatalog()
+    .filter((m) => m.kind !== 'embed')
+    .map((m) => {
+      const est = estimateSpeed(m, hw);
+      return {
+        id: m.id,
+        name: m.name,
+        sizeMb: m.sizeMb,
+        quality: m.quality,
+        categories: m.categories ?? [],
+        installed: installed.has(m.id) || installed.has(`${m.id}:latest`),
+        fits: Boolean(fitsHardware(m, hw)),
+        speed: { low: est.low, high: est.high, tier: est.tier },
+      };
+    });
+}
+
+export async function runServe(
+  opts: { port?: number; host?: string; ollamaUrl?: string; aliases?: boolean; openUi?: boolean } = {},
+): Promise<void> {
   const port = opts.port ?? DEFAULT_PORT;
   const host = opts.host ?? '127.0.0.1';
   const base = resolveOllamaUrl(opts.ollamaUrl);
   const hw = detectHardware();
   const numCtx = reliableNumCtx(hw);
   const loopback = isLoopback(host);
+  const aliases = Boolean(opts.aliases);
 
-  // Security: never expose to the network without a key (f3 §5, fail closed).
   const apiKey = process.env.OI_API_KEY?.trim();
   if (!loopback && !apiKey) {
     throw new Error(
@@ -193,38 +257,53 @@ export async function runServe(opts: { port?: number; host?: string; ollamaUrl?:
     );
   }
 
-  // Warm the runtime up front (non-fatal; per-request errors are honest anyway).
   await runtime.ensureRunning(base).catch(() => {});
 
   const server = http.createServer((req, res) => {
     void (async () => {
       try {
         if (!loopback) {
-          const auth = req.headers['authorization'];
-          if (auth !== `Bearer ${apiKey}`) {
+          if (req.headers['authorization'] !== `Bearer ${apiKey}`) {
             openaiError(res, 401, 'Unauthorized');
             return;
           }
         }
         const url = (req.url ?? '/').split('?')[0];
 
+        if (req.method === 'GET' && (url === '/' || url === '/index.html')) {
+          res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+          res.end(UI_HTML);
+          return;
+        }
         if (req.method === 'GET' && url === '/health') {
           const version = await runtime.version(base).catch(() => null);
-          sendJson(res, 200, { status: 'ok', runtime: runtime.name, runtimeVersion: version, numCtx, model: loadConfig()?.model ?? null });
+          sendJson(res, 200, { status: 'ok', runtime: runtime.name, runtimeVersion: version, numCtx, model: loadConfig()?.model ?? null, aliases });
           return;
         }
-
+        if (req.method === 'GET' && url === '/api/status') {
+          const version = await runtime.version(base).catch(() => null);
+          sendJson(res, 200, { runtime: runtime.name, runtimeVersion: version, numCtx, model: loadConfig()?.model ?? null, hardware: formatHardware(hw), aliases });
+          return;
+        }
+        if (req.method === 'GET' && url === '/api/running') {
+          sendJson(res, 200, await listRunningModels(base).catch((): unknown[] => []));
+          return;
+        }
+        if (req.method === 'GET' && url === '/api/catalog') {
+          sendJson(res, 200, await apiCatalog(base));
+          return;
+        }
+        if (req.method === 'GET' && url === '/api/doctor') {
+          sendJson(res, 200, await collectDoctorReport({ ollamaUrl: base }));
+          return;
+        }
         if (req.method === 'GET' && url === '/v1/models') {
           const models = await runtime.listModels(base).catch((): string[] => []);
-          sendJson(res, 200, {
-            object: 'list',
-            data: models.map((id) => ({ id, object: 'model', created: 0, owned_by: 'oi' })),
-          });
+          sendJson(res, 200, { object: 'list', data: models.map((id) => ({ id, object: 'model', created: 0, owned_by: 'oi' })) });
           return;
         }
-
         if (req.method === 'POST' && url === '/v1/chat/completions') {
-          await handleChat(req, res, base, numCtx);
+          await handleChat(req, res, base, numCtx, aliases);
           return;
         }
 
@@ -245,10 +324,24 @@ export async function runServe(opts: { port?: number; host?: string; ollamaUrl?:
   console.log('');
   console.log(`  ${GREEN}oi serve${RESET} — local OpenAI-compatible endpoint`);
   console.log('');
-  console.log(`  ${TEAL}http://${shown}:${port}/v1${RESET}`);
-  console.log(`  ${DIM}context ${numCtx} tokens · keep-alive 30m · runtime ${runtime.name}${RESET}`);
+  console.log(`  API   ${TEAL}http://${shown}:${port}/v1${RESET}`);
+  console.log(`  UI    ${TEAL}http://${shown}:${port}/${RESET}`);
+  console.log(`  ${DIM}context ${numCtx} tokens · keep-alive 30m · runtime ${runtime.name}${aliases ? ' · aliases on' : ''}${RESET}`);
   if (!loopback) console.log(`  ${DIM}auth: Authorization: Bearer <OI_API_KEY>${RESET}`);
   console.log('');
-  console.log(`  ${DIM}Point any OpenAI-compatible tool here (base URL above). Ctrl+C to stop.${RESET}`);
+  console.log(`  ${DIM}Point any OpenAI-compatible tool at the API. Ctrl+C to stop.${RESET}`);
   console.log('');
+
+  if (opts.openUi) openBrowser(`http://127.0.0.1:${port}/`);
+}
+
+function openBrowser(url: string): void {
+  const { spawn } = require('node:child_process') as typeof import('node:child_process');
+  const cmd = process.platform === 'win32' ? 'cmd' : process.platform === 'darwin' ? 'open' : 'xdg-open';
+  const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url];
+  try {
+    spawn(cmd, args, { stdio: 'ignore', detached: true, windowsHide: true }).unref();
+  } catch {
+    /* best-effort */
+  }
 }

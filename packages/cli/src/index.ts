@@ -11,6 +11,8 @@ import { ollamaModelsPath } from './hardware';
 import { runShell } from './shell';
 import { runDoctor } from './doctor';
 import { runServe } from './serve';
+import { runIntegrate } from './integrate';
+import { runMcp } from './mcp';
 import { VERSION } from './version';
 
 const program = new Command();
@@ -282,14 +284,59 @@ program
   .description('Run a local OpenAI-compatible endpoint (correct context, timeouts, keep-alive)')
   .option('--port <n>', 'port (default 11435)')
   .option('--host <host>', 'bind address (default 127.0.0.1; non-local requires OI_API_KEY)')
+  .option('--aliases', 'enable capability aliases (model:"coding" → best installed model)')
   .option(urlOption.flags, urlOption.description)
-  .action(async (opts: { port?: string; host?: string; ollamaUrl?: string }) => {
+  .action(async (opts: { port?: string; host?: string; aliases?: boolean; ollamaUrl?: string }) => {
     try {
       await runServe({
         port: opts.port ? parseInt(opts.port, 10) : undefined,
         host: opts.host,
+        aliases: Boolean(opts.aliases),
         ollamaUrl: opts.ollamaUrl,
       });
+    } catch (e) {
+      fail(e);
+    }
+  });
+
+program
+  .command('ui')
+  .description('Open the control-plane UI (catalog · monitor · doctor · playground) in your browser')
+  .option('--port <n>', 'port (default 11435)')
+  .option('--aliases', 'enable capability aliases')
+  .option(urlOption.flags, urlOption.description)
+  .action(async (opts: { port?: string; aliases?: boolean; ollamaUrl?: string }) => {
+    try {
+      await runServe({
+        port: opts.port ? parseInt(opts.port, 10) : undefined,
+        aliases: Boolean(opts.aliases),
+        ollamaUrl: opts.ollamaUrl,
+        openUi: true,
+      });
+    } catch (e) {
+      fail(e);
+    }
+  });
+
+program
+  .command('integrate <tool>')
+  .description('Show how to use oi from Cursor, Continue, aider, Cline, or the OpenAI SDK')
+  .option('--port <n>', 'endpoint port (default 11435)')
+  .action((tool: string, opts: { port?: string }) => {
+    try {
+      runIntegrate(tool, { port: opts.port ? parseInt(opts.port, 10) : undefined });
+    } catch (e) {
+      fail(e);
+    }
+  });
+
+program
+  .command('mcp')
+  .description('Run oi as an MCP server (stdio) exposing local models as a tool')
+  .option(urlOption.flags, urlOption.description)
+  .action(async (opts: { ollamaUrl?: string }) => {
+    try {
+      await runMcp({ ollamaUrl: opts.ollamaUrl });
     } catch (e) {
       fail(e);
     }
