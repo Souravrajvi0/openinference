@@ -7,7 +7,7 @@ import { detectHardware, formatHardware, ollamaModelsPath } from './hardware';
 import { runStart } from './start';
 import { runBrowse, runRecommend } from './recommend-run';
 import { parseUseCaseArg, pickUseCase, useCaseLabel, USE_CASES } from './use-cases';
-import { formatChatMetrics, listInstalledModels, streamChatTurn, type ChatMessage } from './chat';
+import { formatChatMetrics, GenerationError, listInstalledModels, streamChatTurn, type ChatMessage } from './chat';
 import { loadCatalog } from './recommend';
 import { runInfo, runPull, runRemove, runSearch, runWhere, runUse, runUsePicker } from './manage';
 import { runDoctor } from './doctor';
@@ -45,7 +45,7 @@ type CommandSpec = {
 const COMMANDS: CommandSpec[] = [
   { name: '/setup', help: 'Pick a goal, scan hardware, install a model', group: 'Setup & models' },
   { name: '/search', args: '[query]', help: 'Search models (installed + available)', group: 'Setup & models' },
-  { name: '/update', help: 'Refresh the model catalog', group: 'Setup & models' },
+  { name: '/update', help: 'Refresh catalog + check CLI/runtime updates', group: 'Setup & models' },
   { name: '/recommend', args: '[goal]', help: 'Best models for your hardware', group: 'Setup & models' },
   { name: '/install', args: '<model>', help: 'Download a model', group: 'Setup & models' },
   { name: '/use', args: '[model]', help: 'Pick from installed models (or switch by name)', group: 'Setup & models' },
@@ -117,7 +117,7 @@ function printLogo(): void {
     console.log(`  ${C(BAR_COLOR, bars)}${C(WORD_COLOR, rest)}`);
   }
   console.log('');
-  console.log(`  ${bold(brand('AI infrastructure, fully governed.'))}  ${dim('v' + VERSION)}`);
+  console.log(`  ${bold(brand('Run open-source AI on your machine.'))}  ${dim('v' + VERSION)}`);
 }
 
 /** First-time users: logo + a short welcome, no command chrome. The wizard runs next. */
@@ -281,12 +281,20 @@ async function dispatch(
     case 'rec': {
       // No goal given → ask the user to pick a task first, then recommend.
       const useCase = parseUseCaseArg(arg) ?? (await pickUseCase());
+      if (!useCase) {
+        console.log('\n  Cancelled.\n');
+        return {};
+      }
       runRecommend({ useCase });
       return {};
     }
 
     case 'browse': {
       const useCase = parseUseCaseArg(arg) ?? (await pickUseCase());
+      if (!useCase) {
+        console.log('\n  Cancelled.\n');
+        return {};
+      }
       runBrowse({ useCase, all: true });
       return {};
     }
@@ -519,7 +527,7 @@ function suggest(line: string): Suggestion[] {
   // Once a command has a space/args, stop showing the command menu.
   if (/\s/.test(line)) return [];
 
-  const ARG_CMDS = new Set(['/install', '/info', '/remove', '/integrate']);
+  const ARG_CMDS = new Set(['/install', '/info', '/remove', '/integrate', '/run']);
   return COMMANDS.filter((c) => c.name.startsWith(line)).map((c) => {
     const needsArg = ARG_CMDS.has(c.name);
     return {
@@ -645,6 +653,11 @@ export async function runShell(opts: ShellOptions = {}): Promise<void> {
         await chat(history, line, opts);
       } catch (e) {
         if (history[history.length - 1]?.role === 'user') history.pop();
+        // Show whatever the model produced before it failed — never eat the wait.
+        if (e instanceof GenerationError && e.partial) {
+          console.log(`  ${e.partial.replace(/\n/g, '\n  ')}`);
+          console.log(dim('  ⎯ generation stopped early'));
+        }
         console.error(`  ${red('Error')}: ${msg(e)}\n`);
       }
     }

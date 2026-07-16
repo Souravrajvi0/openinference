@@ -103,7 +103,95 @@ function resolveAlias(name: string, installed: string[]): string | null {
   return scored[0]!.tag;
 }
 
-type ChatBody = { model?: string; messages?: ChatMsg[]; stream?: boolean };
+type ChatBody = { model?: string; messages?: unknown; stream?: boolean };
+
+type ContentPart = {
+  type?: unknown;
+  text?: unknown;
+  image_url?: unknown;
+};
+
+/**
+ * OpenAI clients may send `content` as a string or as structured content parts.
+ * Ollama's native chat API requires a string plus an optional `images` array, so
+ * normalize at the compatibility boundary instead of leaking OpenAI shapes into
+ * the runtime.
+ */
+export function normalizeOpenAiMessages(input: unknown): ChatMsg[] {
+  if (!Array.isArray(input) || input.length === 0) {
+    throw new Error('messages[] is required');
+  }
+
+  return input.map((raw, index) => {
+    if (!raw || typeof raw !== 'object') {
+      throw new Error(`messages[${index}] must be an object`);
+    }
+
+    const message = raw as Record<string, unknown>;
+    if (typeof message.role !== 'string' || !message.role.trim()) {
+      throw new Error(`messages[${index}].role must be a string`);
+    }
+
+    const content = message.content;
+    if (typeof content === 'string') {
+      return { role: message.role, content };
+    }
+    if (content == null) {
+      return { role: message.role, content: '' };
+    }
+    if (!Array.isArray(content)) {
+      throw new Error(`messages[${index}].content must be a string or an array of content parts`);
+    }
+
+    const text: string[] = [];
+    const images: string[] = [];
+
+    content.forEach((rawPart, partIndex) => {
+      if (!rawPart || typeof rawPart !== 'object') {
+        throw new Error(`messages[${index}].content[${partIndex}] must be an object`);
+      }
+      const part = rawPart as ContentPart;
+
+      if (part.type === 'text' || part.type === 'input_text') {
+        if (typeof part.text !== 'string') {
+          throw new Error(`messages[${index}].content[${partIndex}].text must be a string`);
+        }
+        text.push(part.text);
+        return;
+      }
+
+      if (part.type === 'image_url' || part.type === 'input_image') {
+        const imageUrl =
+          typeof part.image_url === 'string'
+            ? part.image_url
+            : part.image_url && typeof part.image_url === 'object'
+              ? (part.image_url as Record<string, unknown>).url
+              : undefined;
+        if (typeof imageUrl !== 'string') {
+          throw new Error(`messages[${index}].content[${partIndex}].image_url is required`);
+        }
+        const match = /^data:image\/[^;]+;base64,(.+)$/s.exec(imageUrl);
+        if (!match) {
+          throw new Error(
+            `messages[${index}].content[${partIndex}] uses an image URL; oi currently accepts base64 data URLs only`,
+          );
+        }
+        images.push(match[1]!);
+        return;
+      }
+
+      throw new Error(
+        `messages[${index}].content[${partIndex}] has unsupported type "${String(part.type ?? 'unknown')}"`,
+      );
+    });
+
+    return {
+      role: message.role,
+      content: text.join('\n'),
+      ...(images.length > 0 ? { images } : {}),
+    };
+  });
+}
 
 /** Which concrete model to run: alias (opt-in) → named tag passthrough → active → first installed. */
 async function resolveModel(
@@ -143,9 +231,11 @@ async function handleChat(
     openaiError(res, 400, 'Invalid JSON body');
     return;
   }
-  const messages = body.messages;
-  if (!Array.isArray(messages) || messages.length === 0) {
-    openaiError(res, 400, 'messages[] is required');
+  let messages: ChatMsg[];
+  try {
+    messages = normalizeOpenAiMessages(body.messages);
+  } catch (e) {
+    openaiError(res, 400, msg(e));
     return;
   }
 

@@ -119,15 +119,29 @@ async function renderCatalog(){
   $('#q').oninput=e=>draw(e.target.value.toLowerCase());
 }
 
-async function renderDoctor(){
-  const box=$('#doctor'); box.innerHTML='<div class="card">running checks…</div>';
-  const r=await j('/api/doctor');
+let doctorCache=null;
+function paintDoctor(box,r){
   const g={ok:'✓',warn:'⚠',fail:'✕',info:'·',skip:'·'};
   const cls={ok:'ok',warn:'warn',fail:'bad',info:'dim',skip:'dim'};
   box.innerHTML='<div class="card">'+r.checks.map(c=>
     '<div><span class="'+cls[c.status]+'">'+g[c.status]+'</span> <b>'+c.label+'</b> — '+c.value
     +(c.fix?'<div class="muted" style="margin:2px 0 8px 18px">'+c.fix+'</div>':'')+'</div>'
-  ).join('')+'</div>';
+  ).join('')
+  +'<div class="row" style="margin-top:10px"><button class="go" id="drerun">Run again</button></div></div>';
+  $('#drerun').onclick=()=>{doctorCache=null;renderDoctor();};
+}
+async function renderDoctor(){
+  const box=$('#doctor');
+  if(doctorCache){paintDoctor(box,doctorCache);return;}
+  // The checks include a real test generation — do NOT auto-fire it on tab
+  // click; on a CPU box it can take a minute and looks like a hang.
+  box.innerHTML='<div class="card"><div class="row"><button class="go" id="drun">Run checks</button>'
+    +'<span class="muted">includes a quick test generation — can take a minute on CPU</span></div></div>';
+  $('#drun').onclick=async()=>{
+    const b=$('#drun'); b.disabled=true; b.textContent='Running… (loading + testing the model)';
+    try{ doctorCache=await j('/api/doctor'); paintDoctor(box,doctorCache); }
+    catch(e){ b.disabled=false; b.textContent='Run checks'; }
+  };
 }
 
 async function renderPlay(){

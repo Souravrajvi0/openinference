@@ -115,6 +115,10 @@ export async function runSearch(
   const scope = opts.all ? 'all models' : 'models that fit this machine';
   console.log(`\n  ${q ? `Matching "${query}"` : 'Models'} · ${scope}:\n`);
 
+  if (!known) {
+    console.log(`  ${DIM}Can't check what's installed — local inference is offline (oi doctor).${RESET}\n`);
+  }
+
   if (noneFit) {
     console.log(`  ${DIM}Nothing here fits your machine — smallest options shown:${RESET}\n`);
   }
@@ -177,16 +181,34 @@ export async function runInfo(modelId: string, opts: { ollamaUrl?: string } = {}
   console.log(`  ${label('Fits this machine')}${fit ? `yes (${fit} fit)` : 'no — needs more RAM or disk'}`);
   if (known) {
     console.log(`  ${label('Installed')}${inst ? (active ? 'yes — active model' : 'yes') : 'no'}`);
+  } else {
+    console.log(`  ${label('Installed')}${DIM}unknown — local inference is offline${RESET}`);
   }
-  console.log('');
-  console.log(`  ${DIM}License, context length, quantization and benchmarks: coming soon.${RESET}`);
   console.log('');
   if (active) {
     console.log(`  This is your active model.\n`);
   } else if (inst) {
     console.log(`  Switch to it:  oi use ${m.id}\n`);
-  } else {
+  } else if (fit) {
     console.log(`  Install it:    oi install ${m.id}\n`);
+  } else {
+    // Don't tell the user to install something we just said won't run well.
+    const alt = catalog
+      .filter(
+        (c) =>
+          c.id !== m.id &&
+          c.kind !== 'embed' &&
+          (c.categories ?? []).some((x) => (m.categories ?? []).includes(x)) &&
+          Boolean(fitsHardware(c, hw)),
+      )
+      .sort((a, b) => b.quality - a.quality)[0];
+    if (alt) {
+      console.log(`  Won't run well here. Closest good fit for the same tasks:`);
+      console.log(`    ${TEAL}${alt.name}${RESET} ${DIM}(${alt.id}) · quality ${alt.quality}/100${RESET}`);
+      console.log(`    oi install ${alt.id}\n`);
+    } else {
+      console.log(`  Won't run well here — see what fits: oi recommend\n`);
+    }
   }
 }
 
@@ -279,14 +301,18 @@ export async function runUsePicker(
     label: '+ Install another model…',
     hint: 'search catalog',
   });
+  choices.push({
+    value: '__cancel__',
+    label: 'Cancel',
+    hint: 'keep current model',
+  });
 
   const picked = await select<string>({
     title: '  Installed models — pick one to chat with:',
     choices,
-    hint: '↑↓ move · Enter select · Ctrl+C cancel',
   });
 
-  if (picked === null) {
+  if (picked === null || picked === '__cancel__') {
     console.log('');
     return 'cancelled';
   }

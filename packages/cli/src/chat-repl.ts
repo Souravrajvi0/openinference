@@ -1,6 +1,6 @@
 import readline from 'node:readline';
 
-import { formatChatMetrics, streamChatTurn, type ChatOptions, type ChatResult } from './chat';
+import { formatChatMetrics, GenerationError, streamChatTurn, type ChatOptions, type ChatResult } from './chat';
 import { LiveMeter } from './meter';
 
 function ask(rl: readline.Interface, prompt: string): Promise<string> {
@@ -40,6 +40,10 @@ export async function runChatRepl(opts: ChatOptions = {}): Promise<void> {
         if (footer && !opts.quiet) console.log(`\x1b[2m  ⎯ ${footer}\x1b[0m`);
         console.log('');
       } catch (e) {
+        if (e instanceof GenerationError && e.partial) {
+          console.log(`ai › ${e.partial}`);
+          console.log('\x1b[2m  ⎯ generation stopped early\x1b[0m');
+        }
         const msg = e instanceof Error ? e.message : String(e);
         console.error(`  (error: ${msg})\n`);
       }

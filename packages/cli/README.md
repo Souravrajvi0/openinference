@@ -28,7 +28,7 @@ On Linux you may need `sudo npm install -g @openinference/cli`, then run `oi`.
 
 The default is an **interactive shell** — chat when you already have a model, or `/setup` to run the wizard.
 
-The setup wizard (`oi start`):
+On first launch, `oi` opens the setup wizard:
 
 1. Ask what you want AI for (coding, chat, PDFs, …)
 2. Scan RAM, CPU, GPU, disk, and OS
@@ -40,9 +40,9 @@ The setup wizard (`oi start`):
 Skip prompts (power users):
 
 ```bash
-oi start -y
+oi setup -y
 # safest on a 3–4 GB cloud VM:
-oi start -y -m smollm2:135m
+oi setup -y -m smollm2:135m
 ```
 
 ## Commands
@@ -52,8 +52,8 @@ Familiar, package-manager-style commands. Older names are kept as aliases.
 | Command | Aliases | Description |
 |---------|---------|-------------|
 | `oi` | | Interactive shell (default) — chat + `/search`, `/install`, `/setup` |
-| `oi start` | `setup` | Setup wizard |
-| `oi start -y` | | Auto-pick and install (retries on crash) |
+| `oi setup` | | Direct setup for scripts and automation |
+| `oi setup -y` | | Auto-pick and install (retries on crash) |
 | `oi search <query>` | `find` | Search models — shows installed vs available |
 | `oi info <model>` | `show` | Details: RAM, size, fit, installed state |
 | `oi install <model>` | `pull`, `add` | Download a model |

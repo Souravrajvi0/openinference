@@ -77,12 +77,20 @@ export function parseUseCaseArg(raw?: string): UseCaseId | undefined {
   return found?.id;
 }
 
-export async function pickUseCase(): Promise<UseCaseId> {
-  const chosen = await select<UseCaseId>({
+const CANCEL = '__cancel__' as const;
+
+/** Pick a goal. Returns null if the user cancels (visible option, Esc, or Ctrl+C). */
+export async function pickUseCase(): Promise<UseCaseId | null> {
+  type Pick = UseCaseId | typeof CANCEL;
+  const chosen = await select<Pick>({
     title: '  What do you want to use AI for?',
-    choices: USE_CASES.map((u) => ({ value: u.id, label: u.label, hint: u.description })),
+    choices: [
+      ...USE_CASES.map((u) => ({ value: u.id as Pick, label: u.label, hint: u.description })),
+      { value: CANCEL, label: 'Cancel', hint: 'exit setup' },
+    ],
   });
-  return chosen ?? 'chat';
+  if (chosen === null || chosen === CANCEL) return null;
+  return chosen;
 }
 
 /** Boost score when model categories align with the user's goal. */

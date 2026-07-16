@@ -1,9 +1,17 @@
 #!/usr/bin/env node
-import { Command } from 'commander';
+import { Command, Help } from 'commander';
 import { loadConfig } from './config';
 import { runStart } from './start';
 import { runBrowse, runRecommend, parseUseCaseArg } from './recommend-run';
-import { listInstalledModels, formatChatMetrics } from './chat';
+import { listInstalledModels, formatChatMetrics, GenerationError } from './chat';
+
+/** Print any partial reply a failed generation produced before erroring out. */
+function showPartial(e: unknown): void {
+  if (e instanceof GenerationError && e.partial) {
+    console.log(`${e.partial}\n`);
+    console.log(`\x1b[2m  ⎯ generation stopped early\x1b[0m`);
+  }
+}
 import { runChatRepl, runOneShot } from './chat-repl';
 import { runInfo, runPull, runRemove, runSearch, runWhere, runUse, runUsePicker } from './manage';
 import { useCaseLabel } from './use-cases';
@@ -68,10 +76,49 @@ function setupFlags(opts: Record<string, unknown>) {
   };
 }
 
+// Grouped, scannable root help instead of commander's flat 18-command wall.
+// Subcommand help (`oi search --help`) keeps the default detailed format.
+const ROOT_HELP = `
+  oi — run open-source AI models on your machine
+
+  Usage: oi [command] [options]
+
+  Get started
+    oi                    interactive shell — setup on first run, then chat
+    setup                 pick + install a model for this machine
+    doctor                diagnose setup, GPU usage, and speed
+
+  Models
+    search [query]        find models that fit this machine
+    info <model>          size, speed estimate, fit, installed state
+    install <model>       download a model
+    use [model]           switch the active model
+    run <model> [msg]     try a model once — active model unchanged
+    list                  installed models
+    remove <model>        delete a model, free disk space
+    recommend             best picks for this machine
+    update                refresh catalog · check CLI/runtime updates
+
+  Use your models elsewhere
+    serve                 OpenAI-compatible endpoint on localhost:11435
+    web                   dashboard in your browser
+    integrate <tool>      connect Cursor, Continue, aider, Cline, …
+    mcp                   MCP server over stdio
+
+  More
+    chat [message]        chat with the active model
+    where                 model / config / catalog paths
+    status                current setup
+    <command> --help      full options for any command
+`;
+
 program
   .name('oi')
-  .description('oi — package manager for local AI models')
-  .version(VERSION);
+  .description('oi — run open-source AI models on your machine')
+  .version(VERSION)
+  .configureHelp({
+    formatHelp: (cmd, helper) => (cmd.parent ? new Help().formatHelp(cmd, helper) : ROOT_HELP),
+  });
 
 const shellCmd = program
   .command('shell', { isDefault: true })
@@ -88,22 +135,7 @@ shellCmd.action(async (opts) => {
   }
 });
 
-const startCmd = program
-  .command('start')
-  .description('Wizard: use case → scan → pick → confirm → install → chat')
-  .option('--force', 'run setup again even if already configured')
-  .option('--no-chat', 'setup only, do not open chat after');
-
-attachSetupOptions(startCmd);
-startCmd.action(async (opts) => {
-  try {
-    await runStart({ ...setupFlags(opts), force: Boolean(opts.force), chat: opts.chat });
-  } catch (e) {
-    fail(e);
-  }
-});
-
-const setupCmd = program.command('setup').description('Wizard without opening chat');
+const setupCmd = program.command('setup').description('Configure a local model without opening the shell');
 attachSetupOptions(setupCmd);
 setupCmd.action(async (opts) => {
   try {
@@ -239,6 +271,7 @@ program
       const footer = formatChatMetrics(metrics);
       if (footer && !chatOpts.quiet) console.log(`\x1b[2m  ⎯ ${footer}\x1b[0m\n`);
     } catch (e) {
+      showPartial(e);
       fail(e);
     }
   });
@@ -401,6 +434,7 @@ program
       const footer = formatChatMetrics(metrics);
       if (footer) console.log(`\x1b[2m  ⎯ ${footer} · ${model}\x1b[0m\n`);
     } catch (e) {
+      showPartial(e);
       fail(e);
     }
   });

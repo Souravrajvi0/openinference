@@ -361,9 +361,12 @@ export type SelectConfig<T> = {
   hint?: string;
 };
 
+/** Default footer for arrow-key lists — always advertise how to leave. */
+export const SELECT_HINT = '↑↓ move · Enter select · Esc/Ctrl+C cancel';
+
 /**
  * Arrow-key list selector (↑/↓ to move, Enter to choose, 1-9 as shortcuts,
- * Ctrl+C to cancel). Falls back to a numbered prompt when stdin is not a TTY
+ * Esc or Ctrl+C to cancel). Falls back to a numbered prompt when stdin is not a TTY
  * or OI_SIMPLE is set. Returns the chosen value, or null if cancelled.
  */
 export function select<T>(cfg: SelectConfig<T>): Promise<T | null> {
@@ -386,7 +389,7 @@ export function select<T>(cfg: SelectConfig<T>): Promise<T | null> {
       readline.clearScreenDown(out);
       out.write(clamp(title, cols - 1) + '\n');
       choices.forEach((c, i) => out.write(listRow('❯', c.label, c.hint, cols, i === sel) + '\n'));
-      out.write(`   ${DIM}${clamp(cfg.hint ?? '↑↓ to move · Enter to select', cols - 4)}${RESET}`);
+      out.write(`   ${DIM}${clamp(cfg.hint ?? SELECT_HINT, cols - 4)}${RESET}`);
     };
 
     const cleanup = () => {
@@ -412,6 +415,8 @@ export function select<T>(cfg: SelectConfig<T>): Promise<T | null> {
       if (!key) return;
       if (key.ctrl && key.name === 'c') return finish(null);
       switch (key.name) {
+        case 'escape':
+          return finish(null);
         case 'up':
           sel = (sel - 1 + choices.length) % choices.length;
           break;
@@ -474,7 +479,7 @@ export function readLine(promptText: string): Promise<string | null> {
 
     const onKey = (str: string, key: KeyInfo) => {
       if (!key) return;
-      if (key.ctrl && key.name === 'c') {
+      if ((key.ctrl && key.name === 'c') || key.name === 'escape') {
         out.write('\n');
         cleanup();
         return resolve(null);

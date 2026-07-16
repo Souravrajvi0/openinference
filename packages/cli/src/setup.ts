@@ -14,7 +14,6 @@ import {
   loadCrashedModels,
   recordCrashedModel,
   saveConfig,
-  type SavedConfig,
 } from './config';
 import {
   askYesNo,
@@ -72,6 +71,7 @@ async function resolvePool(
   hw: ReturnType<typeof detectHardware>,
   opts: SetupOptions,
   excludeIds: string[],
+  scanState: { done: boolean } = { done: false },
 ): Promise<PoolResult | null> {
   const auto = Boolean(opts.yes);
   const lockedUseCase = opts.useCase;
@@ -88,15 +88,17 @@ async function resolvePool(
     return { useCase, pool, runnable, hardwareFallback };
   }
 
-  let scanned = false;
-
   while (true) {
     const useCase = lockedUseCase ?? (await pickUseCase());
+    if (!useCase) {
+      console.log('\n  Setup cancelled. Run `oi` again when ready.\n');
+      return null;
+    }
     if (!lockedUseCase) console.log(`\n  → ${useCaseLabel(useCase)}\n`);
 
-    if (!scanned) {
+    if (!scanState.done) {
       printHardwareScan(hw);
-      scanned = true;
+      scanState.done = true;
     }
 
     let { pool, runnable } = buildRecommendPool(catalog, hw, useCase, opts.all, excludeIds);
@@ -235,7 +237,7 @@ async function tryInstallModels(
   throw (
     lastError ??
     new Error(
-      `No model ran successfully on this computer. Try: oi start -y -m ${TINY_VM_DEFAULT}`,
+      `No model ran successfully on this computer. Try: oi setup -y -m ${TINY_VM_DEFAULT}`,
     )
   );
 }
@@ -248,141 +250,208 @@ export async function runSetup(opts: SetupOptions): Promise<void> {
   const hw = detectHardware();
   const catalog = loadCatalog();
   const crashed = loadCrashedModels();
+  const canChangeUseCase = !opts.useCase;
+  const scanState = { done: false };
 
-  const resolved = await resolvePool(catalog, hw, opts, crashed);
-  if (!resolved) return;
+  const cancelled = () => {
+    console.log('\n  Setup cancelled. Run `oi` again when ready.\n');
+  };
 
-  const { useCase, runnable, hardwareFallback } = resolved;
+  const buildPicks = (
+    useCase: UseCaseId,
+    runnable: ReturnType<typeof loadCatalog>,
+  ): Recommendation[] => {
+    const recs = recommendTop(runnable, hw.budgetGb, WIZARD_PICK_COUNT, useCase, hw.diskFreeGb, hw);
+    let picks =
+      recs.length > 0
+        ? recs
+        : runnable
+            .map((m) => scoreModel(m, hw.budgetGb, useCase, hw))
+            .filter((r): r is Recommendation => r !== null)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, WIZARD_PICK_COUNT);
 
-  if (auto) {
-    console.log('\n  OpenInference — quick setup (-y)\n');
-    printHardwareResults(hw);
-    console.log(`  Use case: ${useCaseLabel(useCase)}\n`);
-  }
-
-  let recs = recommendTop(runnable, hw.budgetGb, WIZARD_PICK_COUNT, useCase, hw.diskFreeGb, hw);
-  let picks =
-    recs.length > 0
-      ? recs
-      : runnable
-          .map((m) => scoreModel(m, hw.budgetGb, useCase, hw))
-          .filter((r): r is Recommendation => r !== null)
-          .sort((a, b) => b.score - a.score)
-          .slice(0, WIZARD_PICK_COUNT);
-
-  if (picks.length === 0 && isTinyVm(hw)) {
-    const fallback = catalog.find((m) => m.id === TINY_VM_DEFAULT);
-    if (fallback) {
-      const fit = fitsHardware(fallback, hw) ?? 'good';
-      picks = [{ ...fallback, fit, score: 100 }];
-      console.log(`  Using safe default for tiny instances: ${fallback.name}\n`);
+    if (picks.length === 0 && isTinyVm(hw)) {
+      const fallback = catalog.find((m) => m.id === TINY_VM_DEFAULT);
+      if (fallback) {
+        const fit = fitsHardware(fallback, hw) ?? 'good';
+        picks = [{ ...fallback, fit, score: 100 }];
+        console.log(`  Using safe default for tiny instances: ${fallback.name}\n`);
+      }
     }
-  }
+    return picks;
+  };
 
-  if (picks.length === 0) {
-    printTooSmallHelp(hw);
+  // ── Auto / explicit-model paths (no Back navigation) ──
+  if (opts.model || auto) {
+    const resolved = await resolvePool(catalog, hw, opts, crashed, scanState);
+    if (!resolved) return;
+
+    const { useCase, runnable } = resolved;
+    if (auto) {
+      console.log('\n  OpenInference — quick setup (-y)\n');
+      printHardwareResults(hw);
+      console.log(`  Use case: ${useCaseLabel(useCase)}\n`);
+    }
+
+    const picks = buildPicks(useCase, runnable);
+    if (picks.length === 0) {
+      printTooSmallHelp(hw);
+      return;
+    }
+
+    const needsOllama =
+      !remote && !opts.skipInstall && !(await pingOllama(baseUrl)) && !isOllamaInstalled();
+
+    let chosen: Recommendation;
+    let candidates: Recommendation[];
+
+    if (opts.model) {
+      const fromRecs = picks.find((r) => r.id === opts.model);
+      if (fromRecs) {
+        chosen = fromRecs;
+      } else {
+        const m = catalog.find((c) => c.id === opts.model);
+        if (!m) throw new Error(`Model "${opts.model}" not found in catalog.`);
+        const fit = fitsHardware(m, hw);
+        if (!fit) throw new Error(`Model "${opts.model}" does not fit this machine.`);
+        chosen = { ...m, fit, score: 0 };
+      }
+      if (crashed.includes(chosen.id)) {
+        console.log(`  Note: ${chosen.name} crashed here before — retrying because you asked for it.\n`);
+      }
+      if (!auto) {
+        console.log(`  Using model: ${chosen.name} (${chosen.id})\n`);
+        if (!hw.gpuUsable && hw.ramGb < 8) {
+          console.log('  Note: CPU-only on limited RAM — only small models are recommended.\n');
+        }
+        const action = await confirmInstall({ modelName: chosen.name, sizeMb: chosen.sizeMb, needsOllama });
+        if (action !== 'install') {
+          cancelled();
+          return;
+        }
+        console.log('');
+      }
+      candidates = [chosen];
+    } else {
+      chosen = picks[0]!;
+      console.log(`  → ${chosen.name} (best match)\n`);
+      candidates = picks;
+    }
+
+    if (remote) console.log('  Connecting…\n');
+    const working = await tryInstallModels(
+      candidates,
+      { remote, baseUrl, needsOllama, ollamaReady: false },
+      { auto: auto && !opts.model, explicitModel: Boolean(opts.model) },
+    );
+    saveConfig({
+      ollamaUrl: baseUrl,
+      model: working.id,
+      modelName: working.name,
+      useCase,
+      setupAt: new Date().toISOString(),
+    });
+    console.log('\n  ✓ Ready — type oi anytime to chat.\n');
+    console.log(`  Model:   ${working.name}`);
+    console.log(`  Stored:  ${ollamaModelsPath()}`);
+    console.log(`  Config:  ~/.openinference/config.json\n`);
     return;
   }
 
-  const needsOllama =
-    !remote && !opts.skipInstall && !(await pingOllama(baseUrl)) && !isOllamaInstalled();
+  // ── Interactive wizard: use case ↔ model ↔ confirm, with Back/Cancel ──
+  let resolved = await resolvePool(catalog, hw, opts, crashed, scanState);
+  if (!resolved) return;
 
-  const cpuNote = () => {
+  while (true) {
+    const { useCase, runnable, hardwareFallback } = resolved;
+    const picks = buildPicks(useCase, runnable);
+    if (picks.length === 0) {
+      printTooSmallHelp(hw);
+      return;
+    }
+
+    const needsOllama =
+      !remote && !opts.skipInstall && !(await pingOllama(baseUrl)) && !isOllamaInstalled();
+
+    const pickResult = await pickRecommendation(picks, {
+      show: WIZARD_SHOW_COUNT,
+      totalFit: runnable.length,
+      fallback: hardwareFallback,
+      useCaseLabel: useCaseLabel(useCase),
+      budgetGb: hw.budgetGb,
+      canBack: canChangeUseCase,
+    });
+
+    if (pickResult.action === 'cancel') {
+      cancelled();
+      return;
+    }
+    if (pickResult.action === 'back') {
+      console.log('\n  Pick another use case:\n');
+      const again = await resolvePool(catalog, hw, { ...opts, useCase: undefined }, crashed, scanState);
+      if (!again) return;
+      resolved = again;
+      continue;
+    }
+
+    const chosen = pickResult.model;
+    console.log(`  Selected: ${chosen.name}\n`);
     if (!hw.gpuUsable && hw.ramGb < 8) {
       console.log('  Note: CPU-only on limited RAM — only small models are recommended.\n');
     }
-  };
 
-  let chosen: Recommendation;
-  let candidates: Recommendation[];
+    const action = await confirmInstall({
+      modelName: chosen.name,
+      sizeMb: chosen.sizeMb,
+      needsOllama,
+      canBrowse: picks.length > 1,
+      canBack: canChangeUseCase,
+    });
 
-  if (opts.model) {
-    const fromRecs = picks.find((r) => r.id === opts.model);
-    if (fromRecs) {
-      chosen = fromRecs;
-    } else {
-      const m = catalog.find((c) => c.id === opts.model);
-      if (!m) throw new Error(`Model "${opts.model}" not found in catalog.`);
-      const fit = fitsHardware(m, hw);
-      if (!fit) throw new Error(`Model "${opts.model}" does not fit this machine.`);
-      chosen = { ...m, fit, score: 0 };
+    if (action === 'cancel') {
+      cancelled();
+      return;
     }
-    if (crashed.includes(chosen.id)) {
-      console.log(`  Note: ${chosen.name} crashed here before — retrying because you asked for it.\n`);
+    if (action === 'back') {
+      console.log('\n  Pick another use case:\n');
+      const again = await resolvePool(catalog, hw, { ...opts, useCase: undefined }, crashed, scanState);
+      if (!again) return;
+      resolved = again;
+      continue;
     }
-    if (!auto) {
-      console.log(`  Using model: ${chosen.name} (${chosen.id})\n`);
-      cpuNote();
-      const action = await confirmInstall({ modelName: chosen.name, sizeMb: chosen.sizeMb, needsOllama });
-      if (action !== 'install') {
-        console.log('\n  Setup cancelled. Run `oi` again when ready.\n');
-        return;
-      }
-      console.log('');
-    }
-    candidates = [chosen];
-  } else if (auto) {
-    chosen = picks[0]!;
-    console.log(`  → ${chosen.name} (best match)\n`);
-    candidates = picks;
-  } else {
-    while (true) {
-      chosen = await pickRecommendation(picks, {
-        show: WIZARD_SHOW_COUNT,
-        totalFit: runnable.length,
-        fallback: hardwareFallback,
-        useCaseLabel: useCaseLabel(useCase),
-        budgetGb: hw.budgetGb,
-      });
-      console.log(`  Selected: ${chosen.name}\n`);
-      cpuNote();
-      const action = await confirmInstall({
-        modelName: chosen.name,
-        sizeMb: chosen.sizeMb,
-        needsOllama,
-        canBrowse: picks.length > 1,
-      });
-      if (action === 'install') {
-        console.log('');
-        break;
-      }
-      if (action === 'cancel') {
-        console.log('\n  Setup cancelled. Run `oi` again when ready.\n');
-        return;
-      }
+    if (action === 'browse') {
       console.log('  Pick another model:\n');
+      continue;
     }
+
+    // install
+    console.log('');
+    if (remote) console.log('  Connecting…\n');
+
     const idx = picks.findIndex((p) => p.id === chosen.id);
-    candidates = idx >= 0 ? picks.slice(idx) : [chosen];
+    const candidates = idx >= 0 ? picks.slice(idx) : [chosen];
+
+    const working = await tryInstallModels(
+      candidates,
+      { remote, baseUrl, needsOllama, ollamaReady: false },
+      { auto: false, explicitModel: false },
+    );
+
+    saveConfig({
+      ollamaUrl: baseUrl,
+      model: working.id,
+      modelName: working.name,
+      useCase,
+      setupAt: new Date().toISOString(),
+    });
+
+    console.log('\n  ✓ Ready — type oi anytime to chat.\n');
+    console.log(`  Model:   ${working.name}`);
+    console.log(`  Stored:  ${ollamaModelsPath()}`);
+    console.log(`  Config:  ~/.openinference/config.json\n`);
+    return;
   }
-
-  if (remote) console.log('  Connecting…\n');
-
-  const ctx: InstallCtx = {
-    remote,
-    baseUrl,
-    needsOllama,
-    ollamaReady: false,
-  };
-
-  const working = await tryInstallModels(candidates, ctx, {
-    auto: auto && !opts.model,
-    explicitModel: Boolean(opts.model),
-  });
-
-  const cfg: SavedConfig = {
-    ollamaUrl: baseUrl,
-    model: working.id,
-    modelName: working.name,
-    useCase,
-    setupAt: new Date().toISOString(),
-  };
-  saveConfig(cfg);
-
-  console.log('\n  ✓ Ready — type oi anytime to chat.\n');
-  console.log(`  Model:   ${working.name}`);
-  console.log(`  Stored:  ${ollamaModelsPath()}`);
-  console.log(`  Config:  ~/.openinference/config.json\n`);
 }
 
 export function printRecommendPreview(
@@ -409,5 +478,5 @@ export function printRecommendPreview(
       `  +${meta.runnableSize - recs.length} more fit your hardware — run \`oi browse\` (or /browse) to see them.`,
     );
   }
-  console.log('  Run `oi start` for setup, or `oi start -y` to auto-install the top pick.\n');
+  console.log('  Run `oi` for interactive setup, or `oi setup -y` to auto-install the top pick.\n');
 }

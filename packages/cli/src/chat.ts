@@ -1,10 +1,22 @@
 import { loadConfig } from './config';
 import {
   ensureHostOllamaRunning,
+  friendlyOllamaError,
   listModelTags,
   pingOllama,
   resolveOllamaUrl,
 } from './ollama';
+
+/** A generation that failed part-way. Carries whatever text arrived before the
+ *  failure so callers can show it instead of discarding the user's wait. */
+export class GenerationError extends Error {
+  readonly partial: string;
+  constructor(message: string, partial: string) {
+    super(message);
+    this.name = 'GenerationError';
+    this.partial = partial;
+  }
+}
 
 export type ChatOptions = {
   model?: string;
@@ -123,7 +135,7 @@ export async function streamChatTurn(
 
   if (!res.ok || !res.body) {
     const text = await res.text().catch(() => '');
-    throw new Error(`Chat failed (${res.status}): ${text || res.statusText}`);
+    throw new Error(friendlyOllamaError(text || `${res.status} ${res.statusText}`, model));
   }
 
   const reader = res.body.getReader();
@@ -132,30 +144,36 @@ export async function streamChatTurn(
   let full = '';
   let metrics: ChatMetrics = { tokensPerSec: null, ttftMs: null };
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const parts = buffer.split('\n');
-    buffer = parts.pop() ?? '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split('\n');
+      buffer = parts.pop() ?? '';
 
-    for (const line of parts) {
-      if (!line.trim()) continue;
-      let ev: { message?: { content?: string }; error?: string; done?: boolean } & OllamaTiming;
-      try {
-        ev = JSON.parse(line);
-      } catch {
-        continue;
+      for (const line of parts) {
+        if (!line.trim()) continue;
+        let ev: { message?: { content?: string }; error?: string; done?: boolean } & OllamaTiming;
+        try {
+          ev = JSON.parse(line);
+        } catch {
+          continue;
+        }
+        if (ev.error) throw new Error(ev.error);
+        const chunk = ev.message?.content;
+        if (chunk) {
+          full += chunk;
+          onToken(chunk);
+        }
+        // Ollama sends timing fields in the final `done` message.
+        if (ev.done) metrics = metricsFrom(ev);
       }
-      if (ev.error) throw new Error(ev.error);
-      const chunk = ev.message?.content;
-      if (chunk) {
-        full += chunk;
-        onToken(chunk);
-      }
-      // Ollama sends timing fields in the final `done` message.
-      if (ev.done) metrics = metricsFrom(ev);
     }
+  } catch (e) {
+    // Preserve whatever arrived before the failure — don't eat the user's wait.
+    const raw = e instanceof Error ? e.message : String(e);
+    throw new GenerationError(friendlyOllamaError(raw, model), full.trim());
   }
 
   return { text: full.trim(), metrics };

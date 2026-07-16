@@ -10,7 +10,12 @@ import {
 // interface so the endpoint (and later the rest of the CLI) never calls a backend
 // directly — a second backend (llama.cpp, vLLM) becomes a new impl, not a rewrite.
 
-export type ChatMsg = { role: string; content: string };
+export type ChatMsg = {
+  role: string;
+  content: string;
+  /** Base64-encoded images accepted by Ollama's chat API. */
+  images?: string[];
+};
 
 export type RuntimeChatOptions = {
   /** Context window to request — the reliability fix for silent truncation. */

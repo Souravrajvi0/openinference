@@ -1,12 +1,17 @@
 import type { HardwareProfile } from './hardware';
 import { isTinyVm } from './hardware';
 import type { Recommendation } from './recommend';
-import { readLine, select } from './linereader';
+import { readLine, select, SELECT_HINT } from './linereader';
 
 const RESET = '\x1b[0m';
 const DIM = '\x1b[2m';
 const GOLD = '\x1b[38;5;220m';
 const TEAL = '\x1b[38;5;43m';
+
+const MORE = '__more__';
+const CUSTOM = '__custom__';
+const BACK = '__back__';
+const CANCEL = '__cancel__';
 
 function formatSize(mb: number): string {
   return mb >= 1000 ? `${(mb / 1000).toFixed(1)} GB` : `${mb} MB`;
@@ -118,7 +123,7 @@ export async function askYesNo(prompt: string, defaultYes = true): Promise<boole
   const picked = await select<boolean>({
     title: prompt.replace(/\s*\([yYnN/]+\):?\s*$/, '').trimEnd(),
     choices: defaultYes ? [yes, no] : [no, yes],
-    hint: '↑↓ to move · Enter to choose',
+    hint: SELECT_HINT,
   });
   return picked ?? defaultYes;
 }
@@ -135,13 +140,23 @@ export function printTooSmallHelp(hw: HardwareProfile): void {
   }
 }
 
-const MORE = '__more__';
-const CUSTOM = '__custom__';
+export type ModelPickResult =
+  | { action: 'pick'; model: Recommendation }
+  | { action: 'back' }
+  | { action: 'cancel' };
 
 export async function pickRecommendation(
   recs: Recommendation[],
-  opts?: { show?: number; totalFit?: number; fallback?: boolean; useCaseLabel?: string; budgetGb?: number },
-): Promise<Recommendation> {
+  opts?: {
+    show?: number;
+    totalFit?: number;
+    fallback?: boolean;
+    useCaseLabel?: string;
+    budgetGb?: number;
+    /** Show "← Change use case" (hide when --use-case locked the goal). */
+    canBack?: boolean;
+  },
+): Promise<ModelPickResult> {
   if (recs.length === 0) {
     throw new Error('No models fit this machine. Free up RAM or disk, or try another use case.');
   }
@@ -155,9 +170,10 @@ export async function pickRecommendation(
   }
 
   let show = Math.min(opts?.show ?? recs.length, recs.length);
+  const canBack = opts?.canBack !== false;
 
   while (true) {
-    const choices = recs.slice(0, show).map((r, i) => ({
+    const choices: { value: string; label: string; hint?: string }[] = recs.slice(0, show).map((r, i) => ({
       value: r.id,
       label: r.name,
       hint: `${formatSize(r.sizeMb)}${i === 0 ? '  ⭐ recommended' : ''}`,
@@ -166,9 +182,14 @@ export async function pickRecommendation(
       choices.push({ value: MORE, label: `Show ${recs.length - show} more…`, hint: '' });
     }
     choices.push({ value: CUSTOM, label: '✎ Enter a custom model…', hint: 'any tag from ollama.com/library' });
+    if (canBack) {
+      choices.push({ value: BACK, label: '← Change use case', hint: 'pick a different goal' });
+    }
+    choices.push({ value: CANCEL, label: 'Cancel', hint: 'exit setup' });
 
     const picked = await select<string>({ title: '  Choose a model', choices });
-    if (picked === null) throw new Error('Setup cancelled.');
+    if (picked === null || picked === CANCEL) return { action: 'cancel' };
+    if (picked === BACK) return { action: 'back' };
     if (picked === MORE) {
       show = recs.length;
       continue;
@@ -176,7 +197,7 @@ export async function pickRecommendation(
     if (picked === CUSTOM) {
       const tag = await askText('\n  Ollama tag (e.g. mistral:7b, deepseek-r1:14b): ');
       if (!tag) {
-        console.log('  No tag entered.\n');
+        console.log('  No tag entered — pick again.\n');
         continue;
       }
       const est = estimateRamFromTag(tag);
@@ -185,28 +206,36 @@ export async function pickRecommendation(
         console.log('    It may run slowly or fail to load — you can still try it.\n');
       }
       return {
-        id: tag,
-        name: tag,
-        ramGb: est ?? 0,
-        sizeMb: 0,
-        quality: 0,
-        useCase: 'your choice',
-        categories: [],
-        fit: 'good',
-        score: 0,
+        action: 'pick',
+        model: {
+          id: tag,
+          name: tag,
+          ramGb: est ?? 0,
+          sizeMb: 0,
+          quality: 0,
+          useCase: 'your choice',
+          categories: [],
+          fit: 'good',
+          score: 0,
+        },
       };
     }
-    return recs.find((r) => r.id === picked) ?? recs[0]!;
+    return {
+      action: 'pick',
+      model: recs.find((r) => r.id === picked) ?? recs[0]!,
+    };
   }
 }
 
-export type InstallAction = 'install' | 'browse' | 'cancel';
+export type InstallAction = 'install' | 'browse' | 'back' | 'cancel';
 
 export async function confirmInstall(opts: {
   modelName: string;
   sizeMb: number;
   needsOllama: boolean;
   canBrowse?: boolean;
+  /** Show "← Change use case" (hide when goal is locked). */
+  canBack?: boolean;
 }): Promise<InstallAction> {
   const size = opts.sizeMb > 0 ? formatSize(opts.sizeMb) : 'the model (size unknown)';
 
@@ -221,9 +250,12 @@ export async function confirmInstall(opts: {
     { value: 'install', label: 'Install this model', hint: opts.modelName },
   ];
   if (opts.canBrowse) {
-    choices.push({ value: 'browse', label: 'Browse other models', hint: 'pick a different one' });
+    choices.push({ value: 'browse', label: '← Pick a different model', hint: 'stay on this use case' });
   }
-  choices.push({ value: 'cancel', label: 'Cancel', hint: 'do nothing' });
+  if (opts.canBack) {
+    choices.push({ value: 'back', label: '← Change use case', hint: 'pick a different goal' });
+  }
+  choices.push({ value: 'cancel', label: 'Cancel', hint: 'exit setup' });
 
   const picked = await select<InstallAction>({
     title: `  Ready to install ${opts.modelName}?`,

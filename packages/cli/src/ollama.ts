@@ -77,11 +77,15 @@ function spawnDetached(command: string, args: string[]): void {
 export async function ensureHostOllamaRunning(baseUrl: string): Promise<void> {
   if (await pingOllama(baseUrl)) return;
 
-  console.log('Starting local inference…');
+  // Check BEFORE announcing a start we can't perform.
   if (!isOllamaInstalled()) {
-    throw new Error('Local inference is not set up. Run `oi` again.');
+    throw new Error(
+      'The inference engine (Ollama) is not installed on this machine. ' +
+        'Run `oi setup` to install it, or get it from ollama.com/download.',
+    );
   }
 
+  console.log('Starting local inference…');
   spawnDetached('ollama', ['serve']);
 
   const deadline = Date.now() + 45_000;
@@ -93,12 +97,26 @@ export async function ensureHostOllamaRunning(baseUrl: string): Promise<void> {
     await sleep(1500);
   }
 
-  if (process.platform === 'win32') {
-    throw new Error(
-      'Local inference did not start in time. Run `oi` again.',
-    );
+  throw new Error(
+    'Local inference did not start within 45s. Check what is wrong with `oi doctor`.',
+  );
+}
+
+/**
+ * Map a raw Ollama/network error to an honest, actionable message (f2: never
+ * show a misleading error). Pass the model tag when the call involved one so
+ * "model not found" can point at the install command.
+ */
+export function friendlyOllamaError(raw: string, model?: string): string {
+  if (model && /not found|no such model|pull the model/i.test(raw)) {
+    return `Model "${model}" is not installed. Install it first: oi install ${model}`;
   }
-  throw new Error('Local inference did not start in time. Run `oi` again.');
+  const crash = classifyCrash(raw);
+  if (crash) return model ? `Model "${model}" — ${crash}` : crash;
+  if (/fetch failed|econnrefused|socket hang up|und_err|network/i.test(raw)) {
+    return 'Can’t reach local inference. See what’s wrong: oi doctor';
+  }
+  return raw;
 }
 
 /** Docker / remote mode — Ollama must already be reachable over HTTP. */
