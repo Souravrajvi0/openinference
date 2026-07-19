@@ -8,6 +8,7 @@ import {
   recordProviderFailure,
   recordProviderSuccess,
 } from './circuitBreaker';
+import { createThinkStripper, stripThinking } from './stripThinking';
 
 export type ExtendedProvider = Provider | 'mistral' | 'cerebras';
 
@@ -97,7 +98,7 @@ export async function callLLM(
     if (!block || block.type !== 'text') throw new Error('Empty response from Anthropic');
 
     result = {
-      content: block.text,
+      content: stripThinking(block.text),
       prompt_tokens: res.usage.input_tokens,
       completion_tokens: res.usage.output_tokens,
       total_tokens: res.usage.input_tokens + res.usage.output_tokens,
@@ -114,7 +115,7 @@ export async function callLLM(
     if (!choice?.message?.content) throw new Error(`Empty response from ${provider}`);
 
     result = {
-      content: choice.message.content,
+      content: stripThinking(choice.message.content),
       prompt_tokens: res.usage?.prompt_tokens ?? 0,
       completion_tokens: res.usage?.completion_tokens ?? 0,
       total_tokens: res.usage?.total_tokens ?? 0,
@@ -157,6 +158,7 @@ export async function* streamLLM(
   messages: Message[],
 ): AsyncGenerator<StreamEvent> {
   await assertCircuitClosed(provider);
+  const strip = createThinkStripper();
   try {
     if (provider === 'anthropic') {
       const client = await anthropicClient();
@@ -174,9 +176,12 @@ export async function* streamLLM(
 
       for await (const event of stream) {
         if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-          yield { type: 'delta', content: event.delta.text };
+          const cleaned = strip.push(event.delta.text);
+          if (cleaned) yield { type: 'delta', content: cleaned };
         }
       }
+      const tail = strip.flush();
+      if (tail) yield { type: 'delta', content: tail };
       const msg = await stream.finalMessage();
       yield { type: 'done', prompt_tokens: msg.usage.input_tokens, completion_tokens: msg.usage.output_tokens };
     } else {
@@ -198,13 +203,18 @@ export async function* streamLLM(
 
       for await (const chunk of streamRes) {
         const delta = chunk.choices[0]?.delta?.content ?? '';
-        if (delta) yield { type: 'delta', content: delta };
+        if (delta) {
+          const cleaned = strip.push(delta);
+          if (cleaned) yield { type: 'delta', content: cleaned };
+        }
         if (chunk.usage) {
           promptTokens = chunk.usage.prompt_tokens ?? 0;
           completionTokens = chunk.usage.completion_tokens ?? 0;
         }
       }
 
+      const tail = strip.flush();
+      if (tail) yield { type: 'delta', content: tail };
       yield { type: 'done', prompt_tokens: promptTokens, completion_tokens: completionTokens };
     }
     await recordProviderSuccess(provider);
