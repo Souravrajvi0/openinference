@@ -339,7 +339,7 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
           routed_model, fallback_used, prompt_tokens, completion_tokens,
           total_tokens, cost_usd, latency_ms, ttfb_ms,
           guardrail_triggered, guardrail_action, guardrail_reasons, http_status, metadata)
-       VALUES ($1,$2,$3,$4,$5,$6,'success',$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,200,$21)`,
+       VALUES ($1,$2,$3,$4,$5,$6,'success',$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,200,$22)`,
       [requestId, request.tenantId, request.apiKeyId, traceId, session_id ?? null, requestMode,
        safeMessages[safeMessages.length - 1]?.content.slice(0, 500), llmResult.content.slice(0, 500),
        model ?? null, usedRoute.provider, usedRoute.model, fallbackUsed,
