@@ -6,6 +6,7 @@ import { requireScope } from '../plugins/auth';
 import { checkGuardrails } from '../services/guardrails';
 import { bullmqConnection } from '../services/queueConnection';
 import { routeRequest, getAbRoute, getFallbackRoute, estimateTokens } from '../services/router';
+import { resolveRoute } from './openaiCompat';
 import { callLLM, streamLLM, estimateCost } from '../services/llm';
 import { planAllowsModel, tierForModel } from '../services/plans';
 import { startSpan, endSpan, flushSpans } from '../services/tracer';
@@ -115,9 +116,29 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
 
     // ── 2. Model routing ──────────────────────────────────────────────────
     const routeSpan = startSpan(traceId, 'gateway.routing', { parentId: guardrailSpan.id });
+
+    // Bare model id (no provider) — resolve which provider serves it via the
+    // live catalog + heuristics, instead of silently rerouting to the default.
+    let effectiveProvider: (typeof PROVIDERS)[number] | undefined = provider;
+    let effectiveModel = model;
+    if (model && !provider) {
+      const resolved = await resolveRoute(model);
+      if (!resolved) {
+        endSpan(routeSpan, 'error', 'model_not_found');
+        spans.push(routeSpan);
+        flushSpans(spans, request.tenantId);
+        return reply.status(404).send({
+          error: `Unknown model ${model} — no configured provider serves it. Call GET /v1/models to list what your key can use, or pass "provider" explicitly.`,
+          trace_id: traceId,
+        });
+      }
+      effectiveProvider = resolved.provider as (typeof PROVIDERS)[number];
+      effectiveModel = resolved.model;
+    }
+
     let routeDecision = routeRequest({
-      requested_provider: provider,
-      requested_model: model,
+      requested_provider: effectiveProvider,
+      requested_model: effectiveModel,
       estimated_tokens: estimateTokens(safeMessages.map((m) => m.content).join(' ')),
     });
 

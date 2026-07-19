@@ -57,7 +57,7 @@ function oaiError(reply: FastifyReply, status: number, message: string, type = '
  * Resolve "provider/model" or a bare model id to a provider.
  * "openinference/…" is the branded alias for self-hosted (Ollama) models.
  */
-async function resolveRoute(requested: string): Promise<{ provider: ExtendedProvider; model: string } | null> {
+export async function resolveRoute(requested: string): Promise<{ provider: ExtendedProvider; model: string } | null> {
   const slash = requested.indexOf('/');
   if (slash > 0) {
     const prefix = requested.slice(0, slash);
@@ -87,18 +87,24 @@ const openaiCompatRoute: FastifyPluginAsync = async (fastify) => {
   const evalQueue = new Queue(QUEUES.EVAL, { connection: bullmqConnection() });
 
   // ── GET /v1/models — OpenAI-shaped model list ─────────────────────────
+  // Filtered to what THIS caller can actually use: the tenant's plan tier
+  // and the key's allowed_models. Anything returned here will not 403.
   fastify.get('/models', async (request, reply) => {
     requireScope(request, 'chat');
 
     const catalog = await listAvailableModels();
     const data = catalog
       .filter((p) => p.configured && !p.error)
-      .flatMap((p) => p.models.map((m) => ({
-        id: m,
-        object: 'model' as const,
-        created: 0,
-        owned_by: p.provider === 'ollama' ? 'openinference' : p.provider,
-      })));
+      .flatMap((p) => p.models
+        .filter((m) => planAllowsModel(request.plan, m)
+          && (!request.allowedModels || request.allowedModels.includes(m)))
+        .map((m) => ({
+          id: m,
+          object: 'model' as const,
+          created: 0,
+          owned_by: p.provider === 'ollama' ? 'openinference' : p.provider,
+          tier: tierForModel(m),
+        })));
 
     return reply.send({ object: 'list', data });
   });

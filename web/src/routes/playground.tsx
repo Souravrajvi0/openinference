@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Copy, Square } from "lucide-react";
 import { getKey, setKey, getToken, authHeaders, MODEL_CATALOG, type ChatResponse } from "@/lib/api";
@@ -11,9 +11,17 @@ interface LastUsage { prompt_tokens: number; completion_tokens: number; cost_usd
 
 const LS_SYS = "sentinel_sys";
 
+// Static fallback (marketing catalog) vs. live entitlement-filtered list from
+// GET /v1/models — live options omit `provider` and let the gateway resolve it.
+type ModelOption = { value: string; label: string; tier: string; provider?: string; model: string };
+const STATIC_OPTIONS: ModelOption[] = MODEL_CATALOG.map((m) => ({
+  value: m.provider + "/" + m.model, label: m.label, tier: m.tier, provider: m.provider, model: m.model,
+}));
+
 export function Playground() {
   const [apiKey, setApiKeyState] = useState(() => getKey());
-  const [modelKey, setModelKey] = useState(MODEL_CATALOG[0].provider + "/" + MODEL_CATALOG[0].model);
+  const [modelKey, setModelKey] = useState(STATIC_OPTIONS[0].value);
+  const [liveModels, setLiveModels] = useState<ModelOption[] | null>(null);
   const [stream, setStream] = useState(true);
   const [sys, setSys] = useState(() => localStorage.getItem(LS_SYS) || "");
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -23,7 +31,27 @@ export function Playground() {
   const abortRef = useRef<AbortController | null>(null);
   const chatRef = useRef<HTMLDivElement>(null);
 
-  const selected = MODEL_CATALOG.find((m) => m.provider + "/" + m.model === modelKey)!;
+  const options = liveModels ?? STATIC_OPTIONS;
+  const selected = options.find((o) => o.value === modelKey) ?? options[0];
+
+  // Ask the gateway what THIS key can actually use; fall back to the static
+  // catalog when unauthenticated or the request fails.
+  useEffect(() => {
+    const key = apiKey.trim();
+    if (!key && !getToken()) { setLiveModels(null); return; }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch("/v1/models", { headers: authHeaders(key) });
+        if (!res.ok) throw new Error();
+        const json: { data: Array<{ id: string; tier?: string }> } = await res.json();
+        const live = json.data.map((m) => ({ value: m.id, label: m.id, tier: m.tier ?? "", model: m.id }));
+        setLiveModels(live);
+        if (live.length && !live.some((o) => o.value === modelKey)) setModelKey(live[0].value);
+      } catch { setLiveModels(null); }
+    }, 500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiKey]);
 
   function persistKey(v: string) {
     setApiKeyState(v);
@@ -56,6 +84,7 @@ export function Playground() {
   async function send() {
     const text = prompt.trim();
     if (!apiKey.trim() && !getToken()) return toast.error("Sign in (Admin) or enter an API key first");
+    if (!selected) return toast.error("No models available to this key — check its plan tier and allowlist");
     if (!text) return;
 
     const history = [...messages, { role: "user" as const, content: text, ts: Date.now() }];
@@ -68,7 +97,8 @@ export function Playground() {
     abortRef.current = ctl;
     const sysMsg = sys.trim() ? [{ role: "system", content: sys.trim() }] : [];
     const body = {
-      provider: selected.provider,
+      // Live options carry no provider — the gateway resolves it from the model id.
+      ...(selected.provider ? { provider: selected.provider } : {}),
       model: selected.model,
       stream,
       messages: [...sysMsg, ...history.map((m) => ({ role: m.role, content: m.content }))],
@@ -135,9 +165,9 @@ export function Playground() {
         <div>
           <Card className="overflow-hidden">
             <div className="flex items-center gap-2 border-b border-border bg-muted px-4 py-3">
-              <span className="text-sm">{selected.label}</span>
+              <span className="text-sm">{selected ? selected.label : "No models available"}</span>
               <span className="ml-auto flex items-center gap-2 text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
-                <span className="inline-block h-2 w-2 bg-good" /> {selected.tier}
+                <span className={"inline-block h-2 w-2 " + (selected ? "bg-good" : "bg-bad")} /> {selected?.tier ?? "check key"}
               </span>
             </div>
             <div ref={chatRef} className="flex max-h-[56vh] min-h-[340px] flex-col gap-1 overflow-y-auto p-2">
@@ -218,16 +248,19 @@ export function Playground() {
             <Input type="password" value={apiKey} onChange={(e) => persistKey(e.target.value)} placeholder="X-Api-Key…" autoComplete="off" />
             <div className="mt-3">
               <Label>Model</Label>
-              <Select className="w-full" value={modelKey} onChange={(e) => setModelKey(e.target.value)}>
-                {MODEL_CATALOG.map((m) => (
-                  <option key={m.provider + "/" + m.model} value={m.provider + "/" + m.model}>
-                    {m.label} ({m.tier})
+              <Select className="w-full" value={selected?.value ?? ""} onChange={(e) => setModelKey(e.target.value)}>
+                {options.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}{o.tier ? ` (${o.tier})` : ""}
                   </option>
                 ))}
               </Select>
             </div>
             <p className="mt-3 text-[11px] text-muted-foreground">
-              Stored only in this browser. Sent as <code className="mono">X-Api-Key</code> to /v1/chat. Access is gated by your plan tier.
+              Stored only in this browser. Sent as <code className="mono">X-Api-Key</code> to /v1/chat.{" "}
+              {liveModels
+                ? `Showing the ${liveModels.length} model${liveModels.length === 1 ? "" : "s"} this key can use.`
+                : "Add a key to see the models it can actually reach."}
             </p>
           </Card>
 
