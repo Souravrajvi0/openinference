@@ -376,6 +376,76 @@ function MetricsPanel() {
   );
 }
 
+/* ───────────── Key usage snippets ───────────── */
+// Shown once, right when a key is created — the moment the developer needs
+// to know how to call the gateway. Works with any OpenAI SDK via base_url.
+const SNIPPET_LANGS = ["Python", "JavaScript", "curl"] as const;
+type SnippetLang = (typeof SNIPPET_LANGS)[number];
+
+function keySnippet(lang: SnippetLang, origin: string, key: string): string {
+  switch (lang) {
+    case "Python":
+      return `from openai import OpenAI
+
+client = OpenAI(api_key="${key}", base_url="${origin}/v1")
+
+resp = client.chat.completions.create(
+    model="llama-3.1-8b-instant",  # any id from GET /v1/models
+    messages=[{"role": "user", "content": "Hello"}],
+)
+print(resp.choices[0].message.content)`;
+    case "JavaScript":
+      return `import OpenAI from "openai";
+
+const client = new OpenAI({ apiKey: "${key}", baseURL: "${origin}/v1" });
+
+const resp = await client.chat.completions.create({
+  model: "llama-3.1-8b-instant", // any id from GET /v1/models
+  messages: [{ role: "user", content: "Hello" }],
+});
+console.log(resp.choices[0].message.content);`;
+    case "curl":
+      return `curl -X POST ${origin}/v1/chat/completions \\
+  -H "Authorization: Bearer ${key}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"model": "llama-3.1-8b-instant", "messages": [{"role": "user", "content": "Hello"}]}'`;
+  }
+}
+
+function KeySnippets({ apiKey }: { apiKey: string }) {
+  const [lang, setLang] = useState<SnippetLang>("Python");
+  const origin = window.location.origin;
+  const code = keySnippet(lang, origin, apiKey);
+
+  return (
+    <div className="mt-3 border-t border-flame-red/20 pt-3">
+      <div className="mb-2 flex flex-wrap items-center gap-1">
+        <span className="mr-2 text-[10px] uppercase tracking-[0.15em] text-muted-foreground">Use it with any OpenAI SDK</span>
+        {SNIPPET_LANGS.map((l) => (
+          <button
+            key={l}
+            onClick={() => setLang(l)}
+            className={
+              "px-2 py-1 text-[11px] transition cursor-pointer " +
+              (lang === l ? "bg-ink text-cream" : "text-muted-foreground hover:text-ink")
+            }
+          >
+            {l}
+          </button>
+        ))}
+        <Button variant="outline" className="ml-auto" onClick={() => { navigator.clipboard?.writeText(code); toast.success("Snippet copied"); }}>
+          Copy snippet
+        </Button>
+      </div>
+      <pre className="mono overflow-x-auto border border-border bg-surface p-3 text-[11px] leading-relaxed">{code}</pre>
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        List the models this key can use: <code className="mono">GET {origin}/v1/models</code> with the same header.
+        The native API (<code className="mono">POST /v1/chat</code> with <code className="mono">X-Api-Key</code>) supports sessions, RAG and provider pinning.
+      </p>
+    </div>
+  );
+}
+
 /* ───────────── Keys ───────────── */
 const SCOPES = ["chat", "retrieve", "agent", "admin"] as const;
 type LiveProviderModels = { provider: string; configured: boolean; models: string[]; error?: string };
@@ -440,6 +510,7 @@ function KeysPanel() {
             <code className="mono min-w-0 flex-1 break-all border border-flame-red/30 bg-surface px-2 py-1 text-xs">{newKey}</code>
             <Button onClick={() => { navigator.clipboard?.writeText(newKey); toast.success("Copied"); }}>Copy</Button>
           </div>
+          <KeySnippets apiKey={newKey} />
         </div>
       )}
       <Card className="p-5">
