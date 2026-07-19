@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Copy, RefreshCw, Square } from "lucide-react";
-import { getKey, setKey, getToken, authHeaders, type ChatResponse } from "@/lib/api";
+import { getKey, setKey, type ChatResponse } from "@/lib/api";
 import { fmtTime, mdToHtml } from "@/lib/utils";
 import { Button, Card, Input, Label, Select, Textarea } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/marketing/shared";
@@ -10,10 +10,9 @@ interface Msg { role: "user" | "assistant"; content: string; ts: number; }
 interface LastUsage { prompt_tokens: number; completion_tokens: number; cost_usd: number; }
 
 const LS_SYS = "sentinel_sys";
-const LS_INCLUDE_OI = "oi_playground_include_oi";
 
-// Live entitlement-filtered list from GET /v1/models for the pasted key.
-// Never fall back to the marketing catalog — that was showing unrelated models.
+// Playground is API-key only. Models = whatever GET /v1/models returns for that
+// key (self-hosted, cloud, premium — unrestricted or allowlisted).
 type ModelOption = {
   value: string;
   label: string;
@@ -23,13 +22,8 @@ type ModelOption = {
   owned_by?: string;
 };
 
-function isOpenInferenceModel(o: ModelOption): boolean {
-  const by = (o.owned_by ?? "").toLowerCase();
-  if (by === "openinference" || by === "ollama") return true;
-  if (o.value.startsWith("openinference/")) return true;
-  // Ollama tags look like "llama3.2:1b"
-  if (o.model.includes(":") && !o.model.includes("/")) return true;
-  return false;
+function keyHeaders(key: string): Record<string, string> {
+  return { "x-api-key": key };
 }
 
 export function Playground() {
@@ -38,7 +32,6 @@ export function Playground() {
   const [liveModels, setLiveModels] = useState<ModelOption[] | null>(null);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelsError, setModelsError] = useState<string | null>(null);
-  const [includeOi, setIncludeOi] = useState(() => localStorage.getItem(LS_INCLUDE_OI) !== "0");
   const [stream, setStream] = useState(true);
   const [sys, setSys] = useState(() => localStorage.getItem(LS_SYS) || "");
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -48,14 +41,9 @@ export function Playground() {
   const abortRef = useRef<AbortController | null>(null);
   const chatRef = useRef<HTMLDivElement>(null);
 
-  const options = useMemo(() => {
-    if (!liveModels) return [];
-    return includeOi ? liveModels : liveModels.filter((o) => !isOpenInferenceModel(o));
-  }, [liveModels, includeOi]);
-
+  const options = liveModels ?? [];
   const selected = options.find((o) => o.value === modelKey) ?? options[0];
 
-  // Keep selection valid when the filtered list changes.
   useEffect(() => {
     if (!options.length) return;
     if (!options.some((o) => o.value === modelKey)) setModelKey(options[0].value);
@@ -63,7 +51,7 @@ export function Playground() {
 
   const loadModels = useCallback(async (opts?: { refresh?: boolean; silent?: boolean }) => {
     const key = apiKey.trim();
-    if (!key && !getToken()) {
+    if (!key) {
       setLiveModels(null);
       setModelsError(null);
       return;
@@ -72,7 +60,7 @@ export function Playground() {
     setModelsError(null);
     try {
       const qs = opts?.refresh ? "?refresh=1" : "";
-      const res = await fetch(`/v1/models${qs}`, { headers: authHeaders(key, { preferKey: true }) });
+      const res = await fetch(`/v1/models${qs}`, { headers: keyHeaders(key) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: { data: Array<{ id: string; tier?: string; owned_by?: string }> } = await res.json();
       const live = (json.data ?? []).map((m) => ({
@@ -86,8 +74,8 @@ export function Playground() {
       if (!opts?.silent) {
         toast.success(
           live.length
-            ? `${live.length} model${live.length === 1 ? "" : "s"} for this key`
-            : "No models for this key — check allowlist, plan, and provider keys",
+            ? `${live.length} model${live.length === 1 ? "" : "s"} available for this key`
+            : "No models for this key — check its allowlist, plan, and provider keys",
         );
       }
     } catch (e: any) {
@@ -99,10 +87,9 @@ export function Playground() {
     }
   }, [apiKey]);
 
-  // Auto-load when the API key changes.
   useEffect(() => {
     const key = apiKey.trim();
-    if (!key && !getToken()) { setLiveModels(null); setModelsError(null); return; }
+    if (!key) { setLiveModels(null); setModelsError(null); return; }
     const timer = setTimeout(() => { void loadModels({ silent: true }); }, 400);
     return () => clearTimeout(timer);
   }, [apiKey, loadModels]);
@@ -137,8 +124,9 @@ export function Playground() {
 
   async function send() {
     const text = prompt.trim();
-    if (!apiKey.trim() && !getToken()) return toast.error("Sign in (Admin) or enter an API key first");
-    if (!selected) return toast.error("No models available to this key — check its plan tier and allowlist");
+    const key = apiKey.trim();
+    if (!key) return toast.error("Paste a gateway API key first");
+    if (!selected) return toast.error("No models available for this key");
     if (!text) return;
 
     // Drop empty / error placeholders from prior turns — the gateway rejects
@@ -156,7 +144,6 @@ export function Playground() {
     abortRef.current = ctl;
     const sysMsg = sys.trim() ? [{ role: "system", content: sys.trim() }] : [];
     const body = {
-      // Live options carry no provider — the gateway resolves it from the model id.
       ...(selected.provider ? { provider: selected.provider } : {}),
       model: selected.model,
       stream,
@@ -166,7 +153,7 @@ export function Playground() {
     try {
       const res = await fetch("/v1/chat", {
         method: "POST",
-        headers: { ...authHeaders(apiKey.trim(), { preferKey: true }), "content-type": "application/json" },
+        headers: { ...keyHeaders(key), "content-type": "application/json" },
         signal: ctl.signal,
         body: JSON.stringify(body),
       });
@@ -231,7 +218,7 @@ export function Playground() {
       <PageHeader
         kicker="Playground"
         title="Route a request"
-        description="Authenticate with a key, pick any provider or self-hosted model, and watch it flow through guardrails, routing and metering."
+        description="Paste a gateway API key, pick any model it can use — self-hosted or premium — and send a chat."
       />
 
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 md:px-10">
@@ -325,7 +312,7 @@ export function Playground() {
                 <Label className="mb-0">Model</Label>
                 <button
                   type="button"
-                  disabled={modelsLoading || (!apiKey.trim() && !getToken())}
+                  disabled={modelsLoading || !apiKey.trim()}
                   onClick={() => void loadModels({ refresh: true })}
                   className="inline-flex items-center gap-1 text-[11px] text-muted-foreground underline underline-offset-2 transition hover:text-ink disabled:cursor-not-allowed disabled:no-underline disabled:opacity-50 cursor-pointer"
                 >
@@ -343,7 +330,7 @@ export function Playground() {
                   <option value="">
                     {modelsLoading
                       ? "Loading models…"
-                      : !apiKey.trim() && !getToken()
+                      : !apiKey.trim()
                         ? "Paste an API key first"
                         : modelsError
                           ? "Failed to load models"
@@ -357,24 +344,11 @@ export function Playground() {
                   ))
                 )}
               </Select>
-              <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={includeOi}
-                  onChange={(e) => {
-                    const on = e.target.checked;
-                    setIncludeOi(on);
-                    localStorage.setItem(LS_INCLUDE_OI, on ? "1" : "0");
-                  }}
-                />
-                Include OpenInference (self-hosted) models
-              </label>
             </div>
             <p className="mt-3 text-[11px] text-muted-foreground">
-              Pasted key is used for models + chat (not your login session). Restricted keys only
-              list their allowlisted models
-              {liveModels ? ` — ${options.length} shown` : ""}.
-              {modelsError ? ` Error: ${modelsError}` : ""}
+              Create keys in Admin → Keys. The dropdown lists every model this key may call
+              {options.length ? ` (${options.length})` : ""}
+              {modelsError ? `. ${modelsError}` : "."}
             </p>
           </Card>
 
