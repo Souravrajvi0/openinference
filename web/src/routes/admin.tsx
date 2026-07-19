@@ -19,7 +19,7 @@ import { Modal } from "@/components/ui/overlay";
 import { AuthScreen } from "@/components/AuthScreen";
 
 const usd = (v: unknown) => "$" + Number(v || 0).toFixed(4);
-const TABS = ["Metrics", "Keys", "Budget", "Experiments", "Cache", "Evals", "Documents", "Requests", "Audit"] as const;
+const TABS = ["Metrics", "Keys", "Providers", "Budget", "Experiments", "Cache", "Evals", "Documents", "Requests", "Audit"] as const;
 type Tab = (typeof TABS)[number];
 
 export function Admin() {
@@ -65,7 +65,7 @@ export function Admin() {
 
       <div className="mx-auto max-w-6xl px-6 py-6">
         <div className="mb-6 flex flex-wrap gap-1 border-b border-border">
-          {TABS.map((t) => (
+          {TABS.filter((t) => t !== "Providers" || isPlatformAdmin).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -81,6 +81,7 @@ export function Admin() {
 
         {tab === "Metrics" && <MetricsPanel />}
         {tab === "Keys" && <KeysPanel />}
+        {tab === "Providers" && isPlatformAdmin && <ProvidersPanel />}
         {tab === "Budget" && <BudgetPanel />}
         {tab === "Experiments" && <ExperimentsPanel />}
         {tab === "Cache" && <CachePanel />}
@@ -460,6 +461,107 @@ function KeysPanel() {
         </div>
         <div className="mb-5"><Label>Rate limit (RPM)</Label><Input type="number" value={rpm} onChange={(e) => setRpm(Number(e.target.value))} /></div>
         <Button className="w-full" onClick={create}>Create key</Button>
+      </Modal>
+    </div>
+  );
+}
+
+/* ───────────── Provider keys ───────────── */
+type ProviderKeyRow = {
+  provider: string;
+  source: "dashboard" | "env" | "none";
+  masked: string | null;
+  updated_at: string | null;
+};
+const PROVIDER_LABELS: Record<string, string> = {
+  openai: "OpenAI", anthropic: "Anthropic", groq: "Groq",
+  mistral: "Mistral", cerebras: "Cerebras", gemini: "Gemini",
+};
+const PROVIDER_KEY_HINTS: Record<string, string> = {
+  openai: "sk-…", anthropic: "sk-ant-…", groq: "gsk_…",
+  mistral: "…", cerebras: "csk-…", gemini: "AIza…",
+};
+
+function ProvidersPanel() {
+  const [rows, setRows] = useState<ProviderKeyRow[] | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [keyInput, setKeyInput] = useState("");
+
+  const load = () => api<{ data: ProviderKeyRow[] }>("/v1/admin/provider-keys").then((r) => setRows(r.data)).catch((e) => toast.error(e.message));
+  useEffect(() => { load(); }, []);
+
+  async function save() {
+    if (!editing) return;
+    if (keyInput.trim().length < 8) return toast.error("Key looks too short");
+    try {
+      await api(`/v1/admin/provider-keys/${editing}`, { method: "PUT", body: JSON.stringify({ api_key: keyInput.trim() }) });
+      toast.success(`${PROVIDER_LABELS[editing] ?? editing} key saved`);
+      setEditing(null); setKeyInput("");
+      load();
+    } catch (e: any) { toast.error(e.message); }
+  }
+
+  async function removeOverride(provider: string) {
+    if (!window.confirm("Remove the dashboard key? The gateway falls back to the env var (if set).")) return;
+    try { await api(`/v1/admin/provider-keys/${provider}`, { method: "DELETE" }); toast.success("Dashboard key removed"); load(); }
+    catch (e: any) { toast.error(e.message); }
+  }
+
+  return (
+    <div>
+      <div className="mb-4">
+        <h3 className="text-sm font-medium">Provider keys</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Upstream LLM credentials used by the gateway. Keys set here are stored encrypted (AES-256-GCM) and
+          override the server's environment variables; removing one falls back to the env var.
+        </p>
+      </div>
+      <Card className="p-5">
+        {!rows ? <Loading /> : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                <th className="py-2 pr-3 font-normal">Provider</th><th className="py-2 pr-3 font-normal">Key</th>
+                <th className="py-2 pr-3 font-normal">Source</th><th className="py-2 pr-3 font-normal">Updated</th><th className="py-2 font-normal"></th></tr></thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.provider} className="border-b border-border last:border-0">
+                    <td className="py-2 pr-3">{PROVIDER_LABELS[r.provider] ?? r.provider}</td>
+                    <td className="py-2 pr-3"><code className="mono text-xs">{r.masked ?? "—"}</code></td>
+                    <td className="py-2 pr-3">
+                      <Badge tone={r.source === "none" ? "bad" : "good"}>
+                        {r.source === "dashboard" ? "dashboard" : r.source === "env" ? "env var" : "not set"}
+                      </Badge>
+                    </td>
+                    <td className="py-2 pr-3 text-muted-foreground">{r.updated_at ? fmtDate(r.updated_at) : "—"}</td>
+                    <td className="py-2 text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={() => { setEditing(r.provider); setKeyInput(""); }}>
+                          {r.source === "dashboard" ? "Update" : "Set key"}
+                        </Button>
+                        {r.source === "dashboard" && (
+                          <Button variant="danger" onClick={() => removeOverride(r.provider)}>Remove</Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      <Modal open={!!editing} onClose={() => setEditing(null)} title={`${PROVIDER_LABELS[editing ?? ""] ?? editing} API key`}>
+        <div className="mb-3">
+          <Label>API key</Label>
+          <Input type="password" autoComplete="off" value={keyInput} onChange={(e) => setKeyInput(e.target.value)}
+            placeholder={PROVIDER_KEY_HINTS[editing ?? ""] ?? ""} />
+        </div>
+        <p className="mb-5 text-xs text-muted-foreground">
+          The key is sent once over HTTPS, encrypted at rest, and never shown again in full — only the first and last characters.
+        </p>
+        <Button className="w-full" onClick={save}>Save key</Button>
       </Modal>
     </div>
   );

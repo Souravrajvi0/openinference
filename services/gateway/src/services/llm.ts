@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../config';
 import type { Message, Provider } from '@sentinelai/shared';
+import { getProviderApiKey } from './providerKeys';
 import {
   assertCircuitClosed,
   recordProviderFailure,
@@ -10,40 +11,36 @@ import {
 
 export type ExtendedProvider = Provider | 'mistral' | 'cerebras';
 
-// All providers except Anthropic use the OpenAI-compatible SDK with a custom baseURL
-function openaiCompatClient(provider: ExtendedProvider): OpenAI {
-  switch (provider) {
-    case 'openai':
-      if (!config.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not set');
-      return new OpenAI({ apiKey: config.OPENAI_API_KEY });
-    case 'groq':
-      if (!config.GROQ_API_KEY) throw new Error('GROQ_API_KEY not set');
-      return new OpenAI({ apiKey: config.GROQ_API_KEY, baseURL: 'https://api.groq.com/openai/v1' });
-    case 'mistral':
-      if (!config.MISTRAL_API_KEY) throw new Error('MISTRAL_API_KEY not set');
-      return new OpenAI({ apiKey: config.MISTRAL_API_KEY, baseURL: 'https://api.mistral.ai/v1' });
-    case 'cerebras':
-      if (!config.CEREBRAS_API_KEY) throw new Error('CEREBRAS_API_KEY not set');
-      return new OpenAI({ apiKey: config.CEREBRAS_API_KEY, baseURL: 'https://api.cerebras.ai/v1' });
-    case 'gemini':
-      if (!config.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not set');
-      return new OpenAI({ apiKey: config.GEMINI_API_KEY, baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/' });
-    case 'ollama':
-      // Self-hosted, OpenAI-compatible. Ollama ignores the API key but the SDK requires a non-empty string.
-      if (!config.OLLAMA_URL) throw new Error('OLLAMA_URL not set');
-      return new OpenAI({ apiKey: 'ollama', baseURL: `${config.OLLAMA_URL.replace(/\/$/, '')}/v1` });
-    default:
-      throw new Error(`Unknown provider: ${provider}`);
+const OPENAI_COMPAT_BASE_URLS: Partial<Record<ExtendedProvider, string>> = {
+  groq: 'https://api.groq.com/openai/v1',
+  mistral: 'https://api.mistral.ai/v1',
+  cerebras: 'https://api.cerebras.ai/v1',
+  gemini: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+};
+
+// All providers except Anthropic use the OpenAI-compatible SDK with a custom baseURL.
+// Keys resolve dashboard-stored first, env fallback (providerKeys.ts).
+async function openaiCompatClient(provider: ExtendedProvider): Promise<OpenAI> {
+  if (provider === 'ollama') {
+    // Self-hosted, OpenAI-compatible. Ollama ignores the API key but the SDK requires a non-empty string.
+    if (!config.OLLAMA_URL) throw new Error('OLLAMA_URL not set');
+    return new OpenAI({ apiKey: 'ollama', baseURL: `${config.OLLAMA_URL.replace(/\/$/, '')}/v1` });
   }
+  if (provider === 'anthropic') throw new Error('Anthropic is not OpenAI-compatible');
+
+  const apiKey = await getProviderApiKey(provider);
+  if (!apiKey) throw new Error(`No API key configured for ${provider} (set it in Admin → Providers or via env)`);
+  return new OpenAI({ apiKey, baseURL: OPENAI_COMPAT_BASE_URLS[provider] });
 }
 
-let _anthropic: Anthropic | null = null;
-function anthropicClient(): Anthropic {
-  if (!_anthropic) {
-    if (!config.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not set');
-    _anthropic = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
+let _anthropic: { apiKey: string; client: Anthropic } | null = null;
+async function anthropicClient(): Promise<Anthropic> {
+  const apiKey = await getProviderApiKey('anthropic');
+  if (!apiKey) throw new Error('No API key configured for anthropic (set it in Admin → Providers or via env)');
+  if (!_anthropic || _anthropic.apiKey !== apiKey) {
+    _anthropic = { apiKey, client: new Anthropic({ apiKey }) };
   }
-  return _anthropic;
+  return _anthropic.client;
 }
 
 export interface LLMResult {
@@ -83,7 +80,7 @@ export async function callLLM(
     let result: LLMResult;
 
     if (provider === 'anthropic') {
-    const client = anthropicClient();
+    const client = await anthropicClient();
     const anthropicMessages = messages
       .filter((m) => m.role !== 'system')
       .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
@@ -107,7 +104,7 @@ export async function callLLM(
       ttfb_ms: Date.now() - start,
     };
   } else {
-    const client = openaiCompatClient(provider);
+    const client = await openaiCompatClient(provider);
     const allMessages: OpenAI.ChatCompletionMessageParam[] = [];
     if (systemPrompt) allMessages.push({ role: 'system', content: systemPrompt });
     allMessages.push(...messages.map((m) => ({ role: m.role, content: m.content })));
@@ -162,7 +159,7 @@ export async function* streamLLM(
   await assertCircuitClosed(provider);
   try {
     if (provider === 'anthropic') {
-      const client = anthropicClient();
+      const client = await anthropicClient();
       const anthropicMessages = messages
         .filter((m) => m.role !== 'system')
         .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
@@ -183,7 +180,7 @@ export async function* streamLLM(
       const msg = await stream.finalMessage();
       yield { type: 'done', prompt_tokens: msg.usage.input_tokens, completion_tokens: msg.usage.output_tokens };
     } else {
-      const client = openaiCompatClient(provider);
+      const client = await openaiCompatClient(provider);
       const allMessages: OpenAI.ChatCompletionMessageParam[] = messages.map((m) => ({
         role: m.role,
         content: m.content,

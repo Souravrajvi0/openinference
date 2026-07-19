@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import OpenAI from 'openai';
 import { config } from '../config';
 import { estimateCost } from './llm';
+import { getProviderApiKey } from './providerKeys';
 import { mcpAuthHeaders } from './mcpAuth';
 import { query } from '../db/client';
 import { searchDocuments } from './retrieval';
@@ -172,7 +173,7 @@ export interface AgentRunResult {
 
 export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
   const groq = new OpenAI({
-    apiKey: config.GROQ_API_KEY,
+    apiKey: (await getProviderApiKey('groq')) ?? undefined,
     baseURL: 'https://api.groq.com/openai/v1',
   });
 

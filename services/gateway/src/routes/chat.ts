@@ -11,6 +11,7 @@ import { planAllowsModel, tierForModel } from '../services/plans';
 import { startSpan, endSpan, flushSpans } from '../services/tracer';
 import { query } from '../db/client';
 import { searchDocuments } from '../services/retrieval';
+import { getProviderApiKey } from '../services/providerKeys';
 import { checkSemanticCache, storeInSemanticCache } from '../services/semanticCache';
 import { checkSpendLimits } from '../services/budget';
 import { writeAudit } from '../services/audit';
@@ -167,7 +168,7 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
       const userQuery = activeMessages[activeMessages.length - 1]?.content ?? '';
       const ragSpan = startSpan(traceId, 'retrieval.search', { parentId: routeSpan.id });
       try {
-        if (config.MISTRAL_API_KEY) {
+        if (await getProviderApiKey('mistral')) {
           const hits = await searchDocuments(request.tenantId, userQuery, {
             top_k: rag.top_k ?? 5,
             hybrid: true,

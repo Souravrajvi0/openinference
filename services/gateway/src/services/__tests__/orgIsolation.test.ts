@@ -64,7 +64,9 @@ function fakeRequest(over: Partial<FastifyRequest>): FastifyRequest {
 }
 
 describe('cross-org isolation', () => {
-  beforeEach(() => queryAsSystem.mockReset());
+  // Braces matter: an implicit return hands the mock back to vitest, which
+  // calls it as a no-arg teardown hook and crashes the SQL-routing mock.
+  beforeEach(() => { queryAsSystem.mockReset(); });
 
   it('does NOT grant a forged active org the user is not a member of', async () => {
     setupDb({ [ORG_A]: 'owner' }); // user belongs only to A

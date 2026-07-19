@@ -8,6 +8,7 @@ import { getCacheStats } from '../services/semanticCache';
 import { checkBudget } from '../services/budget';
 import { writeAudit } from '../services/audit';
 import { checkGuardrails } from '../services/guardrails';
+import { isKeyProvider, listProviderKeys, setProviderKey, deleteProviderKey } from '../services/providerKeys';
 
 const adminRoute: FastifyPluginAsync = async (fastify) => {
   // ── API Key Management ─────────────────────────────────────────────────
@@ -71,6 +72,53 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
     if (result.rows.length === 0) return reply.status(404).send({ error: 'Key not found' });
 
     writeAudit({ tenant_id: request.tenantId, actor_type: 'admin', actor_id: request.apiKeyId, action: 'key.revoked', resource_type: 'api_key', resource_id: request.params.id });
+
+    return reply.status(204).send();
+  });
+
+  // ── Provider Keys (upstream LLM credentials) ───────────────────────────
+  // Global gateway secrets — platform admins only (org admins are not enough).
+  // Stored AES-256-GCM encrypted; dashboard values override env vars.
+
+  // GET /v1/admin/provider-keys — list providers with key status (masked)
+  fastify.get('/admin/provider-keys', async (request, reply) => {
+    requireScope(request, 'admin');
+    if (!request.isPlatformAdmin) return reply.status(403).send({ error: 'Platform admin required' });
+
+    return reply.send({ data: await listProviderKeys() });
+  });
+
+  // PUT /v1/admin/provider-keys/:provider — set or replace a provider key
+  fastify.put<{ Params: { provider: string } }>('/admin/provider-keys/:provider', async (request, reply) => {
+    requireScope(request, 'admin');
+    if (!request.isPlatformAdmin) return reply.status(403).send({ error: 'Platform admin required' });
+
+    const { provider } = request.params;
+    if (!isKeyProvider(provider)) return reply.status(400).send({ error: `Unknown provider: ${provider}` });
+
+    const schema = z.object({ api_key: z.string().min(8).max(512) });
+    const body = schema.safeParse(request.body);
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+
+    await setProviderKey(provider, body.data.api_key.trim(), request.userId);
+
+    writeAudit({ tenant_id: request.tenantId, actor_type: 'admin', actor_id: request.userId, action: 'provider_key.set', resource_type: 'provider_key', resource_id: provider });
+
+    return reply.status(204).send();
+  });
+
+  // DELETE /v1/admin/provider-keys/:provider — remove dashboard override (env fallback resumes)
+  fastify.delete<{ Params: { provider: string } }>('/admin/provider-keys/:provider', async (request, reply) => {
+    requireScope(request, 'admin');
+    if (!request.isPlatformAdmin) return reply.status(403).send({ error: 'Platform admin required' });
+
+    const { provider } = request.params;
+    if (!isKeyProvider(provider)) return reply.status(400).send({ error: `Unknown provider: ${provider}` });
+
+    const removed = await deleteProviderKey(provider);
+    if (!removed) return reply.status(404).send({ error: 'No dashboard key stored for this provider' });
+
+    writeAudit({ tenant_id: request.tenantId, actor_type: 'admin', actor_id: request.userId, action: 'provider_key.removed', resource_type: 'provider_key', resource_id: provider });
 
     return reply.status(204).send();
   });

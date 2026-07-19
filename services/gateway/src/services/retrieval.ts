@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { query } from '../db/client';
 import { config } from '../config';
+import { getProviderApiKey } from './providerKeys';
 import type { Citation } from '@sentinelai/shared';
 
 export interface RetrievalOptions {
@@ -25,8 +26,9 @@ export interface DocumentSearchHit {
 const RRF_K = 60;
 
 async function embedQuery(text: string): Promise<number[]> {
-  if (!config.MISTRAL_API_KEY) throw new Error('MISTRAL_API_KEY not configured');
-  const mistral = new OpenAI({ apiKey: config.MISTRAL_API_KEY, baseURL: 'https://api.mistral.ai/v1' });
+  const apiKey = await getProviderApiKey('mistral');
+  if (!apiKey) throw new Error('Mistral API key not configured');
+  const mistral = new OpenAI({ apiKey, baseURL: 'https://api.mistral.ai/v1' });
   const res = await mistral.embeddings.create({ model: config.MISTRAL_EMBEDDING_MODEL, input: text });
   const embedding = res.data[0]?.embedding;
   if (!embedding) throw new Error('Failed to get embedding');

@@ -2,7 +2,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { requireScope } from '../plugins/auth';
 import { searchDocuments } from '../services/retrieval';
-import { config } from '../config';
+import { getProviderApiKey } from '../services/providerKeys';
 
 const bodySchema = z.object({
   query: z.string().min(1),
@@ -23,8 +23,8 @@ const retrieveRoute: FastifyPluginAsync = async (fastify) => {
     const { query: queryText, top_k, score_threshold, hybrid } = body.data;
     const start = Date.now();
 
-    if (!config.MISTRAL_API_KEY) {
-      return reply.status(503).send({ error: 'MISTRAL_API_KEY not configured — embedding unavailable' });
+    if (!(await getProviderApiKey('mistral'))) {
+      return reply.status(503).send({ error: 'Mistral API key not configured — embedding unavailable' });
     }
 
     const hits = await searchDocuments(request.tenantId, queryText, { top_k, score_threshold, hybrid });

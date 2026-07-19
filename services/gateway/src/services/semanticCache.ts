@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { query } from '../db/client';
 import { config } from '../config';
+import { getProviderApiKey } from './providerKeys';
 
 export interface CacheHit {
   response_text: string;
@@ -14,9 +15,10 @@ export async function checkSemanticCache(
   queryText: string,
   threshold = 0.95
 ): Promise<CacheHit | null> {
-  if (!config.MISTRAL_API_KEY) return null;
+  const apiKey = await getProviderApiKey('mistral');
+  if (!apiKey) return null;
   try {
-    const mistral = new OpenAI({ apiKey: config.MISTRAL_API_KEY, baseURL: 'https://api.mistral.ai/v1' });
+    const mistral = new OpenAI({ apiKey, baseURL: 'https://api.mistral.ai/v1' });
     const embRes = await mistral.embeddings.create({ model: config.MISTRAL_EMBEDDING_MODEL, input: queryText });
     const embedding = embRes.data[0]?.embedding;
     if (!embedding) return null;
@@ -49,9 +51,10 @@ export async function storeInSemanticCache(
   provider: string,
   ttlHours = 24
 ): Promise<void> {
-  if (!config.MISTRAL_API_KEY) return;
+  const apiKey = await getProviderApiKey('mistral');
+  if (!apiKey) return;
   try {
-    const mistral = new OpenAI({ apiKey: config.MISTRAL_API_KEY, baseURL: 'https://api.mistral.ai/v1' });
+    const mistral = new OpenAI({ apiKey, baseURL: 'https://api.mistral.ai/v1' });
     const embRes = await mistral.embeddings.create({ model: config.MISTRAL_EMBEDDING_MODEL, input: queryText });
     const embedding = embRes.data[0]?.embedding;
     if (!embedding) return;
