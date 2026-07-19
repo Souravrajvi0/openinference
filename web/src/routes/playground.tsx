@@ -141,7 +141,12 @@ export function Playground() {
     if (!selected) return toast.error("No models available to this key — check its plan tier and allowlist");
     if (!text) return;
 
-    const history = [...messages, { role: "user" as const, content: text, ts: Date.now() }];
+    // Drop empty / error placeholders from prior turns — the gateway rejects
+    // messages with empty content (zod min 1) which looked like a bare HTTP 400.
+    const prior = messages.filter(
+      (m) => m.content.trim().length > 0 && !m.content.startsWith("[error]"),
+    );
+    const history = [...prior, { role: "user" as const, content: text, ts: Date.now() }];
     setMessages([...history, { role: "assistant", content: "", ts: Date.now() }]);
     setPrompt("");
     setBusy(true);
@@ -169,7 +174,11 @@ export function Playground() {
         let msg = "HTTP " + res.status;
         try {
           const j = await res.json();
-          msg = j?.error?.message || (typeof j?.error === "string" ? j.error : msg);
+          if (typeof j?.error === "string") msg = j.error;
+          else if (typeof j?.error?.message === "string") msg = j.error.message;
+          else if (j?.error?.formErrors || j?.error?.fieldErrors) {
+            msg = "Invalid request — check messages (empty replies from a failed turn must not be resent)";
+          }
         } catch { /* */ }
         throw new Error(msg);
       }
@@ -177,6 +186,7 @@ export function Playground() {
         const reader = res.body.getReader();
         const dec = new TextDecoder();
         let buf = "";
+        let gotContent = false;
         for (;;) {
           const { value, done } = await reader.read();
           if (done) break;
@@ -188,9 +198,19 @@ export function Playground() {
             if (!line || line === "[DONE]") continue;
             try {
               const evt = JSON.parse(line);
-              if (evt.content) setLastAssistant((p) => p + evt.content);
-            } catch { /* */ }
+              if (evt.error) throw new Error(typeof evt.error === "string" ? evt.error : evt.error.message || "Stream error");
+              if (evt.content) {
+                gotContent = true;
+                setLastAssistant((p) => p + evt.content);
+              }
+            } catch (err: any) {
+              if (err?.message && err.message !== "Unexpected end of JSON input") throw err;
+            }
           }
+        }
+        if (!gotContent) {
+          setLastAssistant(() => "[error] Empty response from model — check provider key and that this model id is valid");
+          toast.error("Empty response from model");
         }
       } else {
         const data: ChatResponse = await res.json();
