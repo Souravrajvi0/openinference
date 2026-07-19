@@ -135,7 +135,10 @@ export function Overview() {
       <section className="grid grid-cols-1 border-b border-border lg:grid-cols-[1fr_380px] lg:min-h-[72vh]">
         <div className="relative min-h-[52vh] overflow-hidden border-b border-border sm:min-h-[60vh] lg:min-h-[72vh] lg:border-b-0">
           <div className="absolute inset-0">
-            <PixelFlame cols={28} rows={14} />
+            {/* More rows = less vertical stretch per cell (the grid has no
+                explicit row height, so CSS stretches rows to fill the
+                container — fewer rows means taller, more "spaced out" cells) */}
+            <PixelFlame cols={28} rows={22} />
           </div>
           <div className="absolute inset-x-0 top-0 h-[50%] bg-gradient-to-b from-cream via-cream/95 to-transparent" />
           <div className="relative flex h-full min-h-[52vh] flex-col justify-between px-4 py-10 sm:min-h-[60vh] sm:px-6 sm:py-12 md:px-12 lg:min-h-[72vh]">
