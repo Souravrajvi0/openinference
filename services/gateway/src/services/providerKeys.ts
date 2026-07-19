@@ -47,9 +47,14 @@ export function invalidateProviderKeyCache(provider?: KeyProvider): void {
 
 /**
  * Resolve the API key for a provider.
- * - With tenant context (or explicit tenantId): org key only (no env/global fallback).
- * - Without tenant: legacy platform provider_keys then env (workers / bootstrap).
+ * - With tenant context (or explicit tenantId): org key, or platform key if org opted in.
+ * - Without tenant: platform provider_keys then env (workers / bootstrap).
  */
+export async function getBootstrapProviderApiKey(provider: string): Promise<string | null> {
+  if (!isKeyProvider(provider)) return null;
+  return (await dbKey(provider)) ?? envKey(provider);
+}
+
 export async function getProviderApiKey(
   provider: string,
   tenantId?: string | null,
@@ -58,8 +63,7 @@ export async function getProviderApiKey(
   if (tid) {
     return getTenantProviderApiKey(tid, provider);
   }
-  if (!isKeyProvider(provider)) return null;
-  return (await dbKey(provider)) ?? envKey(provider);
+  return getBootstrapProviderApiKey(provider);
 }
 
 function mask(key: string | null): string | null {

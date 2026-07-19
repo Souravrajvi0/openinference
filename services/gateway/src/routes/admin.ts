@@ -215,19 +215,40 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
     requireScope(request, 'admin');
     requireOrgRole(request, 'admin');
 
-    const schema = z.object({ enabled: z.boolean() });
+    const schema = z.object({
+      enabled: z.boolean().optional(),
+      use_platform_key: z.boolean().optional(),
+    }).refine((d) => d.enabled !== undefined || d.use_platform_key !== undefined, {
+      message: 'enabled or use_platform_key required',
+    });
     const body = schema.safeParse(request.body);
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
 
-    const ok = await setOrgProviderEnabled(request.tenantId, request.params.slug, body.data.enabled);
-    if (!ok) return reply.status(404).send({ error: 'Provider not found' });
-    invalidateModelCatalogCache();
-    writeAudit({
-      tenant_id: request.tenantId, actor_type: 'admin', actor_id: request.userId ?? request.apiKeyId,
-      action: 'tenant_provider.updated', resource_type: 'provider', resource_id: request.params.slug,
-      details: { enabled: body.data.enabled },
-    });
-    return reply.status(204).send();
+    try {
+      // Load current enabled if only toggling use_platform_key
+      let enabled = body.data.enabled;
+      if (enabled === undefined) {
+        const current = await listOrgProviders(request.tenantId);
+        const row = current.find((p) => p.slug === request.params.slug);
+        enabled = row?.enabled ?? true;
+      }
+      const ok = await setOrgProviderEnabled(
+        request.tenantId,
+        request.params.slug,
+        enabled,
+        body.data.use_platform_key
+      );
+      if (!ok) return reply.status(404).send({ error: 'Provider not found' });
+      invalidateModelCatalogCache();
+      writeAudit({
+        tenant_id: request.tenantId, actor_type: 'admin', actor_id: request.userId ?? request.apiKeyId,
+        action: 'tenant_provider.updated', resource_type: 'provider', resource_id: request.params.slug,
+        details: body.data,
+      });
+      return reply.status(204).send();
+    } catch (err) {
+      return reply.status(400).send({ error: (err as Error).message });
+    }
   });
 
   fastify.put<{ Params: { slug: string } }>('/admin/org/provider-keys/:slug', async (request, reply) => {

@@ -631,6 +631,8 @@ type OrgProviderRow = {
   has_key: boolean;
   masked_key: string | null;
   needs_key: boolean;
+  use_platform_key: boolean;
+  platform_key_available: boolean;
   usable: boolean;
 };
 
@@ -645,12 +647,21 @@ function OrgProvidersPanel() {
       .catch((e) => toast.error(e.message));
   useEffect(() => { load(); }, []);
 
-  async function toggle(slug: string, enabled: boolean) {
+  async function patch(slug: string, body: { enabled?: boolean; use_platform_key?: boolean }) {
     try {
-      await api(`/v1/admin/org/providers/${slug}`, { method: "PUT", body: JSON.stringify({ enabled }) });
-      toast.success(enabled ? "Provider enabled" : "Provider disabled");
+      await api(`/v1/admin/org/providers/${slug}`, { method: "PUT", body: JSON.stringify(body) });
       load();
     } catch (e: any) { toast.error(e.message); }
+  }
+
+  async function toggle(slug: string, enabled: boolean) {
+    await patch(slug, { enabled });
+    toast.success(enabled ? "Provider enabled" : "Provider disabled");
+  }
+
+  async function togglePlatformKey(slug: string, use_platform_key: boolean) {
+    await patch(slug, { enabled: true, use_platform_key });
+    toast.success(use_platform_key ? "Using platform key" : "Stopped using platform key");
   }
 
   async function saveKey() {
@@ -681,9 +692,9 @@ function OrgProvidersPanel() {
       <div className="mb-4">
         <h3 className="text-sm font-medium">Organization providers</h3>
         <p className="mt-1 text-xs text-muted-foreground">
-          Enable providers for this company and attach your own API keys. Chat and{" "}
-          <code className="mono">/v1/models</code> only use providers that are enabled with a key.
-          Platform-wide env keys are not shared across orgs.
+          Turn a provider <strong>On</strong>, then either paste this org’s API key or tick{" "}
+          <strong>Use platform key</strong> when the gateway already has one (Admin → Providers).
+          Ready = Playground / API can call that provider.
         </p>
       </div>
       <Card className="p-5">
@@ -693,7 +704,8 @@ function OrgProvidersPanel() {
               <thead><tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
                 <th className="py-2 pr-3 font-normal">Provider</th>
                 <th className="py-2 pr-3 font-normal">Enabled</th>
-                <th className="py-2 pr-3 font-normal">Key</th>
+                <th className="py-2 pr-3 font-normal">Use platform key</th>
+                <th className="py-2 pr-3 font-normal">Org key</th>
                 <th className="py-2 pr-3 font-normal">Status</th>
                 <th className="py-2 font-normal"></th>
               </tr></thead>
@@ -706,7 +718,25 @@ function OrgProvidersPanel() {
                         {r.enabled ? "On" : "Off"}
                       </Button>
                     </td>
-                    <td className="py-2 pr-3"><code className="mono text-xs">{r.masked_key ?? (r.needs_key ? "—" : "n/a")}</code></td>
+                    <td className="py-2 pr-3">
+                      {r.needs_key ? (
+                        r.platform_key_available ? (
+                          <label className="inline-flex cursor-pointer items-center gap-2 text-xs">
+                            <input
+                              type="checkbox"
+                              checked={r.use_platform_key}
+                              onChange={(e) => togglePlatformKey(r.slug, e.target.checked)}
+                            />
+                            Use platform key
+                          </label>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">No platform key</span>
+                        )
+                      ) : (
+                        <span className="text-xs text-muted-foreground">n/a</span>
+                      )}
+                    </td>
+                    <td className="py-2 pr-3"><code className="mono text-xs">{r.has_key ? (r.masked_key ?? "••••") : "—"}</code></td>
                     <td className="py-2 pr-3">
                       <Badge tone={r.usable ? "good" : "bad"}>{r.usable ? "ready" : "not ready"}</Badge>
                     </td>
@@ -823,8 +853,9 @@ function ProvidersPanel() {
       <div className="mb-4">
         <h3 className="text-sm font-medium">Platform provider registry</h3>
         <p className="mt-1 text-xs text-muted-foreground">
-          Built-in and custom OpenAI-compatible endpoints available to orgs. Orgs still set their own keys under{" "}
-          <strong>Org Providers</strong>. Legacy gateway default keys below are for bootstrap / workers only.
+          Built-in and custom OpenAI-compatible endpoints. Orgs turn them on under{" "}
+          <strong>Org Providers</strong> (and can tick “Use platform key” instead of pasting).
+          Keys in the table below are gateway defaults for that checkbox / workers.
         </p>
       </div>
 
@@ -867,7 +898,7 @@ function ProvidersPanel() {
       </Card>
 
       <Card className="p-5">
-        <h4 className="mb-3 text-xs uppercase tracking-[0.12em] text-muted-foreground">Legacy gateway default keys</h4>
+        <h4 className="mb-3 text-xs uppercase tracking-[0.12em] text-muted-foreground">Gateway default keys</h4>
         {!rows ? <Loading /> : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -910,7 +941,7 @@ function ProvidersPanel() {
             placeholder={PROVIDER_KEY_HINTS[editing ?? ""] ?? ""} />
         </div>
         <p className="mb-5 text-xs text-muted-foreground">
-          Bootstrap/worker credential only — tenant chat uses Org Providers keys.
+          Shared default credentials — used when an org ticks “Use platform key”, and by background workers.
         </p>
         <Button className="w-full" onClick={save}>Save key</Button>
       </Modal>
