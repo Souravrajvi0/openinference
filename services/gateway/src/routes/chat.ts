@@ -142,6 +142,18 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
       });
     }
 
+    // ── 2a'. Per-key model allowlist ──────────────────────────────────────
+    // Checked after routing so defaults and A/B routes are covered too.
+    if (request.allowedModels && !request.allowedModels.includes(routeDecision.model)) {
+      flushSpans(spans, request.tenantId);
+      writeAudit({ tenant_id: request.tenantId, actor_type: 'api_key', actor_id: request.apiKeyId, action: 'request.filtered', details: { reason: 'model_not_allowed', model: routeDecision.model } });
+      return reply.status(403).send({
+        error: `This API key is not allowed to use model ${routeDecision.model}`,
+        allowed_models: request.allowedModels,
+        trace_id: traceId,
+      });
+    }
+
     // ── 2b. Session memory + context guard ────────────────────────────────
     let sessionData: Awaited<ReturnType<typeof loadSession>> | null = null;
     let activeMessages = safeMessages;
@@ -225,7 +237,11 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
       try {
         await pumpStream(routeDecision.provider, routeDecision.model);
       } catch (primaryErr) {
-        const fallback = getFallbackRoute();
+        // A fallback model the key isn't allowed to use is failed, not served.
+        const fallbackRoute = getFallbackRoute();
+        const fallback = fallbackRoute && (!request.allowedModels || request.allowedModels.includes(fallbackRoute.model))
+          ? fallbackRoute
+          : null;
         if (fallback) {
           try {
             fullContent = '';
@@ -312,6 +328,8 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
     } catch (primaryErr) {
       const fallback = getFallbackRoute();
       if (!fallback) throw primaryErr;
+      // A fallback model the key isn't allowed to use is failed, not served.
+      if (request.allowedModels && !request.allowedModels.includes(fallback.model)) throw primaryErr;
       _fastify.log.warn({ primaryErr }, 'Primary LLM failed, trying fallback');
       llmResult = await callLLM(fallback.provider, fallback.model, contextMessages);
       usedRoute = fallback;

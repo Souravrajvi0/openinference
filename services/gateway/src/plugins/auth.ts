@@ -11,6 +11,7 @@ interface ApiKeyRow {
   rate_limit_rpm: number;
   rate_limit_tpm: number;
   plan: string;
+  allowed_models: string[] | null;
 }
 
 declare module 'fastify' {
@@ -24,6 +25,7 @@ declare module 'fastify' {
     plan: string;
     orgRole: OrgRole | null;
     isPlatformAdmin: boolean;
+    allowedModels: string[] | null;
   }
   interface FastifyInstance {
     verifyApiKey: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
@@ -60,6 +62,7 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
         request.plan = session.plan;
         request.orgRole = session.orgRole;
         request.isPlatformAdmin = session.isPlatformAdmin;
+        request.allowedModels = null;
         return;
       } catch {
         reply.status(401).send({ error: 'Invalid or expired session' });
@@ -76,7 +79,7 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
     const keyHash = createHash('sha256').update(header).digest('hex');
 
     const result = await queryAsSystem<ApiKeyRow>(
-      `SELECT k.id, k.tenant_id, k.scopes, k.rate_limit_rpm, k.rate_limit_tpm, t.plan
+      `SELECT k.id, k.tenant_id, k.scopes, k.rate_limit_rpm, k.rate_limit_tpm, k.allowed_models, t.plan
        FROM api_keys k
        JOIN tenants t ON t.id = k.tenant_id
        WHERE k.key_hash = $1
@@ -100,6 +103,7 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
     request.plan = key.plan;
     request.orgRole = null;
     request.isPlatformAdmin = false;
+    request.allowedModels = key.allowed_models ?? null;
 
     queryAsSystem('UPDATE api_keys SET last_used_at = NOW() WHERE id = $1', [key.id]).catch(() => {});
   });

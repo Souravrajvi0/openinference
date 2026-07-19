@@ -110,6 +110,7 @@ export interface KeyRow {
   name: string;
   scopes: string[];
   rate_limit_rpm: number;
+  allowed_models: string[] | null;
   is_active: boolean;
   last_used_at: string | null;
   expires_at: string | null;

@@ -3,12 +3,14 @@ import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { requireScope } from '../plugins/auth';
 import { requireOrgRole } from '../services/orgAuth';
-import { query } from '../db/client';
+import { query, queryAsSystem } from '../db/client';
+import { PLANS } from '../services/plans';
 import { getCacheStats } from '../services/semanticCache';
 import { checkBudget } from '../services/budget';
 import { writeAudit } from '../services/audit';
 import { checkGuardrails } from '../services/guardrails';
 import { isKeyProvider, listProviderKeys, setProviderKey, deleteProviderKey } from '../services/providerKeys';
+import { listAvailableModels, invalidateModelCatalogCache } from '../services/modelCatalog';
 
 const adminRoute: FastifyPluginAsync = async (fastify) => {
   // ── API Key Management ─────────────────────────────────────────────────
@@ -23,6 +25,8 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
       scopes: z.array(z.enum(['chat', 'retrieve', 'agent', 'inference', 'pro', 'admin'])).min(1),
       rate_limit_rpm: z.number().int().min(1).max(10000).default(60),
       expires_at: z.string().datetime().optional(),
+      // Omitted/null = key may use any model the tenant's plan allows.
+      allowed_models: z.array(z.string().min(1).max(255)).min(1).max(100).optional(),
     });
 
     const body = schema.safeParse(request.body);
@@ -32,16 +36,16 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
     const keyHash = createHash('sha256').update(rawKey).digest('hex');
 
     const result = await query<{ id: string }>(
-      `INSERT INTO api_keys (tenant_id, key_hash, name, scopes, rate_limit_rpm, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO api_keys (tenant_id, key_hash, name, scopes, rate_limit_rpm, expires_at, allowed_models)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id`,
       [request.tenantId, keyHash, body.data.name, body.data.scopes,
-       body.data.rate_limit_rpm, body.data.expires_at ?? null]
+       body.data.rate_limit_rpm, body.data.expires_at ?? null, body.data.allowed_models ?? null]
     );
 
-    writeAudit({ tenant_id: request.tenantId, actor_type: 'admin', actor_id: request.apiKeyId, action: 'key.created', resource_type: 'api_key', resource_id: result.rows[0]!.id, details: { name: body.data.name, scopes: body.data.scopes } });
+    writeAudit({ tenant_id: request.tenantId, actor_type: 'admin', actor_id: request.apiKeyId, action: 'key.created', resource_type: 'api_key', resource_id: result.rows[0]!.id, details: { name: body.data.name, scopes: body.data.scopes, allowed_models: body.data.allowed_models ?? null } });
 
-    return reply.status(201).send({ id: result.rows[0]!.id, key: rawKey, name: body.data.name, scopes: body.data.scopes });
+    return reply.status(201).send({ id: result.rows[0]!.id, key: rawKey, name: body.data.name, scopes: body.data.scopes, allowed_models: body.data.allowed_models ?? null });
   });
 
   // GET /v1/admin/keys — list API keys
@@ -51,7 +55,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
     requireScope(request, 'pro');
 
     const result = await query(
-      `SELECT id, name, scopes, rate_limit_rpm, is_active, last_used_at, expires_at, created_at
+      `SELECT id, name, scopes, rate_limit_rpm, allowed_models, is_active, last_used_at, expires_at, created_at
        FROM api_keys WHERE tenant_id = $1 ORDER BY created_at DESC`,
       [request.tenantId]
     );
@@ -101,6 +105,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
 
     await setProviderKey(provider, body.data.api_key.trim(), request.userId);
+    invalidateModelCatalogCache();
 
     writeAudit({ tenant_id: request.tenantId, actor_type: 'admin', actor_id: request.userId, action: 'provider_key.set', resource_type: 'provider_key', resource_id: provider });
 
@@ -117,8 +122,71 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
 
     const removed = await deleteProviderKey(provider);
     if (!removed) return reply.status(404).send({ error: 'No dashboard key stored for this provider' });
+    invalidateModelCatalogCache();
 
     writeAudit({ tenant_id: request.tenantId, actor_type: 'admin', actor_id: request.userId, action: 'provider_key.removed', resource_type: 'provider_key', resource_id: provider });
+
+    return reply.status(204).send();
+  });
+
+  // ── Live model discovery ────────────────────────────────────────────────
+
+  // GET /v1/admin/models — what each provider's key can actually reach right
+  // now: Ollama's local tags for self-hosted, each cloud provider's /models
+  // API otherwise. Cached ~5 min; ?refresh=1 forces a re-fetch.
+  fastify.get<{ Querystring: { refresh?: string } }>('/admin/models', async (request, reply) => {
+    requireScope(request, 'admin');
+
+    return reply.send({ data: await listAvailableModels(request.query.refresh === '1') });
+  });
+
+  // ── Tenants (plan management) ───────────────────────────────────────────
+  // Cross-tenant visibility — platform admins only, like provider keys.
+
+  // GET /v1/admin/tenants — list all tenants with plan + usage summary
+  fastify.get('/admin/tenants', async (request, reply) => {
+    requireScope(request, 'admin');
+    if (!request.isPlatformAdmin) return reply.status(403).send({ error: 'Platform admin required' });
+
+    const result = await queryAsSystem(
+      `SELECT t.id, t.name, t.slug, t.plan, t.created_at,
+              (SELECT COUNT(*)::int FROM api_keys k
+                WHERE k.tenant_id = t.id AND k.is_active = TRUE) AS active_keys,
+              (SELECT COUNT(*)::int FROM llm_requests r
+                WHERE r.tenant_id = t.id AND r.created_at >= date_trunc('month', NOW())) AS month_requests,
+              COALESCE((SELECT SUM(r.cost_usd) FROM llm_requests r
+                WHERE r.tenant_id = t.id AND r.created_at >= date_trunc('month', NOW())), 0) AS month_spend_usd
+       FROM tenants t
+       ORDER BY t.created_at ASC`
+    );
+
+    return reply.send({ data: result.rows, plans: Object.keys(PLANS) });
+  });
+
+  // PUT /v1/admin/tenants/:id/plan — change a tenant's plan tier
+  fastify.put<{ Params: { id: string } }>('/admin/tenants/:id/plan', async (request, reply) => {
+    requireScope(request, 'admin');
+    if (!request.isPlatformAdmin) return reply.status(403).send({ error: 'Platform admin required' });
+
+    const schema = z.object({ plan: z.string() });
+    const body = schema.safeParse(request.body);
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+
+    const { plan } = body.data;
+    if (!(plan in PLANS)) {
+      return reply.status(400).send({ error: `Unknown plan: ${plan}`, valid_plans: Object.keys(PLANS) });
+    }
+
+    const result = await queryAsSystem<{ id: string; plan: string }>(
+      `UPDATE tenants t SET plan = $2, updated_at = NOW()
+       FROM (SELECT id, plan FROM tenants WHERE id = $1) old
+       WHERE t.id = old.id
+       RETURNING t.id, old.plan`,
+      [request.params.id, plan]
+    );
+    if (result.rows.length === 0) return reply.status(404).send({ error: 'Tenant not found' });
+
+    writeAudit({ tenant_id: request.params.id, actor_type: 'admin', actor_id: request.userId, action: 'tenant.plan_changed', resource_type: 'tenant', resource_id: request.params.id, details: { from: result.rows[0]!.plan, to: plan } });
 
     return reply.status(204).send();
   });
