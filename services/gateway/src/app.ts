@@ -13,6 +13,7 @@ import { connectRedis, redisUrlLooksLikeReplica } from './services/redis';
 import authRoute from './routes/auth';
 import healthRoute from './routes/health';
 import chatRoute from './routes/chat';
+import openaiCompatRoute from './routes/openaiCompat';
 import retrieveRoute from './routes/retrieve';
 import documentsRoute from './routes/documents';
 import agentRoute from './routes/agent';
@@ -100,6 +101,7 @@ export async function buildApp(): Promise<FastifyInstance> {
       api.addHook('preHandler', app.verifyApiKey);
       await api.register(tenantContextPlugin);
       await api.register(chatRoute);
+      await api.register(openaiCompatRoute);
       await api.register(retrieveRoute);
       await api.register(documentsRoute);
       await api.register(agentRoute);

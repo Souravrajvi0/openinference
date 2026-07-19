@@ -35,6 +35,7 @@ declare module 'fastify' {
 const authPlugin: FastifyPluginAsync = async (fastify) => {
   fastify.decorate('verifyApiKey', async (request: FastifyRequest, reply: FastifyReply) => {
     const authz = request.headers['authorization'];
+    let bearerApiKey: string | undefined;
     if (authz && authz.startsWith('Bearer ')) {
       try {
         const payload = await request.jwtVerify<{
@@ -65,12 +66,13 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
         request.allowedModels = null;
         return;
       } catch {
-        reply.status(401).send({ error: 'Invalid or expired session' });
-        return;
+        // Not a session JWT — OpenAI SDKs send gateway API keys as
+        // `Authorization: Bearer <key>`, so fall through to the key lookup.
+        bearerApiKey = authz.slice('Bearer '.length).trim();
       }
     }
 
-    const header = request.headers['x-api-key'] as string | undefined;
+    const header = bearerApiKey ?? (request.headers['x-api-key'] as string | undefined);
     if (!header) {
       reply.status(401).send({ error: 'Missing X-Api-Key header or Bearer token' });
       return;

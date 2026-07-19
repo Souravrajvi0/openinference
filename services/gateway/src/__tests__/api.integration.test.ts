@@ -60,4 +60,31 @@ describe('API auth integration', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ status: 'ok' });
   });
+
+  it('rejects /v1/chat/completions without credentials', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      payload: { model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: 'hello' }] },
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('treats an unknown Bearer token as an API key, not a broken session', async () => {
+    // OpenAI SDKs send `Authorization: Bearer <gateway key>` — a bad key must
+    // land in the API-key 401, not the JWT "invalid session" path.
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      headers: { authorization: 'Bearer not-a-real-key' },
+      payload: { model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: 'hello' }] },
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.json().error).toMatch(/api key/i);
+  });
+
+  it('rejects /v1/models without credentials', async () => {
+    const res = await app.inject({ method: 'GET', url: '/v1/models' });
+    expect(res.statusCode).toBe(401);
+  });
 });
