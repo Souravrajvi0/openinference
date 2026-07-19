@@ -11,10 +11,16 @@ export const setToken = (t: string) => localStorage.setItem(LS_TOKEN, t);
 export const clearToken = () => localStorage.removeItem(LS_TOKEN);
 
 // Prefer a web-session JWT; fall back to a manually entered API key.
-export function authHeaders(explicitKey?: string): Record<string, string> {
+// Pass `{ preferKey: true }` from surfaces (e.g. Playground) where the user
+// explicitly typed an API key — that key's allowlist/scopes must win over the session.
+export function authHeaders(
+  explicitKey?: string,
+  opts?: { preferKey?: boolean },
+): Record<string, string> {
+  const key = (explicitKey ?? getKey()).trim();
+  if (opts?.preferKey && key) return { "x-api-key": key };
   const token = getToken();
   if (token) return { authorization: "Bearer " + token };
-  const key = explicitKey ?? getKey();
   return key ? { "x-api-key": key } : {};
 }
 

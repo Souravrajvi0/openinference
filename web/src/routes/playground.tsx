@@ -46,7 +46,7 @@ export function Playground() {
     setModelsLoading(true);
     try {
       const qs = opts?.refresh ? "?refresh=1" : "";
-      const res = await fetch(`/v1/models${qs}`, { headers: authHeaders(key) });
+      const res = await fetch(`/v1/models${qs}`, { headers: authHeaders(key, { preferKey: true }) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: { data: Array<{ id: string; tier?: string }> } = await res.json();
       const live = (json.data ?? []).map((m) => ({
@@ -133,7 +133,7 @@ export function Playground() {
     try {
       const res = await fetch("/v1/chat", {
         method: "POST",
-        headers: { ...authHeaders(apiKey.trim()), "content-type": "application/json" },
+        headers: { ...authHeaders(apiKey.trim(), { preferKey: true }), "content-type": "application/json" },
         signal: ctl.signal,
         body: JSON.stringify(body),
       });
@@ -299,10 +299,11 @@ export function Playground() {
               </Select>
             </div>
             <p className="mt-3 text-[11px] text-muted-foreground">
-              Stored only in this browser. Sent as <code className="mono">X-Api-Key</code> to /v1/chat.{" "}
+              Stored only in this browser. When a key is pasted, that key is used for models + chat
+              (not your signed-in session).{" "}
               {liveModels
                 ? `Showing the ${liveModels.length} model${liveModels.length === 1 ? "" : "s"} this key can use.`
-                : "Paste a key (or sign in) — the dropdown updates to what that key can reach. Use Refresh after changing allowlists or provider keys."}
+                : "Paste a key — Refresh loads the models that key can reach (plan + allowlist)."}
             </p>
           </Card>
 

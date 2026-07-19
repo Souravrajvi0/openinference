@@ -51,7 +51,14 @@ export const MODEL_TIERS: Record<string, Tier> = {
 };
 
 export function tierForModel(model: string): Tier {
-  return MODEL_TIERS[model] ?? 'frontier';
+  if (MODEL_TIERS[model]) return MODEL_TIERS[model]!;
+  // Allow "provider/model" pins (e.g. groq/llama-3.1-8b-instant) to resolve the bare id.
+  const slash = model.indexOf('/');
+  if (slash > 0) {
+    const bare = model.slice(slash + 1);
+    if (MODEL_TIERS[bare]) return MODEL_TIERS[bare]!;
+  }
+  return 'frontier';
 }
 
 export function getPlan(plan: string | undefined): Plan {

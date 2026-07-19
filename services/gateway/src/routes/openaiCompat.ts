@@ -64,6 +64,21 @@ export async function resolveRoute(requested: string): Promise<{ provider: Exten
     const rest = requested.slice(slash + 1);
     if (prefix === 'openinference') return { provider: 'ollama', model: rest };
     if ((PROVIDERS as readonly string[]).includes(prefix)) return { provider: prefix as ExtendedProvider, model: rest };
+
+    // Unknown prefix (e.g. vendor tags pasted into an allowlist) — try the bare
+    // id against the live catalog, then the full string.
+    try {
+      const catalog = await listAvailableModels();
+      const bareHit = catalog.find((p) => p.configured && !p.error && p.models.includes(rest));
+      if (bareHit) return { provider: bareHit.provider as ExtendedProvider, model: rest };
+      const fullHit = catalog.find((p) => p.configured && !p.error && p.models.includes(requested));
+      if (fullHit) return { provider: fullHit.provider as ExtendedProvider, model: requested };
+    } catch { /* fall through */ }
+
+    // Last resort: keep the requested id and guess provider from the bare name.
+    const guessed = await resolveRoute(rest);
+    if (guessed) return guessed;
+    return null;
   }
 
   // Bare model id — first ask the live catalog which configured provider serves it
@@ -83,6 +98,11 @@ export async function resolveRoute(requested: string): Promise<{ provider: Exten
   return null;
 }
 
+function keyAllowsModel(allowed: string[] | null | undefined, requested: string, resolved: string): boolean {
+  if (!allowed) return true;
+  return allowed.includes(requested) || allowed.includes(resolved);
+}
+
 const openaiCompatRoute: FastifyPluginAsync = async (fastify) => {
   const evalQueue = new Queue(QUEUES.EVAL, { connection: bullmqConnection() });
 
@@ -94,18 +114,48 @@ const openaiCompatRoute: FastifyPluginAsync = async (fastify) => {
     requireScope(request, 'chat');
 
     const catalog = await listAvailableModels(request.query.refresh === '1');
-    const data = catalog
-      .filter((p) => p.configured && !p.error)
-      .flatMap((p) => p.models
-        .filter((m) => planAllowsModel(request.plan, m)
-          && (!request.allowedModels || request.allowedModels.includes(m)))
-        .map((m) => ({
+    const seen = new Set<string>();
+    const data: Array<{
+      id: string;
+      object: 'model';
+      created: number;
+      owned_by: string;
+      tier: string;
+    }> = [];
+
+    for (const p of catalog) {
+      if (!p.configured || p.error) continue;
+      for (const m of p.models) {
+        if (request.allowedModels && !request.allowedModels.includes(m)) continue;
+        if (!planAllowsModel(request.plan, m)) continue;
+        if (seen.has(m)) continue;
+        seen.add(m);
+        data.push({
           id: m,
-          object: 'model' as const,
+          object: 'model',
           created: 0,
           owned_by: p.provider === 'ollama' ? 'openinference' : p.provider,
           tier: tierForModel(m),
-        })));
+        });
+      }
+    }
+
+    // Keys with an allowlist should still surface those ids even when a provider
+    // isn't listing them right now (so the dropdown matches Admin → Keys).
+    // Explicit allowlist is the admin's grant — don't hide them behind plan tiers.
+    if (request.allowedModels) {
+      for (const m of request.allowedModels) {
+        if (seen.has(m)) continue;
+        seen.add(m);
+        data.push({
+          id: m,
+          object: 'model',
+          created: 0,
+          owned_by: 'allowlist',
+          tier: tierForModel(m),
+        });
+      }
+    }
 
     return reply.send({ object: 'list', data });
   });
@@ -168,14 +218,17 @@ const openaiCompatRoute: FastifyPluginAsync = async (fastify) => {
     }
 
     // ── Plan tier + per-key model allowlist ─────────────────────────────
-    if (!planAllowsModel(request.plan, route.model)) {
+    // Restricted keys: allowlist is the grant (may include models outside plan tiers).
+    // Unrestricted keys: plan tiers apply.
+    if (request.allowedModels) {
+      if (!keyAllowsModel(request.allowedModels, body.model, route.model)) {
+        flushSpans(spans, request.tenantId);
+        writeAudit({ tenant_id: request.tenantId, actor_type: 'api_key', actor_id: request.apiKeyId, action: 'request.filtered', details: { reason: 'model_not_allowed', model: route.model } });
+        return oaiError(reply, 403, `This API key is not allowed to use model ${route.model}`, 'invalid_request_error', 'model_not_allowed');
+      }
+    } else if (!planAllowsModel(request.plan, route.model)) {
       flushSpans(spans, request.tenantId);
       return oaiError(reply, 403, `Your plan (${request.plan}) cannot access model ${route.model} (tier: ${tierForModel(route.model)})`, 'invalid_request_error', 'model_not_allowed');
-    }
-    if (request.allowedModels && !request.allowedModels.includes(route.model)) {
-      flushSpans(spans, request.tenantId);
-      writeAudit({ tenant_id: request.tenantId, actor_type: 'api_key', actor_id: request.apiKeyId, action: 'request.filtered', details: { reason: 'model_not_allowed', model: route.model } });
-      return oaiError(reply, 403, `This API key is not allowed to use model ${route.model}`, 'invalid_request_error', 'model_not_allowed');
     }
 
     const persistRequest = (provider: string, model: string, content: string, promptTokens: number, completionTokens: number, costUsd: number, latencyMs: number, fallbackUsed: boolean) => {

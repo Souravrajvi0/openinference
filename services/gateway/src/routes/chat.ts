@@ -151,26 +151,23 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
     endSpan(routeSpan, 'ok');
     spans.push(routeSpan);
 
-    // ── 2a. Plan tier gating ──────────────────────────────────────────────
-    // The tenant's plan governs which model tiers its keys may reach.
-    if (!planAllowsModel(request.plan, routeDecision.model)) {
-      // No llm_requests row exists for a gated request, so omit requestId
-      // (spans record with a null request_id rather than violating the FK).
+    // ── 2a. Plan tier / per-key model allowlist ───────────────────────────
+    // Restricted keys: allowlist is the grant. Unrestricted keys: plan tiers.
+    if (request.allowedModels) {
+      const requestedModel = model ?? routeDecision.model;
+      if (!request.allowedModels.includes(requestedModel) && !request.allowedModels.includes(routeDecision.model)) {
+        flushSpans(spans, request.tenantId);
+        writeAudit({ tenant_id: request.tenantId, actor_type: 'api_key', actor_id: request.apiKeyId, action: 'request.filtered', details: { reason: 'model_not_allowed', model: routeDecision.model } });
+        return reply.status(403).send({
+          error: `This API key is not allowed to use model ${routeDecision.model}`,
+          allowed_models: request.allowedModels,
+          trace_id: traceId,
+        });
+      }
+    } else if (!planAllowsModel(request.plan, routeDecision.model)) {
       flushSpans(spans, request.tenantId);
       return reply.status(403).send({
         error: `Your plan (${request.plan}) cannot access model ${routeDecision.model} (tier: ${tierForModel(routeDecision.model)})`,
-        trace_id: traceId,
-      });
-    }
-
-    // ── 2a'. Per-key model allowlist ──────────────────────────────────────
-    // Checked after routing so defaults and A/B routes are covered too.
-    if (request.allowedModels && !request.allowedModels.includes(routeDecision.model)) {
-      flushSpans(spans, request.tenantId);
-      writeAudit({ tenant_id: request.tenantId, actor_type: 'api_key', actor_id: request.apiKeyId, action: 'request.filtered', details: { reason: 'model_not_allowed', model: routeDecision.model } });
-      return reply.status(403).send({
-        error: `This API key is not allowed to use model ${routeDecision.model}`,
-        allowed_models: request.allowedModels,
         trace_id: traceId,
       });
     }
