@@ -89,10 +89,11 @@ const openaiCompatRoute: FastifyPluginAsync = async (fastify) => {
   // ── GET /v1/models — OpenAI-shaped model list ─────────────────────────
   // Filtered to what THIS caller can actually use: the tenant's plan tier
   // and the key's allowed_models. Anything returned here will not 403.
-  fastify.get('/models', async (request, reply) => {
+  // ?refresh=1 bypasses the in-memory provider catalog cache.
+  fastify.get<{ Querystring: { refresh?: string } }>('/models', async (request, reply) => {
     requireScope(request, 'chat');
 
-    const catalog = await listAvailableModels();
+    const catalog = await listAvailableModels(request.query.refresh === '1');
     const data = catalog
       .filter((p) => p.configured && !p.error)
       .flatMap((p) => p.models

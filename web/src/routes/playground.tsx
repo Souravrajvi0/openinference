@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Copy, Square } from "lucide-react";
+import { Copy, RefreshCw, Square } from "lucide-react";
 import { getKey, setKey, getToken, authHeaders, MODEL_CATALOG, type ChatResponse } from "@/lib/api";
 import { fmtTime, mdToHtml } from "@/lib/utils";
 import { Button, Card, Input, Label, Select, Textarea } from "@/components/ui/primitives";
@@ -22,6 +22,7 @@ export function Playground() {
   const [apiKey, setApiKeyState] = useState(() => getKey());
   const [modelKey, setModelKey] = useState(STATIC_OPTIONS[0].value);
   const [liveModels, setLiveModels] = useState<ModelOption[] | null>(null);
+  const [modelsLoading, setModelsLoading] = useState(false);
   const [stream, setStream] = useState(true);
   const [sys, setSys] = useState(() => localStorage.getItem(LS_SYS) || "");
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -30,28 +31,53 @@ export function Playground() {
   const [prompt, setPrompt] = useState("");
   const abortRef = useRef<AbortController | null>(null);
   const chatRef = useRef<HTMLDivElement>(null);
+  const modelKeyRef = useRef(modelKey);
+  modelKeyRef.current = modelKey;
 
   const options = liveModels ?? STATIC_OPTIONS;
   const selected = options.find((o) => o.value === modelKey) ?? options[0];
 
-  // Ask the gateway what THIS key can actually use; fall back to the static
-  // catalog when unauthenticated or the request fails.
+  const loadModels = useCallback(async (opts?: { refresh?: boolean; silent?: boolean }) => {
+    const key = apiKey.trim();
+    if (!key && !getToken()) {
+      setLiveModels(null);
+      return;
+    }
+    setModelsLoading(true);
+    try {
+      const qs = opts?.refresh ? "?refresh=1" : "";
+      const res = await fetch(`/v1/models${qs}`, { headers: authHeaders(key) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json: { data: Array<{ id: string; tier?: string }> } = await res.json();
+      const live = (json.data ?? []).map((m) => ({
+        value: m.id, label: m.id, tier: m.tier ?? "", model: m.id,
+      }));
+      setLiveModels(live);
+      if (live.length && !live.some((o) => o.value === modelKeyRef.current)) {
+        setModelKey(live[0].value);
+      }
+      if (!opts?.silent) {
+        toast.success(
+          live.length
+            ? `${live.length} model${live.length === 1 ? "" : "s"} available for this key`
+            : "No models available for this key — check plan, allowlist, and provider keys",
+        );
+      }
+    } catch {
+      setLiveModels(null);
+      if (!opts?.silent) toast.error("Could not load models for this key");
+    } finally {
+      setModelsLoading(false);
+    }
+  }, [apiKey]);
+
+  // Auto-load when the API key (or session) changes.
   useEffect(() => {
     const key = apiKey.trim();
     if (!key && !getToken()) { setLiveModels(null); return; }
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch("/v1/models", { headers: authHeaders(key) });
-        if (!res.ok) throw new Error();
-        const json: { data: Array<{ id: string; tier?: string }> } = await res.json();
-        const live = json.data.map((m) => ({ value: m.id, label: m.id, tier: m.tier ?? "", model: m.id }));
-        setLiveModels(live);
-        if (live.length && !live.some((o) => o.value === modelKey)) setModelKey(live[0].value);
-      } catch { setLiveModels(null); }
-    }, 500);
+    const timer = setTimeout(() => { void loadModels({ silent: true }); }, 400);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiKey]);
+  }, [apiKey, loadModels]);
 
   function persistKey(v: string) {
     setApiKeyState(v);
@@ -247,8 +273,24 @@ export function Playground() {
             <Label>API key</Label>
             <Input type="password" value={apiKey} onChange={(e) => persistKey(e.target.value)} placeholder="X-Api-Key…" autoComplete="off" />
             <div className="mt-3">
-              <Label>Model</Label>
-              <Select className="w-full" value={selected?.value ?? ""} onChange={(e) => setModelKey(e.target.value)}>
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <Label className="mb-0">Model</Label>
+                <button
+                  type="button"
+                  disabled={modelsLoading || (!apiKey.trim() && !getToken())}
+                  onClick={() => void loadModels({ refresh: true })}
+                  className="inline-flex items-center gap-1 text-[11px] text-muted-foreground underline underline-offset-2 transition hover:text-ink disabled:cursor-not-allowed disabled:no-underline disabled:opacity-50 cursor-pointer"
+                >
+                  <RefreshCw className={"h-3 w-3 " + (modelsLoading ? "animate-spin" : "")} />
+                  {modelsLoading ? "Loading…" : "Refresh models"}
+                </button>
+              </div>
+              <Select
+                className="w-full"
+                value={selected?.value ?? ""}
+                disabled={modelsLoading && !options.length}
+                onChange={(e) => setModelKey(e.target.value)}
+              >
                 {options.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}{o.tier ? ` (${o.tier})` : ""}
@@ -260,7 +302,7 @@ export function Playground() {
               Stored only in this browser. Sent as <code className="mono">X-Api-Key</code> to /v1/chat.{" "}
               {liveModels
                 ? `Showing the ${liveModels.length} model${liveModels.length === 1 ? "" : "s"} this key can use.`
-                : "Add a key to see the models it can actually reach."}
+                : "Paste a key (or sign in) — the dropdown updates to what that key can reach. Use Refresh after changing allowlists or provider keys."}
             </p>
           </Card>
 
