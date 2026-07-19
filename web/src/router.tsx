@@ -7,13 +7,13 @@ import {
 } from "@tanstack/react-router";
 import { Toaster } from "sonner";
 import { Nav } from "@/components/Nav";
+import { DocsShell } from "@/components/docs/DocsShell";
 import { useAuth } from "@/lib/auth";
 import { Overview } from "@/routes/overview";
 import { Playground } from "@/routes/playground";
 import { Admin } from "@/routes/admin";
 import { Inference } from "@/routes/inference";
 import { Models } from "@/routes/models";
-import { DeveloperDocs } from "@/routes/docs";
 import { Documents } from "@/routes/documents";
 import { CliPage } from "@/routes/cli";
 import { Updates } from "@/routes/updates";
@@ -28,6 +28,12 @@ import { Budgets } from "@/routes/budgets";
 import { Mcp } from "@/routes/mcp";
 import { Members } from "@/routes/members";
 import { InviteAccept } from "@/routes/invite";
+import { DocsOverview } from "@/routes/docs/overview";
+import { DocsQuickstart } from "@/routes/docs/quickstart";
+import { DocsModels } from "@/routes/docs/models";
+import { DocsOpenai } from "@/routes/docs/openai";
+import { DocsErrors } from "@/routes/docs/errors";
+import { DocsReference } from "@/routes/docs/reference";
 
 function RootLayout() {
   const { user, loading, isPro, isPlatformAdmin, canManage, memberships, activeOrg, refresh } = useAuth();
@@ -68,24 +74,88 @@ const overviewRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", 
 const playgroundRoute = createRoute({ getParentRoute: () => rootRoute, path: "/playground", component: Playground });
 const adminRoute = createRoute({ getParentRoute: () => rootRoute, path: "/admin", component: Admin });
 const inferenceRoute = createRoute({ getParentRoute: () => rootRoute, path: "/inference", component: Inference });
-const modelsRoute    = createRoute({ getParentRoute: () => rootRoute, path: "/models",    component: Models });
-const docsRoute      = createRoute({ getParentRoute: () => rootRoute, path: "/docs",      component: DeveloperDocs });
-const documentsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/documents", component: Documents });
-const cliRoute       = createRoute({ getParentRoute: () => rootRoute, path: "/cli",       component: CliPage });
-const updatesRoute   = createRoute({ getParentRoute: () => rootRoute, path: "/updates",   component: Updates });
-const tracesRoute    = createRoute({ getParentRoute: () => rootRoute, path: "/traces",    component: Traces });
-const sessionsRoute    = createRoute({ getParentRoute: () => rootRoute, path: "/sessions",    component: Sessions });
-const agentRoute       = createRoute({ getParentRoute: () => rootRoute, path: "/agent",        component: Agent });
-const guardrailsRoute  = createRoute({ getParentRoute: () => rootRoute, path: "/guardrails",   component: Guardrails });
-const agentsRoute      = createRoute({ getParentRoute: () => rootRoute, path: "/agents",        component: Agents });
-const approvalsRoute   = createRoute({ getParentRoute: () => rootRoute, path: "/approvals",     component: Approvals });
-const regressionRoute  = createRoute({ getParentRoute: () => rootRoute, path: "/regression",    component: Regression });
-const budgetsRoute     = createRoute({ getParentRoute: () => rootRoute, path: "/budgets",        component: Budgets });
-const mcpRoute         = createRoute({ getParentRoute: () => rootRoute, path: "/mcp",            component: Mcp });
-const membersRoute     = createRoute({ getParentRoute: () => rootRoute, path: "/members",        component: Members });
-const inviteRoute      = createRoute({ getParentRoute: () => rootRoute, path: "/invite",         component: InviteAccept });
+const modelsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/models", component: Models });
 
-const routeTree = rootRoute.addChildren([overviewRoute, playgroundRoute, adminRoute, inferenceRoute, modelsRoute, docsRoute, documentsRoute, cliRoute, updatesRoute, tracesRoute, sessionsRoute, agentRoute, guardrailsRoute, agentsRoute, approvalsRoute, regressionRoute, budgetsRoute, mcpRoute, membersRoute, inviteRoute]);
+const docsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/docs",
+  component: DocsShell,
+});
+const docsIndexRoute = createRoute({
+  getParentRoute: () => docsRoute,
+  path: "/",
+  component: DocsOverview,
+});
+const docsQuickstartRoute = createRoute({
+  getParentRoute: () => docsRoute,
+  path: "/quickstart",
+  component: DocsQuickstart,
+});
+const docsModelsRoute = createRoute({
+  getParentRoute: () => docsRoute,
+  path: "/models",
+  component: DocsModels,
+});
+const docsOpenaiRoute = createRoute({
+  getParentRoute: () => docsRoute,
+  path: "/openai",
+  component: DocsOpenai,
+});
+const docsErrorsRoute = createRoute({
+  getParentRoute: () => docsRoute,
+  path: "/errors",
+  component: DocsErrors,
+});
+const docsReferenceRoute = createRoute({
+  getParentRoute: () => docsRoute,
+  path: "/reference",
+  component: DocsReference,
+});
+
+const documentsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/documents", component: Documents });
+const cliRoute = createRoute({ getParentRoute: () => rootRoute, path: "/cli", component: CliPage });
+const updatesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/updates", component: Updates });
+const tracesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/traces", component: Traces });
+const sessionsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/sessions", component: Sessions });
+const agentRoute = createRoute({ getParentRoute: () => rootRoute, path: "/agent", component: Agent });
+const guardrailsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/guardrails", component: Guardrails });
+const agentsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/agents", component: Agents });
+const approvalsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/approvals", component: Approvals });
+const regressionRoute = createRoute({ getParentRoute: () => rootRoute, path: "/regression", component: Regression });
+const budgetsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/budgets", component: Budgets });
+const mcpRoute = createRoute({ getParentRoute: () => rootRoute, path: "/mcp", component: Mcp });
+const membersRoute = createRoute({ getParentRoute: () => rootRoute, path: "/members", component: Members });
+const inviteRoute = createRoute({ getParentRoute: () => rootRoute, path: "/invite", component: InviteAccept });
+
+const routeTree = rootRoute.addChildren([
+  overviewRoute,
+  playgroundRoute,
+  adminRoute,
+  inferenceRoute,
+  modelsRoute,
+  docsRoute.addChildren([
+    docsIndexRoute,
+    docsQuickstartRoute,
+    docsModelsRoute,
+    docsOpenaiRoute,
+    docsErrorsRoute,
+    docsReferenceRoute,
+  ]),
+  documentsRoute,
+  cliRoute,
+  updatesRoute,
+  tracesRoute,
+  sessionsRoute,
+  agentRoute,
+  guardrailsRoute,
+  agentsRoute,
+  approvalsRoute,
+  regressionRoute,
+  budgetsRoute,
+  mcpRoute,
+  membersRoute,
+  inviteRoute,
+]);
 
 // Browser history gives clean URLs (/playground, /admin) with no "#". The gateway
 // owns the API under /v1 (so /admin here never collides with /v1/admin) and serves

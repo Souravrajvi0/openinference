@@ -174,7 +174,6 @@ function StartBuildingDropdown() {
     { to: "/docs", label: "API access" },
     { to: "/documents", label: "Knowledge base" },
     { to: "/models", label: "Model catalogue" },
-    { href: "/api-docs", label: "API reference" },
   ];
 
   return (
@@ -188,25 +187,15 @@ function StartBuildingDropdown() {
       </button>
       {open && (
         <div className="absolute right-0 top-full z-50 min-w-[200px] border border-border bg-cream shadow-lg rounded-b-md overflow-hidden">
-          {links.map((link) =>
-            "to" in link && link.to ? (
-              <Link
-                key={link.label}
-                to={link.to}
-                className="block px-4 py-2.5 text-sm text-ink/70 transition hover:bg-surface hover:text-ink"
-              >
-                {link.label}
-              </Link>
-            ) : (
-              <a
-                key={link.label}
-                href={link.href}
-                className="block px-4 py-2.5 text-sm text-ink/70 transition hover:bg-surface hover:text-ink"
-              >
-                {link.label}
-              </a>
-            ),
-          )}
+          {links.map((link) => (
+            <Link
+              key={link.label}
+              to={link.to}
+              className="block px-4 py-2.5 text-sm text-ink/70 transition hover:bg-surface hover:text-ink"
+            >
+              {link.label}
+            </Link>
+          ))}
         </div>
       )}
     </div>
@@ -490,9 +479,6 @@ export function Nav({
                 {link.label}
               </Link>
             ))}
-            <a href="/api-docs" className="px-5 py-2.5 text-sm text-ink/80 transition hover:bg-surface">
-              API reference
-            </a>
             <div className="my-2 border-t border-border" />
             {[...PRIMARY_NAV, ...proNav, ...(membersLink ? [membersLink] : [])].map((entry, i) =>
               isGroup(entry) ? (
