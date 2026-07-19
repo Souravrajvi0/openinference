@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, Check, Crown, ArrowRight } from "lucide-react";
 import {
   api,
+  apiUpload,
   MODEL_CATALOG,
   type AuditRow,
   type BudgetStatus,
@@ -20,7 +21,7 @@ import { Modal } from "@/components/ui/overlay";
 import { AuthScreen } from "@/components/AuthScreen";
 
 const usd = (v: unknown) => "$" + Number(v || 0).toFixed(4);
-const TABS = ["Metrics", "Keys", "Providers", "Tenants", "Budget", "Experiments", "Cache", "Evals", "Documents", "Requests", "Audit"] as const;
+const TABS = ["Metrics", "Keys", "Org Providers", "Providers", "Tenants", "Budget", "Experiments", "Cache", "Evals", "Documents", "Requests", "Audit"] as const;
 const PLATFORM_ADMIN_TABS: readonly string[] = ["Providers", "Tenants"];
 type Tab = (typeof TABS)[number];
 
@@ -83,6 +84,7 @@ export function Admin() {
 
         {tab === "Metrics" && <MetricsPanel />}
         {tab === "Keys" && <KeysPanel />}
+        {tab === "Org Providers" && <OrgProvidersPanel />}
         {tab === "Providers" && isPlatformAdmin && <ProvidersPanel />}
         {tab === "Tenants" && isPlatformAdmin && <TenantsPanel />}
         {tab === "Budget" && <BudgetPanel />}
@@ -620,12 +622,139 @@ function KeysPanel() {
   );
 }
 
+/* ───────────── Org providers (per-tenant keys) ───────────── */
+type OrgProviderRow = {
+  slug: string;
+  name: string;
+  kind: string;
+  enabled: boolean;
+  has_key: boolean;
+  masked_key: string | null;
+  needs_key: boolean;
+  usable: boolean;
+};
+
+function OrgProvidersPanel() {
+  const [rows, setRows] = useState<OrgProviderRow[] | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [keyInput, setKeyInput] = useState("");
+
+  const load = () =>
+    api<{ data: OrgProviderRow[] }>("/v1/admin/org/providers")
+      .then((r) => setRows(r.data))
+      .catch((e) => toast.error(e.message));
+  useEffect(() => { load(); }, []);
+
+  async function toggle(slug: string, enabled: boolean) {
+    try {
+      await api(`/v1/admin/org/providers/${slug}`, { method: "PUT", body: JSON.stringify({ enabled }) });
+      toast.success(enabled ? "Provider enabled" : "Provider disabled");
+      load();
+    } catch (e: any) { toast.error(e.message); }
+  }
+
+  async function saveKey() {
+    if (!editing) return;
+    if (keyInput.trim().length < 8) return toast.error("Key looks too short");
+    try {
+      await api(`/v1/admin/org/provider-keys/${editing}`, {
+        method: "PUT",
+        body: JSON.stringify({ api_key: keyInput.trim() }),
+      });
+      toast.success("Org API key saved");
+      setEditing(null); setKeyInput("");
+      load();
+    } catch (e: any) { toast.error(e.message); }
+  }
+
+  async function removeKey(slug: string) {
+    if (!window.confirm("Remove this organization's provider key?")) return;
+    try {
+      await api(`/v1/admin/org/provider-keys/${slug}`, { method: "DELETE" });
+      toast.success("Key removed");
+      load();
+    } catch (e: any) { toast.error(e.message); }
+  }
+
+  return (
+    <div>
+      <div className="mb-4">
+        <h3 className="text-sm font-medium">Organization providers</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Enable providers for this company and attach your own API keys. Chat and{" "}
+          <code className="mono">/v1/models</code> only use providers that are enabled with a key.
+          Platform-wide env keys are not shared across orgs.
+        </p>
+      </div>
+      <Card className="p-5">
+        {!rows ? <Loading /> : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                <th className="py-2 pr-3 font-normal">Provider</th>
+                <th className="py-2 pr-3 font-normal">Enabled</th>
+                <th className="py-2 pr-3 font-normal">Key</th>
+                <th className="py-2 pr-3 font-normal">Status</th>
+                <th className="py-2 font-normal"></th>
+              </tr></thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.slug} className="border-b border-border last:border-0">
+                    <td className="py-2 pr-3">{r.name} <span className="text-muted-foreground">({r.slug})</span></td>
+                    <td className="py-2 pr-3">
+                      <Button variant="outline" onClick={() => toggle(r.slug, !r.enabled)}>
+                        {r.enabled ? "On" : "Off"}
+                      </Button>
+                    </td>
+                    <td className="py-2 pr-3"><code className="mono text-xs">{r.masked_key ?? (r.needs_key ? "—" : "n/a")}</code></td>
+                    <td className="py-2 pr-3">
+                      <Badge tone={r.usable ? "good" : "bad"}>{r.usable ? "ready" : "not ready"}</Badge>
+                    </td>
+                    <td className="py-2 text-right">
+                      {r.needs_key && (
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" onClick={() => { setEditing(r.slug); setKeyInput(""); }}>
+                            {r.has_key ? "Update key" : "Set key"}
+                          </Button>
+                          {r.has_key && (
+                            <Button variant="danger" onClick={() => removeKey(r.slug)}>Remove</Button>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+      <Modal open={!!editing} onClose={() => setEditing(null)} title={`API key for ${editing}`}>
+        <div className="mb-3">
+          <Label>API key</Label>
+          <Input type="password" autoComplete="off" value={keyInput} onChange={(e) => setKeyInput(e.target.value)} />
+        </div>
+        <Button className="w-full" onClick={saveKey}>Save key</Button>
+      </Modal>
+    </div>
+  );
+}
+
 /* ───────────── Provider keys ───────────── */
 type ProviderKeyRow = {
   provider: string;
   source: "dashboard" | "env" | "none";
   masked: string | null;
   updated_at: string | null;
+};
+type RegistryProvider = {
+  id: string;
+  slug: string;
+  name: string;
+  kind: string;
+  base_url: string | null;
+  is_builtin: boolean;
+  is_active: boolean;
 };
 const PROVIDER_LABELS: Record<string, string> = {
   ollama: "OpenInference (self-hosted)",
@@ -639,10 +768,17 @@ const PROVIDER_KEY_HINTS: Record<string, string> = {
 
 function ProvidersPanel() {
   const [rows, setRows] = useState<ProviderKeyRow[] | null>(null);
+  const [registry, setRegistry] = useState<RegistryProvider[] | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [keyInput, setKeyInput] = useState("");
+  const [newSlug, setNewSlug] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newUrl, setNewUrl] = useState("");
 
-  const load = () => api<{ data: ProviderKeyRow[] }>("/v1/admin/provider-keys").then((r) => setRows(r.data)).catch((e) => toast.error(e.message));
+  const load = () => {
+    api<{ data: ProviderKeyRow[] }>("/v1/admin/provider-keys").then((r) => setRows(r.data)).catch((e) => toast.error(e.message));
+    api<{ data: RegistryProvider[] }>("/v1/admin/providers").then((r) => setRegistry(r.data)).catch((e) => toast.error(e.message));
+  };
   useEffect(() => { load(); }, []);
 
   async function save() {
@@ -662,16 +798,76 @@ function ProvidersPanel() {
     catch (e: any) { toast.error(e.message); }
   }
 
+  async function addCustom() {
+    if (!newSlug.trim() || !newName.trim() || !newUrl.trim()) return toast.error("Slug, name, and base URL required");
+    try {
+      await api("/v1/admin/providers", {
+        method: "POST",
+        body: JSON.stringify({ slug: newSlug.trim(), name: newName.trim(), kind: "openai_compat", base_url: newUrl.trim() }),
+      });
+      toast.success("Custom provider registered");
+      setNewSlug(""); setNewName(""); setNewUrl("");
+      load();
+    } catch (e: any) { toast.error(e.message); }
+  }
+
+  async function toggleActive(slug: string, is_active: boolean) {
+    try {
+      await api(`/v1/admin/providers/${slug}`, { method: "PATCH", body: JSON.stringify({ is_active }) });
+      load();
+    } catch (e: any) { toast.error(e.message); }
+  }
+
   return (
     <div>
       <div className="mb-4">
-        <h3 className="text-sm font-medium">Provider keys</h3>
+        <h3 className="text-sm font-medium">Platform provider registry</h3>
         <p className="mt-1 text-xs text-muted-foreground">
-          Upstream LLM credentials used by the gateway. Keys set here are stored encrypted (AES-256-GCM) and
-          override the server's environment variables; removing one falls back to the env var.
+          Built-in and custom OpenAI-compatible endpoints available to orgs. Orgs still set their own keys under{" "}
+          <strong>Org Providers</strong>. Legacy gateway default keys below are for bootstrap / workers only.
         </p>
       </div>
+
+      <Card className="mb-6 p-5">
+        <h4 className="mb-3 text-xs uppercase tracking-[0.12em] text-muted-foreground">Registry</h4>
+        {!registry ? <Loading /> : (
+          <div className="mb-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                <th className="py-2 pr-3 font-normal">Name</th>
+                <th className="py-2 pr-3 font-normal">Slug</th>
+                <th className="py-2 pr-3 font-normal">Kind</th>
+                <th className="py-2 pr-3 font-normal">Base URL</th>
+                <th className="py-2 font-normal">Active</th>
+              </tr></thead>
+              <tbody>
+                {registry.map((p) => (
+                  <tr key={p.id} className="border-b border-border last:border-0">
+                    <td className="py-2 pr-3">{p.name}{p.is_builtin ? " · builtin" : ""}</td>
+                    <td className="py-2 pr-3 mono text-xs">{p.slug}</td>
+                    <td className="py-2 pr-3">{p.kind}</td>
+                    <td className="py-2 pr-3 max-w-xs truncate text-xs text-muted-foreground">{p.base_url ?? "—"}</td>
+                    <td className="py-2">
+                      <Button variant="outline" onClick={() => toggleActive(p.slug, !p.is_active)}>
+                        {p.is_active ? "On" : "Off"}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="grid gap-2 sm:grid-cols-3">
+          <div><Label>Slug</Label><Input value={newSlug} onChange={(e) => setNewSlug(e.target.value)} placeholder="together" /></div>
+          <div><Label>Name</Label><Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Together AI" /></div>
+          <div><Label>Base URL</Label><Input value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://api.together.xyz/v1" /></div>
+        </div>
+        <Button className="mt-3" onClick={addCustom}>Register OpenAI-compat provider</Button>
+      </Card>
+
       <Card className="p-5">
+        <h4 className="mb-3 text-xs uppercase tracking-[0.12em] text-muted-foreground">Legacy gateway default keys</h4>
         {!rows ? <Loading /> : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -714,7 +910,7 @@ function ProvidersPanel() {
             placeholder={PROVIDER_KEY_HINTS[editing ?? ""] ?? ""} />
         </div>
         <p className="mb-5 text-xs text-muted-foreground">
-          The key is sent once over HTTPS, encrypted at rest, and never shown again in full — only the first and last characters.
+          Bootstrap/worker credential only — tenant chat uses Org Providers keys.
         </p>
         <Button className="w-full" onClick={save}>Save key</Button>
       </Modal>
@@ -743,12 +939,34 @@ function TenantsPanel() {
   const [rows, setRows] = useState<TenantRow[] | null>(null);
   const [plans, setPlans] = useState<string[]>([]);
   const [saving, setSaving] = useState<string | null>(null);
+  const [platformBudget, setPlatformBudget] = useState<BudgetStatus | null | undefined>(undefined);
+  const [budgetInput, setBudgetInput] = useState("");
 
   const load = () =>
     api<{ data: TenantRow[]; plans: string[] }>("/v1/admin/tenants")
       .then((r) => { setRows(r.data); setPlans(r.plans); })
       .catch((e) => toast.error(e.message));
-  useEffect(() => { load(); }, []);
+  const loadBudget = () =>
+    api<BudgetStatus>("/v1/admin/platform-budget")
+      .then((r) => {
+        setPlatformBudget(r ?? null);
+        if (r) setBudgetInput(String(r.monthly_budget_usd));
+      })
+      .catch(() => setPlatformBudget(null));
+  useEffect(() => { load(); loadBudget(); }, []);
+
+  async function savePlatformBudget() {
+    const n = Number(budgetInput);
+    if (!Number.isFinite(n) || n <= 0) return toast.error("Enter a positive USD amount");
+    try {
+      const status = await api<BudgetStatus>("/v1/admin/platform-budget", {
+        method: "PUT",
+        body: JSON.stringify({ monthly_budget_usd: n }),
+      });
+      setPlatformBudget(status);
+      toast.success("Platform monthly budget saved");
+    } catch (e: any) { toast.error(e.message); }
+  }
 
   async function changePlan(tenant: TenantRow, plan: string) {
     if (plan === tenant.plan) return;
@@ -772,6 +990,32 @@ function TenantsPanel() {
           Changes apply to the tenant's next request.
         </p>
       </div>
+
+      <Card className="mb-6 p-5">
+        <h4 className="mb-2 text-sm font-medium">Platform monthly budget</h4>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Hard cap across all orgs (checked before tenant/key budgets). Leave unset for no platform cap.
+        </p>
+        {platformBudget === undefined ? <Loading /> : (
+          <>
+            {platformBudget && (
+              <p className="mb-3 text-xs">
+                Spent {usd(platformBudget.spent_usd)} / {usd(platformBudget.monthly_budget_usd)}
+                {" · "}remaining {usd(platformBudget.remaining_usd)}
+                {platformBudget.exceeded && <Badge tone="bad">exceeded</Badge>}
+              </p>
+            )}
+            <div className="flex flex-wrap items-end gap-2">
+              <div>
+                <Label>Monthly budget (USD)</Label>
+                <Input value={budgetInput} onChange={(e) => setBudgetInput(e.target.value)} placeholder="500" />
+              </div>
+              <Button onClick={savePlatformBudget}>Save platform budget</Button>
+            </div>
+          </>
+        )}
+      </Card>
+
       <Card className="p-5">
         {!rows ? <Loading /> : (
           <div className="overflow-x-auto">
@@ -1100,24 +1344,36 @@ function DocumentsPanel() {
   const [docs, setDocs] = useState<DocRow[] | null>(null);
   const [uploading, setUploading] = useState(false);
   const [title, setTitle] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [pasteMode, setPasteMode] = useState(false);
   const [content, setContent] = useState("");
-  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const load = () => api<{ data: DocRow[] }>("/v1/documents").then((r) => setDocs(r.data)).catch((e) => toast.error(e.message));
   useEffect(() => { load(); }, []);
 
   async function upload() {
-    if (!title.trim()) return toast.error("Title required");
-    if (!content.trim()) return toast.error("Content required");
+    setBusy(true);
     try {
-      await api("/v1/documents", {
-        method: "POST",
-        body: JSON.stringify({ title: title.trim(), content: content.trim(), source_url: url.trim() || undefined }),
-      });
+      if (pasteMode) {
+        if (!title.trim()) return toast.error("Title required");
+        if (!content.trim()) return toast.error("Content required");
+        await api("/v1/documents", {
+          method: "POST",
+          body: JSON.stringify({ title: title.trim(), content: content.trim() }),
+        });
+      } else {
+        if (!file) return toast.error("Choose a .txt, .md, or .pdf file");
+        const form = new FormData();
+        if (title.trim()) form.append("title", title.trim());
+        form.append("file", file);
+        await apiUpload("/v1/documents/upload", form);
+      }
       toast.success("Document queued for ingestion");
-      setUploading(false); setTitle(""); setContent(""); setUrl("");
+      setUploading(false); setTitle(""); setContent(""); setFile(null); setPasteMode(false);
       load();
     } catch (e: any) { toast.error(e.message); }
+    finally { setBusy(false); }
   }
 
   async function del(id: string) {
@@ -1131,11 +1387,14 @@ function DocumentsPanel() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-medium">Documents</h3>
+        <div>
+          <h3 className="text-sm font-medium">Knowledge base</h3>
+          <p className="mt-1 text-xs text-muted-foreground">Org-scoped documents for this company only.</p>
+        </div>
         <Button onClick={() => setUploading(true)}><Plus className="h-3 w-3" /> Upload</Button>
       </div>
       <Card className="p-5">
-        {!docs ? <Loading /> : docs.length === 0 ? <Empty text="No documents yet. Upload text to enable RAG retrieval." /> : (
+        {!docs ? <Loading /> : docs.length === 0 ? <Empty text="No documents yet. Upload a file to enable RAG retrieval." /> : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead><tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
@@ -1162,19 +1421,28 @@ function DocumentsPanel() {
       </Card>
 
       <Modal open={uploading} onClose={() => setUploading(false)} title="Upload document">
-        <div className="mb-3"><Label>Title</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Company handbook" /></div>
-        <div className="mb-3"><Label>Source URL (optional)</Label><Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" /></div>
-        <div className="mb-5">
-          <Label>Content</Label>
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={8}
-            placeholder="Paste document text here…"
-            className="w-full border border-border bg-surface px-3 py-2 text-sm font-mono resize-y focus:outline-none focus:ring-1 focus:ring-flame-red"
-          />
-        </div>
-        <Button className="w-full" onClick={upload}>Upload &amp; ingest</Button>
+        <div className="mb-3"><Label>Title (optional)</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Company handbook" /></div>
+        {!pasteMode ? (
+          <div className="mb-3">
+            <Label>File (.txt, .md, .pdf)</Label>
+            <input type="file" accept=".txt,.md,.pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="mt-1 block w-full text-sm" />
+          </div>
+        ) : (
+          <div className="mb-3">
+            <Label>Content</Label>
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              rows={8}
+              placeholder="Paste document text here…"
+              className="w-full border border-border bg-surface px-3 py-2 text-sm font-mono resize-y focus:outline-none focus:ring-1 focus:ring-flame-red"
+            />
+          </div>
+        )}
+        <button type="button" className="mb-4 text-xs text-muted-foreground underline" onClick={() => setPasteMode((v) => !v)}>
+          {pasteMode ? "Use file upload instead" : "Or paste text instead"}
+        </button>
+        <Button className="w-full" onClick={upload} disabled={busy}>{busy ? "Uploading…" : "Upload & ingest"}</Button>
       </Modal>
     </div>
   );

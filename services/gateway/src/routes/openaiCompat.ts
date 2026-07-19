@@ -10,6 +10,7 @@ import { startSpan, endSpan, flushSpans } from '../services/tracer';
 import { query } from '../db/client';
 import { checkSpendLimits } from '../services/budget';
 import { writeAudit } from '../services/audit';
+import { assertProviderUsable, getProviderBySlug } from '../services/providers';
 import { listAvailableModels } from '../services/modelCatalog';
 import { Queue } from 'bullmq';
 import { bullmqConnection } from '../services/queueConnection';
@@ -26,8 +27,6 @@ import {
 // Lets any OpenAI SDK/tool use the gateway by swapping base URL + API key.
 // Same enforcement as /v1/chat: guardrails, budgets, plan tiers, per-key
 // model allowlists, tracing, metrics, evals.
-
-const PROVIDERS = ['openai', 'anthropic', 'groq', 'mistral', 'cerebras', 'gemini', 'ollama'] as const;
 
 // OpenAI content can be a string or an array of typed parts; we keep the text.
 const contentSchema = z.union([
@@ -63,16 +62,18 @@ export async function resolveRoute(requested: string): Promise<{ provider: Exten
     const prefix = requested.slice(0, slash);
     const rest = requested.slice(slash + 1);
     if (prefix === 'openinference') return { provider: 'ollama', model: rest };
-    if ((PROVIDERS as readonly string[]).includes(prefix)) return { provider: prefix as ExtendedProvider, model: rest };
+
+    const registered = await getProviderBySlug(prefix);
+    if (registered?.is_active) return { provider: prefix, model: rest };
 
     // Unknown prefix (vendor tags not in our provider set) — try the live catalog
     // only. Do NOT heuristic-guess (e.g. "qwen/qwen3.6-27b" must not become Groq).
     try {
       const catalog = await listAvailableModels();
       const bareHit = catalog.find((p) => p.configured && !p.error && p.models.includes(rest));
-      if (bareHit) return { provider: bareHit.provider as ExtendedProvider, model: rest };
+      if (bareHit) return { provider: bareHit.provider, model: rest };
       const fullHit = catalog.find((p) => p.configured && !p.error && p.models.includes(requested));
-      if (fullHit) return { provider: fullHit.provider as ExtendedProvider, model: requested };
+      if (fullHit) return { provider: fullHit.provider, model: requested };
     } catch { /* fall through */ }
 
     return null;
@@ -82,7 +83,7 @@ export async function resolveRoute(requested: string): Promise<{ provider: Exten
   try {
     const catalog = await listAvailableModels();
     const hit = catalog.find((p) => p.configured && !p.error && p.models.includes(requested));
-    if (hit) return { provider: hit.provider as ExtendedProvider, model: requested };
+    if (hit) return { provider: hit.provider, model: requested };
   } catch { /* fall through to heuristics */ }
 
   // Heuristics for models the catalog didn't confirm
@@ -110,7 +111,7 @@ const openaiCompatRoute: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Querystring: { refresh?: string } }>('/models', async (request, reply) => {
     requireScope(request, 'chat');
 
-    const catalog = await listAvailableModels(request.query.refresh === '1');
+    const catalog = await listAvailableModels(request.query.refresh === '1', request.tenantId);
     const seen = new Set<string>();
     const data: Array<{
       id: string;
@@ -124,7 +125,7 @@ const openaiCompatRoute: FastifyPluginAsync = async (fastify) => {
       if (!p.configured || p.error) continue;
       for (const m of p.models) {
         if (request.allowedModels && !request.allowedModels.includes(m)) continue;
-        if (!planAllowsModel(request.plan, m)) continue;
+        if (!request.allowedModels && !planAllowsModel(request.plan, m)) continue;
         if (seen.has(m)) continue;
         seen.add(m);
         data.push({
@@ -211,7 +212,11 @@ const openaiCompatRoute: FastifyPluginAsync = async (fastify) => {
     // ── Budget ──────────────────────────────────────────────────────────
     const spend = await checkSpendLimits(request.tenantId, request.apiKeyId);
     if (!spend.ok) {
-      return oaiError(reply, 429, spend.level === 'key' ? 'API key monthly spend budget exceeded' : 'Monthly spend budget exceeded', 'insufficient_quota', 'insufficient_quota');
+      const msg =
+        spend.level === 'platform' ? 'Platform monthly spend budget exceeded'
+        : spend.level === 'key' ? 'API key monthly spend budget exceeded'
+        : 'Monthly spend budget exceeded';
+      return oaiError(reply, 429, msg, 'insufficient_quota', 'insufficient_quota');
     }
 
     // ── Plan tier + per-key model allowlist ─────────────────────────────
@@ -226,6 +231,12 @@ const openaiCompatRoute: FastifyPluginAsync = async (fastify) => {
     } else if (!planAllowsModel(request.plan, route.model)) {
       flushSpans(spans, request.tenantId);
       return oaiError(reply, 403, `Your plan (${request.plan}) cannot access model ${route.model} (tier: ${tierForModel(route.model)})`, 'invalid_request_error', 'model_not_allowed');
+    }
+
+    const providerOk = await assertProviderUsable(request.tenantId, route.provider);
+    if (!providerOk.ok) {
+      flushSpans(spans, request.tenantId);
+      return oaiError(reply, 403, providerOk.error, 'invalid_request_error', 'provider_not_enabled');
     }
 
     const persistRequest = (provider: string, model: string, content: string, promptTokens: number, completionTokens: number, costUsd: number, latencyMs: number, fallbackUsed: boolean) => {

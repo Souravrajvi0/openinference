@@ -1,8 +1,8 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
-import { config } from '../config';
-import type { Message, Provider } from '@sentinelai/shared';
+import type { Message } from '@sentinelai/shared';
 import { getProviderApiKey } from './providerKeys';
+import { getProviderBySlug, resolveProviderBaseUrl } from './providers';
 import {
   assertCircuitClosed,
   recordProviderFailure,
@@ -10,38 +10,44 @@ import {
 } from './circuitBreaker';
 import { createThinkStripper, stripThinking } from './stripThinking';
 
-export type ExtendedProvider = Provider | 'mistral' | 'cerebras';
-
-const OPENAI_COMPAT_BASE_URLS: Partial<Record<ExtendedProvider, string>> = {
-  groq: 'https://api.groq.com/openai/v1',
-  mistral: 'https://api.mistral.ai/v1',
-  cerebras: 'https://api.cerebras.ai/v1',
-  gemini: 'https://generativelanguage.googleapis.com/v1beta/openai/',
-};
+/** Any registry slug (builtins + custom openai_compat). */
+export type ExtendedProvider = string;
 
 // All providers except Anthropic use the OpenAI-compatible SDK with a custom baseURL.
-// Keys resolve dashboard-stored first, env fallback (providerKeys.ts).
+// Tenant traffic: org key only. Bootstrap (no tenant): platform keys / env.
 async function openaiCompatClient(provider: ExtendedProvider): Promise<OpenAI> {
-  if (provider === 'ollama') {
-    // Self-hosted, OpenAI-compatible. Ollama ignores the API key but the SDK requires a non-empty string.
-    if (!config.OLLAMA_URL) throw new Error('OLLAMA_URL not set');
-    return new OpenAI({ apiKey: 'ollama', baseURL: `${config.OLLAMA_URL.replace(/\/$/, '')}/v1` });
-  }
   if (provider === 'anthropic') throw new Error('Anthropic is not OpenAI-compatible');
 
+  const baseURL = await resolveProviderBaseUrl(provider);
+  if (!baseURL) {
+    throw new Error(`No base URL configured for provider ${provider}`);
+  }
+
+  if (provider === 'ollama') {
+    return new OpenAI({ apiKey: 'ollama', baseURL });
+  }
+
   const apiKey = await getProviderApiKey(provider);
-  if (!apiKey) throw new Error(`No API key configured for ${provider} (set it in Admin → Providers or via env)`);
-  return new OpenAI({ apiKey, baseURL: OPENAI_COMPAT_BASE_URLS[provider] });
+  if (!apiKey) {
+    throw new Error(`No API key configured for ${provider} (set it in Admin → Org Providers)`);
+  }
+  return new OpenAI({ apiKey, baseURL });
 }
 
 let _anthropic: { apiKey: string; client: Anthropic } | null = null;
 async function anthropicClient(): Promise<Anthropic> {
   const apiKey = await getProviderApiKey('anthropic');
-  if (!apiKey) throw new Error('No API key configured for anthropic (set it in Admin → Providers or via env)');
+  if (!apiKey) throw new Error('No API key configured for anthropic (set it in Admin → Org Providers)');
   if (!_anthropic || _anthropic.apiKey !== apiKey) {
     _anthropic = { apiKey, client: new Anthropic({ apiKey }) };
   }
   return _anthropic.client;
+}
+
+async function isAnthropicProvider(provider: string): Promise<boolean> {
+  if (provider === 'anthropic') return true;
+  const row = await getProviderBySlug(provider);
+  return row?.kind === 'anthropic';
 }
 
 export interface LLMResult {
@@ -80,48 +86,48 @@ export async function callLLM(
   try {
     let result: LLMResult;
 
-    if (provider === 'anthropic') {
-    const client = await anthropicClient();
-    const anthropicMessages = messages
-      .filter((m) => m.role !== 'system')
-      .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
-    const systemMsg = systemPrompt ?? messages.find((m) => m.role === 'system')?.content;
+    if (await isAnthropicProvider(provider)) {
+      const client = await anthropicClient();
+      const anthropicMessages = messages
+        .filter((m) => m.role !== 'system')
+        .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+      const systemMsg = systemPrompt ?? messages.find((m) => m.role === 'system')?.content;
 
-    const res = await withRetry(() => client.messages.create({
-      model,
-      max_tokens: 4096,
-      system: systemMsg,
-      messages: anthropicMessages,
-    }));
+      const res = await withRetry(() => client.messages.create({
+        model,
+        max_tokens: 4096,
+        system: systemMsg,
+        messages: anthropicMessages,
+      }));
 
-    const block = res.content[0];
-    if (!block || block.type !== 'text') throw new Error('Empty response from Anthropic');
+      const block = res.content[0];
+      if (!block || block.type !== 'text') throw new Error('Empty response from Anthropic');
 
-    result = {
-      content: stripThinking(block.text),
-      prompt_tokens: res.usage.input_tokens,
-      completion_tokens: res.usage.output_tokens,
-      total_tokens: res.usage.input_tokens + res.usage.output_tokens,
-      ttfb_ms: Date.now() - start,
-    };
-  } else {
-    const client = await openaiCompatClient(provider);
-    const allMessages: OpenAI.ChatCompletionMessageParam[] = [];
-    if (systemPrompt) allMessages.push({ role: 'system', content: systemPrompt });
-    allMessages.push(...messages.map((m) => ({ role: m.role, content: m.content })));
+      result = {
+        content: stripThinking(block.text),
+        prompt_tokens: res.usage.input_tokens,
+        completion_tokens: res.usage.output_tokens,
+        total_tokens: res.usage.input_tokens + res.usage.output_tokens,
+        ttfb_ms: Date.now() - start,
+      };
+    } else {
+      const client = await openaiCompatClient(provider);
+      const allMessages: OpenAI.ChatCompletionMessageParam[] = [];
+      if (systemPrompt) allMessages.push({ role: 'system', content: systemPrompt });
+      allMessages.push(...messages.map((m) => ({ role: m.role, content: m.content })));
 
-    const res = await withRetry(() => client.chat.completions.create({ model, messages: allMessages }));
-    const choice = res.choices[0];
-    if (!choice?.message?.content) throw new Error(`Empty response from ${provider}`);
+      const res = await withRetry(() => client.chat.completions.create({ model, messages: allMessages }));
+      const choice = res.choices[0];
+      if (!choice?.message?.content) throw new Error(`Empty response from ${provider}`);
 
-    result = {
-      content: stripThinking(choice.message.content),
-      prompt_tokens: res.usage?.prompt_tokens ?? 0,
-      completion_tokens: res.usage?.completion_tokens ?? 0,
-      total_tokens: res.usage?.total_tokens ?? 0,
-      ttfb_ms: Date.now() - start,
-    };
-  }
+      result = {
+        content: stripThinking(choice.message.content),
+        prompt_tokens: res.usage?.prompt_tokens ?? 0,
+        completion_tokens: res.usage?.completion_tokens ?? 0,
+        total_tokens: res.usage?.total_tokens ?? 0,
+        ttfb_ms: Date.now() - start,
+      };
+    }
 
     await recordProviderSuccess(provider);
     return result;
@@ -160,7 +166,7 @@ export async function* streamLLM(
   await assertCircuitClosed(provider);
   const strip = createThinkStripper();
   try {
-    if (provider === 'anthropic') {
+    if (await isAnthropicProvider(provider)) {
       const client = await anthropicClient();
       const anthropicMessages = messages
         .filter((m) => m.role !== 'system')

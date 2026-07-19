@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../../db/client', () => ({
   query: vi.fn(),
+  queryAsSystem: vi.fn(),
   pool: { query: vi.fn() },
 }));
 
@@ -9,14 +10,40 @@ vi.mock('../audit', () => ({
   writeAudit: vi.fn(),
 }));
 
-import { query } from '../../db/client';
+vi.mock('../redis', () => ({
+  getRedis: () => ({ set: vi.fn().mockResolvedValue(null) }),
+}));
+
+import { query, queryAsSystem } from '../../db/client';
 import { checkSpendLimits, checkKeyBudget, checkBudget } from '../budget';
 
 const mockQuery = query as ReturnType<typeof vi.fn>;
+const mockSystem = queryAsSystem as ReturnType<typeof vi.fn>;
 
 describe('checkSpendLimits', () => {
   beforeEach(() => {
     mockQuery.mockReset();
+    mockSystem.mockReset();
+    // No platform budget by default
+    mockSystem.mockResolvedValue({ rows: [] });
+  });
+
+  it('blocks when platform budget is exceeded', async () => {
+    mockSystem.mockResolvedValueOnce({
+      rows: [{
+        monthly_budget_usd: '100',
+        alert_threshold_pct: 80,
+        spent_usd: '120',
+      }],
+    });
+
+    const result = await checkSpendLimits('tenant-1', 'key-1');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.level).toBe('platform');
+      expect(result.status.exceeded).toBe(true);
+    }
+    expect(mockQuery).not.toHaveBeenCalled();
   });
 
   it('blocks when tenant budget is exceeded', async () => {

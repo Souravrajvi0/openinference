@@ -1,4 +1,4 @@
-import { query } from '../db/client';
+import { query, queryAsSystem } from '../db/client';
 import { writeAudit } from './audit';
 import { getRedis } from './redis';
 
@@ -96,13 +96,73 @@ export async function checkKeyBudget(apiKeyId: string): Promise<BudgetStatus | n
   return await buildBudgetStatus(row, row.tenant_id, true);
 }
 
-export type SpendLimitFailure = { level: 'tenant' | 'key'; status: BudgetStatus };
+export type SpendLimitFailure = { level: 'platform' | 'tenant' | 'key'; status: BudgetStatus };
 
-/** Enforce tenant budget, then per-API-key budget when a key is present. */
+/** Platform-wide monthly spend cap (all tenants). Null when no platform budget is set. */
+export async function checkPlatformBudget(): Promise<BudgetStatus | null> {
+  const result = await queryAsSystem<{
+    monthly_budget_usd: string;
+    alert_threshold_pct: number;
+    spent_usd: string;
+  }>(
+    `SELECT b.monthly_budget_usd, b.alert_threshold_pct,
+            COALESCE((
+              SELECT SUM(r.cost_usd) FROM llm_requests r
+              WHERE r.created_at >= date_trunc('month', NOW())
+                AND r.status = 'success'
+            ), 0) AS spent_usd
+     FROM platform_budgets b
+     WHERE b.id = 1`
+  );
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0]!;
+  const budget = parseFloat(row.monthly_budget_usd);
+  const spent = parseFloat(row.spent_usd);
+  const pct = budget > 0 ? Math.round((spent / budget) * 100) : 0;
+  const exceeded = spent >= budget;
+  return {
+    monthly_budget_usd: budget,
+    spent_usd: spent,
+    remaining_usd: Math.max(0, budget - spent),
+    pct_used: pct,
+    alert_threshold_pct: row.alert_threshold_pct,
+    exceeded,
+    near_limit: !exceeded && pct >= row.alert_threshold_pct,
+  };
+}
+
+export async function getPlatformBudget(): Promise<BudgetStatus | null> {
+  return checkPlatformBudget();
+}
+
+export async function setPlatformBudget(
+  monthlyBudgetUsd: number,
+  alertThresholdPct = 80,
+): Promise<BudgetStatus> {
+  await queryAsSystem(
+    `INSERT INTO platform_budgets (id, monthly_budget_usd, alert_threshold_pct)
+     VALUES (1, $1, $2)
+     ON CONFLICT (id) DO UPDATE
+       SET monthly_budget_usd = EXCLUDED.monthly_budget_usd,
+           alert_threshold_pct = EXCLUDED.alert_threshold_pct,
+           updated_at = NOW()`,
+    [monthlyBudgetUsd, alertThresholdPct]
+  );
+  const status = await checkPlatformBudget();
+  if (!status) throw new Error('Failed to read platform budget after save');
+  return status;
+}
+
+/** Enforce platform → tenant → key budgets. */
 export async function checkSpendLimits(
   tenantId: string,
   apiKeyId?: string | null,
 ): Promise<{ ok: true } | ({ ok: false } & SpendLimitFailure)> {
+  const platform = await checkPlatformBudget();
+  if (platform?.exceeded) {
+    return { ok: false, level: 'platform', status: platform };
+  }
+
   const tenant = await checkBudget(tenantId);
   if (tenant?.exceeded) {
     return { ok: false, level: 'tenant', status: tenant };

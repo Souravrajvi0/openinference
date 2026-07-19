@@ -13,6 +13,7 @@ import { startSpan, endSpan, flushSpans } from '../services/tracer';
 import { query } from '../db/client';
 import { searchDocuments } from '../services/retrieval';
 import { getProviderApiKey } from '../services/providerKeys';
+import { assertProviderUsable } from '../services/providers';
 import { checkSemanticCache, storeInSemanticCache } from '../services/semanticCache';
 import { checkSpendLimits } from '../services/budget';
 import { writeAudit } from '../services/audit';
@@ -27,15 +28,13 @@ import {
   guardrailsTriggeredTotal,
 } from '../services/metricsRegistry';
 
-const PROVIDERS = ['openai', 'anthropic', 'groq', 'mistral', 'cerebras', 'gemini', 'ollama'] as const;
-
 const bodySchema = z.object({
   messages: z.array(z.object({
     role: z.enum(['system', 'user', 'assistant']),
     content: z.string().min(1),
   })).min(1),
   model: z.string().optional(),
-  provider: z.enum(PROVIDERS).optional(),
+  provider: z.string().min(1).max(63).optional(),
   stream: z.boolean().optional().default(false),
   session_id: z.string().uuid().optional(),
   metadata: z.record(z.unknown()).optional(),
@@ -90,7 +89,10 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
     // ── 1b. Budget check (tenant + API key) ───────────────────────────────
     const spend = await checkSpendLimits(request.tenantId, request.apiKeyId);
     if (!spend.ok) {
-      const label = spend.level === 'key' ? 'API key monthly spend budget exceeded' : 'Monthly spend budget exceeded';
+      const label =
+        spend.level === 'platform' ? 'Platform monthly spend budget exceeded'
+        : spend.level === 'key' ? 'API key monthly spend budget exceeded'
+        : 'Monthly spend budget exceeded';
       return reply.status(402).send({
         error: label,
         spent_usd: spend.status.spent_usd,
@@ -119,7 +121,7 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
 
     // Bare model id (no provider) — resolve which provider serves it via the
     // live catalog + heuristics, instead of silently rerouting to the default.
-    let effectiveProvider: (typeof PROVIDERS)[number] | undefined = provider;
+    let effectiveProvider: string | undefined = provider;
     let effectiveModel = model;
     if (model && !provider) {
       const resolved = await resolveRoute(model);
@@ -132,7 +134,7 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
           trace_id: traceId,
         });
       }
-      effectiveProvider = resolved.provider as (typeof PROVIDERS)[number];
+      effectiveProvider = resolved.provider;
       effectiveModel = resolved.model;
     }
 
@@ -170,6 +172,12 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
         error: `Your plan (${request.plan}) cannot access model ${routeDecision.model} (tier: ${tierForModel(routeDecision.model)})`,
         trace_id: traceId,
       });
+    }
+
+    const providerOk = await assertProviderUsable(request.tenantId, routeDecision.provider);
+    if (!providerOk.ok) {
+      flushSpans(spans, request.tenantId);
+      return reply.status(403).send({ error: providerOk.error, trace_id: traceId });
     }
 
     // ── 2b. Session memory + context guard ────────────────────────────────

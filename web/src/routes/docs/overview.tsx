@@ -53,6 +53,12 @@ export function DocsOverview() {
         Create keys in{" "}
         <Link to="/admin" className="underline underline-offset-2 hover:text-ink">Admin → Keys</Link>
         {" · "}
+        Enable LLM providers with your org's own API keys under{" "}
+        <Link to="/admin" className="underline underline-offset-2 hover:text-ink">Admin → Org Providers</Link>
+        {" · "}
+        Company knowledge base (org-scoped) at{" "}
+        <Link to="/documents" className="underline underline-offset-2 hover:text-ink">Documents</Link>
+        {" · "}
         Try models in the{" "}
         <Link to="/playground" className="underline underline-offset-2 hover:text-ink">Playground</Link>.
       </p>

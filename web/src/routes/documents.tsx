@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Plus, Search, Trash2 } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, apiUpload } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { fmtDate } from "@/lib/utils";
 import { Badge, Button, Card, Input, Label } from "@/components/ui/primitives";
@@ -37,8 +37,10 @@ export function Documents() {
   const [docs, setDocs] = useState<DocRow[] | null>(null);
   const [uploading, setUploading] = useState(false);
   const [title, setTitle] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [pasteMode, setPasteMode] = useState(false);
   const [content, setContent] = useState("");
-  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const [query, setQuery] = useState("");
   const [retrieving, setRetrieving] = useState(false);
@@ -55,22 +57,28 @@ export function Documents() {
   }, [user]);
 
   async function upload() {
-    if (!title.trim()) return toast.error("Title required");
-    if (!content.trim()) return toast.error("Content required");
+    setBusy(true);
     try {
-      await api("/v1/documents", {
-        method: "POST",
-        body: JSON.stringify({
-          title: title.trim(),
-          content: content.trim(),
-          source_url: url.trim() || undefined,
-        }),
-      });
+      if (pasteMode) {
+        if (!title.trim()) return toast.error("Title required");
+        if (!content.trim()) return toast.error("Content required");
+        await api("/v1/documents", {
+          method: "POST",
+          body: JSON.stringify({ title: title.trim(), content: content.trim() }),
+        });
+      } else {
+        if (!file) return toast.error("Choose a .txt, .md, or .pdf file");
+        const form = new FormData();
+        if (title.trim()) form.append("title", title.trim());
+        form.append("file", file);
+        await apiUpload("/v1/documents/upload", form);
+      }
       toast.success("Document queued for ingestion");
       setUploading(false);
-      setTitle(""); setContent(""); setUrl("");
+      setTitle(""); setContent(""); setFile(null); setPasteMode(false);
       load();
     } catch (e: any) { toast.error(e.message); }
+    finally { setBusy(false); }
   }
 
   async function del(id: string) {
@@ -105,8 +113,8 @@ export function Documents() {
     <div className="bg-cream text-ink">
       <PageHeader
         kicker="Knowledge base"
-        title="Documents & Retrieval"
-        description="Upload text to build your knowledge base. OpenInference chunks, embeds, and indexes documents automatically — ready for hybrid vector + keyword search in every RAG request."
+        title="Your organization's documents"
+        description="Upload handbooks, policies, and notes for this company only. OpenInference chunks, embeds, and indexes them for hybrid search and RAG — other orgs cannot see this knowledge base."
         action={
           user ? (
             <Button onClick={() => setUploading(true)}>
@@ -265,24 +273,41 @@ export function Documents() {
       {/* Upload modal */}
       <Modal open={uploading} onClose={() => setUploading(false)} title="Upload document">
         <div className="mb-3">
-          <Label>Title</Label>
+          <Label>Title (optional — defaults to filename)</Label>
           <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Company handbook" />
         </div>
-        <div className="mb-3">
-          <Label>Source URL (optional)</Label>
-          <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
-        </div>
-        <div className="mb-5">
-          <Label>Content</Label>
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={8}
-            placeholder="Paste document text here…"
-            className="w-full resize-y border border-border-strong bg-surface px-3 py-2 font-mono text-sm focus:outline-none focus:ring-1 focus:ring-flame-red"
-          />
-        </div>
-        <Button className="w-full" onClick={upload}>Upload &amp; ingest</Button>
+        {!pasteMode ? (
+          <div className="mb-3">
+            <Label>File (.txt, .md, .pdf — max 10MB)</Label>
+            <input
+              type="file"
+              accept=".txt,.md,.pdf,text/plain,text/markdown,application/pdf"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className="mt-1 block w-full text-sm"
+            />
+          </div>
+        ) : (
+          <div className="mb-3">
+            <Label>Content</Label>
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              rows={8}
+              placeholder="Paste document text here…"
+              className="w-full resize-y border border-border-strong bg-surface px-3 py-2 font-mono text-sm focus:outline-none focus:ring-1 focus:ring-flame-red"
+            />
+          </div>
+        )}
+        <button
+          type="button"
+          className="mb-4 text-xs text-muted-foreground underline"
+          onClick={() => setPasteMode((v) => !v)}
+        >
+          {pasteMode ? "Use file upload instead" : "Or paste text instead"}
+        </button>
+        <Button className="w-full" onClick={upload} disabled={busy}>
+          {busy ? "Uploading…" : "Upload & ingest"}
+        </Button>
       </Modal>
     </div>
   );

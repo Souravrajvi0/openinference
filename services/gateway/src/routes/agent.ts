@@ -78,7 +78,10 @@ const agentRoute: FastifyPluginAsync = async (_fastify) => {
     // ── Spend limits (tenant + API key) ────────────────────────────────────
     const spend = await checkSpendLimits(request.tenantId, request.apiKeyId);
     if (!spend.ok) {
-      const label = spend.level === 'key' ? 'API key monthly spend budget exceeded' : 'Monthly spend budget exceeded';
+      const label =
+        spend.level === 'platform' ? 'Platform monthly spend budget exceeded'
+        : spend.level === 'key' ? 'API key monthly spend budget exceeded'
+        : 'Monthly spend budget exceeded';
       return reply.status(402).send({
         error: label,
         spent_usd: spend.status.spent_usd,

@@ -6,6 +6,7 @@ import fastifyJwt from '@fastify/jwt';
 import fastifyStatic from '@fastify/static';
 import fastifySwagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
+import multipart from '@fastify/multipart';
 import { config } from './config';
 import authPlugin from './plugins/auth';
 import tenantContextPlugin from './plugins/tenantContext';
@@ -87,6 +88,9 @@ export async function buildApp(): Promise<FastifyInstance> {
   // user-facing documentation page (browser-history routing, no "#").
   await app.register(fastifySwaggerUi, { routePrefix: '/api-docs' });
   await app.register(fastifyJwt, { secret: config.JWT_SECRET });
+  await app.register(multipart, {
+    limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+  });
   await app.register(authPlugin);
 
   // Public routes (no auth)

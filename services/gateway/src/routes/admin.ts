@@ -6,11 +6,22 @@ import { requireOrgRole } from '../services/orgAuth';
 import { query, queryAsSystem } from '../db/client';
 import { PLANS } from '../services/plans';
 import { getCacheStats } from '../services/semanticCache';
-import { checkBudget } from '../services/budget';
+import { checkBudget, getPlatformBudget, setPlatformBudget } from '../services/budget';
 import { writeAudit } from '../services/audit';
 import { checkGuardrails } from '../services/guardrails';
 import { isKeyProvider, listProviderKeys, setProviderKey, deleteProviderKey } from '../services/providerKeys';
 import { listAvailableModels, invalidateModelCatalogCache } from '../services/modelCatalog';
+import {
+  listProviders,
+  createProvider,
+  updateProvider,
+  listOrgProviders,
+  setOrgProviderEnabled,
+  setOrgProviderKey,
+  deleteOrgProviderKey,
+  invalidateProviderRegistryCache,
+  invalidateTenantProviderCache,
+} from '../services/providers';
 
 const adminRoute: FastifyPluginAsync = async (fastify) => {
   // ── API Key Management ─────────────────────────────────────────────────
@@ -129,6 +140,168 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
     return reply.status(204).send();
   });
 
+  // ── Platform provider registry ─────────────────────────────────────────
+
+  fastify.get('/admin/providers', async (request, reply) => {
+    requireScope(request, 'admin');
+    if (!request.isPlatformAdmin) return reply.status(403).send({ error: 'Platform admin required' });
+    return reply.send({ data: await listProviders(true) });
+  });
+
+  fastify.post('/admin/providers', async (request, reply) => {
+    requireScope(request, 'admin');
+    if (!request.isPlatformAdmin) return reply.status(403).send({ error: 'Platform admin required' });
+
+    const schema = z.object({
+      slug: z.string().min(2).max(63),
+      name: z.string().min(1).max(120),
+      kind: z.enum(['openai_compat']).default('openai_compat'),
+      base_url: z.string().url(),
+    });
+    const body = schema.safeParse(request.body);
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+
+    try {
+      const created = await createProvider(body.data);
+      invalidateModelCatalogCache();
+      writeAudit({
+        tenant_id: request.tenantId, actor_type: 'admin', actor_id: request.userId,
+        action: 'provider.created', resource_type: 'provider', resource_id: created.id,
+        details: { slug: created.slug, base_url: created.base_url },
+      });
+      return reply.status(201).send(created);
+    } catch (err) {
+      return reply.status(400).send({ error: (err as Error).message });
+    }
+  });
+
+  fastify.patch<{ Params: { slug: string } }>('/admin/providers/:slug', async (request, reply) => {
+    requireScope(request, 'admin');
+    if (!request.isPlatformAdmin) return reply.status(403).send({ error: 'Platform admin required' });
+
+    const schema = z.object({
+      name: z.string().min(1).max(120).optional(),
+      base_url: z.string().url().optional(),
+      is_active: z.boolean().optional(),
+    });
+    const body = schema.safeParse(request.body);
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+
+    try {
+      const updated = await updateProvider(request.params.slug, body.data);
+      if (!updated) return reply.status(404).send({ error: 'Provider not found' });
+      invalidateProviderRegistryCache();
+      invalidateModelCatalogCache();
+      writeAudit({
+        tenant_id: request.tenantId, actor_type: 'admin', actor_id: request.userId,
+        action: 'provider.updated', resource_type: 'provider', resource_id: updated.id,
+        details: body.data,
+      });
+      return reply.send(updated);
+    } catch (err) {
+      return reply.status(400).send({ error: (err as Error).message });
+    }
+  });
+
+  // ── Org providers (enable + org-owned keys) ────────────────────────────
+
+  fastify.get('/admin/org/providers', async (request, reply) => {
+    requireScope(request, 'admin');
+    requireOrgRole(request, 'admin');
+    return reply.send({ data: await listOrgProviders(request.tenantId) });
+  });
+
+  fastify.put<{ Params: { slug: string } }>('/admin/org/providers/:slug', async (request, reply) => {
+    requireScope(request, 'admin');
+    requireOrgRole(request, 'admin');
+
+    const schema = z.object({ enabled: z.boolean() });
+    const body = schema.safeParse(request.body);
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+
+    const ok = await setOrgProviderEnabled(request.tenantId, request.params.slug, body.data.enabled);
+    if (!ok) return reply.status(404).send({ error: 'Provider not found' });
+    invalidateModelCatalogCache();
+    writeAudit({
+      tenant_id: request.tenantId, actor_type: 'admin', actor_id: request.userId ?? request.apiKeyId,
+      action: 'tenant_provider.updated', resource_type: 'provider', resource_id: request.params.slug,
+      details: { enabled: body.data.enabled },
+    });
+    return reply.status(204).send();
+  });
+
+  fastify.put<{ Params: { slug: string } }>('/admin/org/provider-keys/:slug', async (request, reply) => {
+    requireScope(request, 'admin');
+    requireOrgRole(request, 'admin');
+
+    const schema = z.object({ api_key: z.string().min(8).max(512) });
+    const body = schema.safeParse(request.body);
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+
+    try {
+      const ok = await setOrgProviderKey(
+        request.tenantId,
+        request.params.slug,
+        body.data.api_key.trim(),
+        request.userId
+      );
+      if (!ok) return reply.status(404).send({ error: 'Provider not found' });
+      invalidateTenantProviderCache(request.tenantId, request.params.slug);
+      invalidateModelCatalogCache();
+      writeAudit({
+        tenant_id: request.tenantId, actor_type: 'admin', actor_id: request.userId ?? request.apiKeyId,
+        action: 'tenant_provider_key.set', resource_type: 'provider', resource_id: request.params.slug,
+      });
+      return reply.status(204).send();
+    } catch (err) {
+      return reply.status(400).send({ error: (err as Error).message });
+    }
+  });
+
+  fastify.delete<{ Params: { slug: string } }>('/admin/org/provider-keys/:slug', async (request, reply) => {
+    requireScope(request, 'admin');
+    requireOrgRole(request, 'admin');
+
+    const removed = await deleteOrgProviderKey(request.tenantId, request.params.slug);
+    if (!removed) return reply.status(404).send({ error: 'No org key stored for this provider' });
+    invalidateModelCatalogCache();
+    writeAudit({
+      tenant_id: request.tenantId, actor_type: 'admin', actor_id: request.userId ?? request.apiKeyId,
+      action: 'tenant_provider_key.removed', resource_type: 'provider', resource_id: request.params.slug,
+    });
+    return reply.status(204).send();
+  });
+
+  // ── Platform budget ────────────────────────────────────────────────────
+
+  fastify.get('/admin/platform-budget', async (request, reply) => {
+    requireScope(request, 'admin');
+    if (!request.isPlatformAdmin) return reply.status(403).send({ error: 'Platform admin required' });
+    const status = await getPlatformBudget();
+    if (!status) return reply.status(404).send({ error: 'No platform budget configured' });
+    return reply.send(status);
+  });
+
+  fastify.put('/admin/platform-budget', async (request, reply) => {
+    requireScope(request, 'admin');
+    if (!request.isPlatformAdmin) return reply.status(403).send({ error: 'Platform admin required' });
+
+    const schema = z.object({
+      monthly_budget_usd: z.number().positive(),
+      alert_threshold_pct: z.number().int().min(1).max(100).default(80),
+    });
+    const body = schema.safeParse(request.body);
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+
+    const status = await setPlatformBudget(body.data.monthly_budget_usd, body.data.alert_threshold_pct);
+    writeAudit({
+      tenant_id: request.tenantId, actor_type: 'admin', actor_id: request.userId,
+      action: 'platform_budget.set', resource_type: 'platform_budget', resource_id: '1',
+      details: body.data,
+    });
+    return reply.send(status);
+  });
+
   // ── Live model discovery ────────────────────────────────────────────────
 
   // GET /v1/admin/models — what each provider's key can actually reach right
@@ -137,7 +310,7 @@ const adminRoute: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Querystring: { refresh?: string } }>('/admin/models', async (request, reply) => {
     requireScope(request, 'admin');
 
-    return reply.send({ data: await listAvailableModels(request.query.refresh === '1') });
+    return reply.send({ data: await listAvailableModels(request.query.refresh === '1', request.tenantId) });
   });
 
   // ── Tenants (plan management) ───────────────────────────────────────────

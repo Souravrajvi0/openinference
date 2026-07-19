@@ -1,9 +1,9 @@
 import { config } from '../config';
 import { query } from '../db/client';
-import type { Provider } from '@sentinelai/shared';
+import type { ExtendedProvider } from './llm';
 
 export interface RouteDecision {
-  provider: Provider;
+  provider: ExtendedProvider;
   model: string;
   is_fallback: boolean;
   ab_experiment_id?: string;
@@ -11,7 +11,7 @@ export interface RouteDecision {
 }
 
 export interface RoutingContext {
-  requested_provider?: Provider;
+  requested_provider?: ExtendedProvider;
   requested_model?: string;
   estimated_tokens: number;
   priority?: 'low' | 'normal' | 'high';
@@ -19,7 +19,7 @@ export interface RoutingContext {
 
 const ROUTING_RULES: Array<{
   condition: (req: RoutingContext) => boolean;
-  provider: Provider;
+  provider: ExtendedProvider;
   model: string;
 }> = [
   // Long context → Groq's larger model
@@ -48,7 +48,7 @@ export function routeRequest(ctx: RoutingContext): RouteDecision {
   }
 
   return {
-    provider: config.DEFAULT_PROVIDER as Provider,
+    provider: config.DEFAULT_PROVIDER as ExtendedProvider,
     model: config.DEFAULT_MODEL,
     is_fallback: false,
   };
@@ -56,7 +56,7 @@ export function routeRequest(ctx: RoutingContext): RouteDecision {
 
 export function getFallbackRoute(): RouteDecision | null {
   if (!config.FALLBACK_PROVIDER || !config.FALLBACK_MODEL) return null;
-  return { provider: config.FALLBACK_PROVIDER as Provider, model: config.FALLBACK_MODEL, is_fallback: true };
+  return { provider: config.FALLBACK_PROVIDER as ExtendedProvider, model: config.FALLBACK_MODEL, is_fallback: true };
 }
 
 export function estimateTokens(text: string): number {
@@ -84,7 +84,7 @@ export async function getAbRoute(tenantId: string): Promise<RouteDecision | null
   const useVariant = Math.random() * 100 < exp.traffic_split;
 
   return {
-    provider: (useVariant ? exp.variant_provider : exp.control_provider) as Provider,
+    provider: (useVariant ? exp.variant_provider : exp.control_provider) as ExtendedProvider,
     model: useVariant ? exp.variant_model : exp.control_model,
     is_fallback: false,
     ab_experiment_id: exp.id,
