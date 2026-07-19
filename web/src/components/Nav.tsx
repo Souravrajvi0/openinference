@@ -18,7 +18,7 @@ const PRIMARY_NAV: NavEntry[] = [
   { to: "/playground", label: "Playground" },
   { to: "/inference", label: "Inference" },
   { to: "/models", label: "Models" },
-  { to: "/docs", label: "Docs" },
+  { to: "/docs", label: "API access" },
   { to: "/cli", label: "CLI" },
   { to: "/updates", label: "Updates" },
 ];
@@ -171,7 +171,8 @@ function StartBuildingDropdown() {
     { to: "/cli", label: "CLI setup" },
     { to: "/updates", label: "What we shipped" },
     { to: "/playground", label: "Playground" },
-    { to: "/docs", label: "Knowledge base" },
+    { to: "/docs", label: "API access" },
+    { to: "/documents", label: "Knowledge base" },
     { to: "/models", label: "Model catalogue" },
     { href: "/api-docs", label: "API reference" },
   ];
@@ -477,7 +478,8 @@ export function Nav({
             {[
               { to: "/cli", label: "CLI setup" },
               { to: "/playground", label: "Playground" },
-              { to: "/docs", label: "Knowledge base" },
+              { to: "/docs", label: "API access" },
+              { to: "/documents", label: "Knowledge base" },
               { to: "/models", label: "Model catalogue" },
             ].map((link) => (
               <Link

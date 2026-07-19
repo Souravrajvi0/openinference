@@ -114,7 +114,7 @@ const QUICK_LINKS = [
   { to: "/playground", label: "Playground", desc: "Chat with the gateway" },
   { to: "/inference", label: "Inference", desc: "Run a single request" },
   { to: "/models", label: "Models", desc: "Browse available models" },
-  { to: "/docs", label: "Docs", desc: "API reference & guides" },
+  { to: "/docs", label: "API access", desc: "SDK snippets, auth, endpoints" },
 ];
 
 function Account({

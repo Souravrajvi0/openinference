@@ -58,7 +58,7 @@ const BENTO = [
     copy: "Hybrid vector + keyword search wired into every agent call.",
     icon: PixelRAG,
     area: "rag",
-    href: "/docs",
+    href: "/documents",
   },
   {
     id: "observe",

@@ -13,7 +13,8 @@ import { Playground } from "@/routes/playground";
 import { Admin } from "@/routes/admin";
 import { Inference } from "@/routes/inference";
 import { Models } from "@/routes/models";
-import { Docs } from "@/routes/docs";
+import { DeveloperDocs } from "@/routes/docs";
+import { Documents } from "@/routes/documents";
 import { CliPage } from "@/routes/cli";
 import { Updates } from "@/routes/updates";
 import { Traces } from "@/routes/traces";
@@ -68,7 +69,8 @@ const playgroundRoute = createRoute({ getParentRoute: () => rootRoute, path: "/p
 const adminRoute = createRoute({ getParentRoute: () => rootRoute, path: "/admin", component: Admin });
 const inferenceRoute = createRoute({ getParentRoute: () => rootRoute, path: "/inference", component: Inference });
 const modelsRoute    = createRoute({ getParentRoute: () => rootRoute, path: "/models",    component: Models });
-const docsRoute      = createRoute({ getParentRoute: () => rootRoute, path: "/docs",      component: Docs });
+const docsRoute      = createRoute({ getParentRoute: () => rootRoute, path: "/docs",      component: DeveloperDocs });
+const documentsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/documents", component: Documents });
 const cliRoute       = createRoute({ getParentRoute: () => rootRoute, path: "/cli",       component: CliPage });
 const updatesRoute   = createRoute({ getParentRoute: () => rootRoute, path: "/updates",   component: Updates });
 const tracesRoute    = createRoute({ getParentRoute: () => rootRoute, path: "/traces",    component: Traces });
@@ -83,7 +85,7 @@ const mcpRoute         = createRoute({ getParentRoute: () => rootRoute, path: "/
 const membersRoute     = createRoute({ getParentRoute: () => rootRoute, path: "/members",        component: Members });
 const inviteRoute      = createRoute({ getParentRoute: () => rootRoute, path: "/invite",         component: InviteAccept });
 
-const routeTree = rootRoute.addChildren([overviewRoute, playgroundRoute, adminRoute, inferenceRoute, modelsRoute, docsRoute, cliRoute, updatesRoute, tracesRoute, sessionsRoute, agentRoute, guardrailsRoute, agentsRoute, approvalsRoute, regressionRoute, budgetsRoute, mcpRoute, membersRoute, inviteRoute]);
+const routeTree = rootRoute.addChildren([overviewRoute, playgroundRoute, adminRoute, inferenceRoute, modelsRoute, docsRoute, documentsRoute, cliRoute, updatesRoute, tracesRoute, sessionsRoute, agentRoute, guardrailsRoute, agentsRoute, approvalsRoute, regressionRoute, budgetsRoute, mcpRoute, membersRoute, inviteRoute]);
 
 // Browser history gives clean URLs (/playground, /admin) with no "#". The gateway
 // owns the API under /v1 (so /admin here never collides with /v1/admin) and serves
