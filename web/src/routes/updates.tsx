@@ -342,13 +342,7 @@ export function Updates() {
         <div className="space-y-16">
           {slice.map((week) => (
             <article key={week.id} id={week.id} className="scroll-mt-24">
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-flame-red">
-                  {week.label}
-                </span>
-                <span className="text-sm text-muted-foreground">{week.dateRange}</span>
-              </div>
-              <h2 className="mt-3 text-[clamp(1.35rem,3vw,1.85rem)] font-semibold tracking-[-0.02em]">
+              <h2 className="text-[clamp(1.35rem,3vw,1.85rem)] font-semibold tracking-[-0.02em]">
                 {week.headline}
               </h2>
               <p className="mt-3 text-base leading-relaxed text-ink/80">{week.summary}</p>
