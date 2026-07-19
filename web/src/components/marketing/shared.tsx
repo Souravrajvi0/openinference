@@ -187,6 +187,7 @@ export function SiteFooter() {
         { label: "Models", to: "/models" },
         { label: "Documents", to: "/docs" },
         { label: "CLI", to: "/cli" },
+        { label: "Updates", to: "/updates" },
       ],
     },
     {
