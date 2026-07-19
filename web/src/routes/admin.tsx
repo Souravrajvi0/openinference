@@ -1353,20 +1353,20 @@ function DocumentsPanel() {
   useEffect(() => { load(); }, []);
 
   async function upload() {
+    if (!pasteMode && !file) return toast.error("Choose a .txt, .md, or .pdf file from your computer");
+    if (pasteMode && !title.trim()) return toast.error("Title required");
+    if (pasteMode && !content.trim()) return toast.error("Content required");
     setBusy(true);
     try {
       if (pasteMode) {
-        if (!title.trim()) return toast.error("Title required");
-        if (!content.trim()) return toast.error("Content required");
         await api("/v1/documents", {
           method: "POST",
           body: JSON.stringify({ title: title.trim(), content: content.trim() }),
         });
       } else {
-        if (!file) return toast.error("Choose a .txt, .md, or .pdf file");
         const form = new FormData();
         if (title.trim()) form.append("title", title.trim());
-        form.append("file", file);
+        form.append("file", file!);
         await apiUpload("/v1/documents/upload", form);
       }
       toast.success("Document queued for ingestion");

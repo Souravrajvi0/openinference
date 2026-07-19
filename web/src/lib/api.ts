@@ -58,7 +58,11 @@ export async function api<T = any>(
   }
   if (!res.ok) {
     const msg =
-      (body && (body.error?.message || (typeof body.error === "string" ? body.error : null))) ||
+      (body && (
+        (typeof body.error === "string" ? body.error : null) ||
+        body.error?.message ||
+        (typeof body.message === "string" ? body.message : null)
+      )) ||
       "HTTP " + res.status;
     throw new Error(msg);
   }

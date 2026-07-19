@@ -23,6 +23,20 @@ function extOf(filename: string): string {
   return i >= 0 ? filename.slice(i).toLowerCase() : '';
 }
 
+function fieldValue(fields: Record<string, unknown> | undefined, name: string): string | undefined {
+  const raw = fields?.[name];
+  if (!raw) return undefined;
+  if (typeof raw === 'object' && raw !== null && 'value' in raw) {
+    const v = String((raw as { value: unknown }).value ?? '').trim();
+    return v || undefined;
+  }
+  if (Array.isArray(raw) && raw[0] && typeof raw[0] === 'object' && 'value' in raw[0]) {
+    const v = String((raw[0] as { value: unknown }).value ?? '').trim();
+    return v || undefined;
+  }
+  return undefined;
+}
+
 async function extractText(filename: string, buf: Buffer): Promise<{ text: string; mime: string }> {
   const ext = extOf(filename);
   if (ext === '.txt' || ext === '.md') {
@@ -32,12 +46,10 @@ async function extractText(filename: string, buf: Buffer): Promise<{ text: strin
     };
   }
   if (ext === '.pdf') {
+    // pdf-parse v1: (buffer) => Promise<{ text }>
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { PDFParse } = require('pdf-parse') as {
-      PDFParse: new (opts: { data: Buffer }) => { getText: () => Promise<{ text: string }> };
-    };
-    const parser = new PDFParse({ data: buf });
-    const parsed = await parser.getText();
+    const pdfParse = require('pdf-parse') as (b: Buffer) => Promise<{ text?: string }>;
+    const parsed = await pdfParse(buf);
     const text = (parsed.text ?? '').trim();
     if (!text) throw new Error('Could not extract text from PDF (empty or image-only)');
     return { text, mime: 'application/pdf' };
@@ -45,7 +57,7 @@ async function extractText(filename: string, buf: Buffer): Promise<{ text: strin
   throw new Error(`Unsupported file type: ${ext || 'unknown'}`);
 }
 
-const documentsRoute: FastifyPluginAsync = async (_fastify) => {
+const documentsRoute: FastifyPluginAsync = async (fastify) => {
   const ingestQueue = new Queue(QUEUES.INGEST, {
     connection: bullmqConnection(),
   });
@@ -75,18 +87,26 @@ const documentsRoute: FastifyPluginAsync = async (_fastify) => {
       ]
     );
 
-    const job: IngestJobData = {
-      document_id: documentId,
-      tenant_id: opts.tenantId,
-      raw_text: opts.content,
-      mime_type: opts.mimeType,
-    };
-    await ingestQueue.add('ingest', job, { removeOnComplete: 100, removeOnFail: 50 });
+    try {
+      const job: IngestJobData = {
+        document_id: documentId,
+        tenant_id: opts.tenantId,
+        raw_text: opts.content,
+        mime_type: opts.mimeType,
+      };
+      await ingestQueue.add('ingest', job, { removeOnComplete: 100, removeOnFail: 50 });
+    } catch (err) {
+      await query(`UPDATE documents SET status = 'failed', error_message = $2 WHERE id = $1`, [
+        documentId,
+        `Failed to enqueue ingest job: ${(err as Error).message}`,
+      ]);
+      throw err;
+    }
     return documentId;
   }
 
   // POST /v1/documents — ingest pasted/JSON text
-  _fastify.post('/documents', async (request, reply) => {
+  fastify.post('/documents', async (request, reply) => {
     requireScope(request, 'retrieve');
     requireOrgRole(request, 'admin');
 
@@ -96,88 +116,90 @@ const documentsRoute: FastifyPluginAsync = async (_fastify) => {
     }
 
     const { title, content, source_url, metadata } = body.data;
-    const documentId = await enqueueDocument({
-      tenantId: request.tenantId,
-      title,
-      content,
-      sourceUrl: source_url,
-      metadata,
-      mimeType: 'text/plain',
-      fileSize: Buffer.byteLength(content, 'utf8'),
-    });
-
-    return reply.status(202).send({
-      id: documentId,
-      status: 'pending',
-      message: 'Document queued for ingestion',
-    });
+    try {
+      const documentId = await enqueueDocument({
+        tenantId: request.tenantId,
+        title,
+        content,
+        sourceUrl: source_url,
+        metadata,
+        mimeType: 'text/plain',
+        fileSize: Buffer.byteLength(content, 'utf8'),
+      });
+      return reply.status(202).send({
+        id: documentId,
+        status: 'pending',
+        message: 'Document queued for ingestion',
+      });
+    } catch (err) {
+      request.log.error({ err }, 'document ingest failed');
+      return reply.status(503).send({ error: 'Failed to queue document for ingestion' });
+    }
   });
 
-  // POST /v1/documents/upload — multipart file (.txt / .md / .pdf)
-  _fastify.post('/documents/upload', async (request, reply) => {
+  // POST /v1/documents/upload — multipart file from disk (.txt / .md / .pdf)
+  fastify.post('/documents/upload', async (request, reply) => {
     requireScope(request, 'retrieve');
     requireOrgRole(request, 'admin');
 
-    let filename = '';
-    let buf: Buffer | null = null;
-    let titleFromField: string | undefined;
-
-    for await (const part of request.parts()) {
-      if (part.type === 'file' && part.fieldname === 'file') {
-        filename = part.filename;
-        buf = await part.toBuffer();
-      } else if (part.type === 'field' && part.fieldname === 'title') {
-        titleFromField = String(part.value ?? '').trim() || undefined;
-      } else if (part.type === 'file') {
-        // Drain unexpected files
-        await part.toBuffer();
-      }
-    }
-
-    if (!buf || !filename) {
-      return reply.status(400).send({ error: 'Expected multipart field "file"' });
-    }
-
-    const ext = extOf(filename);
-    if (!ALLOWED_EXT.has(ext)) {
-      return reply.status(400).send({ error: 'Supported uploads: .txt, .md, .pdf' });
-    }
-    if (buf.length > MAX_UPLOAD_BYTES) {
-      return reply.status(400).send({ error: 'File exceeds 10MB limit' });
-    }
-
-    const title = (titleFromField || filename.replace(/\.[^.]+$/, '') || 'Untitled').slice(0, 500);
-
-    let extracted: { text: string; mime: string };
     try {
-      extracted = await extractText(filename, buf);
+      const data = await request.file({ limits: { fileSize: MAX_UPLOAD_BYTES } });
+      if (!data) {
+        return reply.status(400).send({ error: 'Expected a file — choose a .txt, .md, or .pdf' });
+      }
+
+      const filename = data.filename || 'upload.bin';
+      const ext = extOf(filename);
+      if (!ALLOWED_EXT.has(ext)) {
+        return reply.status(400).send({ error: 'Supported uploads: .txt, .md, .pdf' });
+      }
+
+      const buf = await data.toBuffer();
+      if (!buf.length) {
+        return reply.status(400).send({ error: 'File is empty' });
+      }
+
+      const titleFromField = fieldValue(data.fields as Record<string, unknown>, 'title');
+      const title = (titleFromField || filename.replace(/\.[^.]+$/, '') || 'Untitled').slice(0, 500);
+
+      let extracted: { text: string; mime: string };
+      try {
+        extracted = await extractText(filename, buf);
+      } catch (err) {
+        return reply.status(400).send({ error: (err as Error).message });
+      }
+
+      if (!extracted.text.trim()) {
+        return reply.status(400).send({ error: 'File is empty' });
+      }
+
+      const documentId = await enqueueDocument({
+        tenantId: request.tenantId,
+        title,
+        content: extracted.text,
+        metadata: { filename },
+        mimeType: extracted.mime,
+        fileSize: buf.length,
+      });
+
+      return reply.status(202).send({
+        id: documentId,
+        status: 'pending',
+        message: 'Document queued for ingestion',
+        title,
+      });
     } catch (err) {
-      return reply.status(400).send({ error: (err as Error).message });
+      const e = err as Error & { code?: string };
+      if (e.code === 'FST_REQ_FILE_TOO_LARGE') {
+        return reply.status(400).send({ error: 'File exceeds 10MB limit' });
+      }
+      request.log.error({ err }, 'document upload failed');
+      return reply.status(500).send({ error: e.message || 'Upload failed' });
     }
-
-    if (!extracted.text.trim()) {
-      return reply.status(400).send({ error: 'File is empty' });
-    }
-
-    const documentId = await enqueueDocument({
-      tenantId: request.tenantId,
-      title,
-      content: extracted.text,
-      metadata: { filename },
-      mimeType: extracted.mime,
-      fileSize: buf.length,
-    });
-
-    return reply.status(202).send({
-      id: documentId,
-      status: 'pending',
-      message: 'Document queued for ingestion',
-      title,
-    });
   });
 
   // GET /v1/documents — list documents
-  _fastify.get<{ Querystring: { limit?: string; offset?: string; status?: string } }>(
+  fastify.get<{ Querystring: { limit?: string; offset?: string; status?: string } }>(
     '/documents',
     async (request, reply) => {
       requireScope(request, 'retrieve');
@@ -202,7 +224,7 @@ const documentsRoute: FastifyPluginAsync = async (_fastify) => {
   );
 
   // GET /v1/documents/:id — get single document status
-  _fastify.get<{ Params: { id: string } }>(
+  fastify.get<{ Params: { id: string } }>(
     '/documents/:id',
     async (request, reply) => {
       requireScope(request, 'retrieve');
@@ -220,7 +242,7 @@ const documentsRoute: FastifyPluginAsync = async (_fastify) => {
   );
 
   // DELETE /v1/documents/:id
-  _fastify.delete<{ Params: { id: string } }>(
+  fastify.delete<{ Params: { id: string } }>(
     '/documents/:id',
     async (request, reply) => {
       requireScope(request, 'retrieve');

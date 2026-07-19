@@ -36,6 +36,7 @@ export async function buildApp(): Promise<FastifyInstance> {
       level: config.LOG_LEVEL,
       transport: config.NODE_ENV === 'development' ? { target: 'pino-pretty' } : undefined,
     },
+    bodyLimit: 12 * 1024 * 1024,
   });
 
   if (redisUrlLooksLikeReplica(config.REDIS_URL)) {

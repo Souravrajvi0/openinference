@@ -26,7 +26,7 @@
     "fastify-plugin": "^4.5.1",
     "ioredis": "^5.4.1",
     "openai": "^4.52.0",
-    "pdf-parse": "^2.4.5",
+    "pdf-parse": "^1.1.1",
     "pg": "^8.12.0",
     "pino": "^9.2.0",
     "prom-client": "^15.1.3",
