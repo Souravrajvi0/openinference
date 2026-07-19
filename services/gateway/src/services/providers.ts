@@ -191,7 +191,64 @@ async function platformKeyFor(slug: string): Promise<string | null> {
   return getBootstrapProviderApiKey(slug);
 }
 
+/** Once per minute per tenant: turn on providers that already have a gateway key. */
+const wiredAt = new Map<string, number>();
+const WIRE_TTL_MS = 60_000;
+
+/**
+ * Auto-connect Org Providers to gateway default keys so users don't have to
+ * manually re-enable Groq/OpenAI after setting them under Providers.
+ * Never overrides an intentional Off, and never wipes an org's own key.
+ */
+export async function ensureOrgProviderDefaults(tenantId: string): Promise<void> {
+  const now = Date.now();
+  const prev = wiredAt.get(tenantId);
+  if (prev && now - prev < WIRE_TTL_MS) return;
+  wiredAt.set(tenantId, now);
+
+  const providers = await listProviders(false);
+  for (const p of providers) {
+    if (p.kind === 'ollama') {
+      if (!config.OLLAMA_URL) continue;
+      await queryAsSystem(
+        `INSERT INTO tenant_providers (tenant_id, provider_id, enabled, use_platform_key)
+         VALUES ($1, $2, TRUE, FALSE)
+         ON CONFLICT (tenant_id, provider_id) DO NOTHING`,
+        [tenantId, p.id]
+      );
+      continue;
+    }
+
+    const pk = await platformKeyFor(p.slug);
+    if (!pk) continue;
+
+    await queryAsSystem(
+      `INSERT INTO tenant_providers (tenant_id, provider_id, enabled, use_platform_key)
+       VALUES ($1, $2, TRUE, TRUE)
+       ON CONFLICT (tenant_id, provider_id) DO NOTHING`,
+      [tenantId, p.id]
+    );
+
+    // Heal: enabled but missing org key and platform key not opted in yet
+    await queryAsSystem(
+      `UPDATE tenant_providers tp
+       SET use_platform_key = TRUE, updated_at = NOW()
+       WHERE tp.tenant_id = $1
+         AND tp.provider_id = $2
+         AND tp.enabled = TRUE
+         AND tp.use_platform_key = FALSE
+         AND NOT EXISTS (
+           SELECT 1 FROM tenant_provider_keys tpk
+           WHERE tpk.tenant_id = tp.tenant_id AND tpk.provider_id = tp.provider_id
+         )`,
+      [tenantId, p.id]
+    );
+  }
+  invalidateTenantProviderCache(tenantId);
+}
+
 export async function listOrgProviders(tenantId: string): Promise<OrgProviderStatus[]> {
+  await ensureOrgProviderDefaults(tenantId);
   const providers = await listProviders(false);
   const enabledResult = await queryAsSystem<{
     provider_id: string;
@@ -383,6 +440,7 @@ export async function assertProviderUsable(
   tenantId: string,
   slug: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  await ensureOrgProviderDefaults(tenantId);
   const provider = await getProviderBySlug(slug);
   if (!provider || !provider.is_active) {
     return { ok: false, error: `Provider ${slug} is not available on this platform` };

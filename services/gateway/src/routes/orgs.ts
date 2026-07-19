@@ -96,6 +96,9 @@ const orgsRoute: FastifyPluginAsync = async (fastify) => {
     );
     await queryAsSystem(`UPDATE users SET active_tenant_id = $1 WHERE id = $2`, [tenantId, request.userId]);
 
+    const { ensureOrgProviderDefaults } = await import('../services/providers');
+    await ensureOrgProviderDefaults(tenantId);
+
     writeAudit({
       tenant_id: tenantId,
       actor_type: 'user',

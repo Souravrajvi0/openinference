@@ -99,6 +99,9 @@ async function createUserWithOrg(
     [userRow.id, tenantId],
   );
 
+  const { ensureOrgProviderDefaults } = await import('../services/providers');
+  await ensureOrgProviderDefaults(tenantId);
+
   return userRow;
 }
 

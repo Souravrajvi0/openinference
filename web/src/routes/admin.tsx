@@ -692,9 +692,9 @@ function OrgProvidersPanel() {
       <div className="mb-4">
         <h3 className="text-sm font-medium">Organization providers</h3>
         <p className="mt-1 text-xs text-muted-foreground">
-          Turn a provider <strong>On</strong>, then either paste this org’s API key or tick{" "}
-          <strong>Use platform key</strong> when the gateway already has one (Admin → Providers).
-          Ready = Playground / API can call that provider.
+          When Admin → Providers (or env) already has a Groq/OpenAI/… key, this org is{" "}
+          <strong>auto-connected</strong> (On + Use platform key). You only need to paste a key here
+          if this company should use its <em>own</em> vendor credentials instead.
         </p>
       </div>
       <Card className="p-5">
