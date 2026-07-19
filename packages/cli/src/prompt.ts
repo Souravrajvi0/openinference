@@ -131,7 +131,7 @@ export function printTooSmallHelp(hw: HardwareProfile): void {
   console.log('    • Try a different use case (General Chat has the most tiny models)');
   console.log('    • Force a tiny model:  oi -y -m smollm2:135m\n');
   if (hw.budgetGb < 0.5) {
-    console.log('  Tip: update the CLI —  npm update -g @openinference/cli\n');
+    console.log('  Tip: reinstall the latest CLI from GitHub —  curl -fsSL https://openinference.tech/install-cli.sh | sh\n');
   }
 }
 

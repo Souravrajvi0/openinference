@@ -103,12 +103,12 @@ const WEEKS: Week[] = [
     dateRange: "Jun 28, 2026",
     headline: "oi ships — local AI package manager",
     summary:
-      "Biggest product moment of the month: @openinference/cli (oi) went public on npm. Hardware-aware install, interactive shell, 150+ model catalog.",
+      "Biggest product moment of the month: the oi CLI shipped. Hardware-aware install from GitHub, interactive shell, 150+ model catalog.",
     items: [
       {
         area: "cli",
-        title: "@openinference/cli on npm",
-        body: "Install with npm install -g @openinference/cli, then type oi. First run walks you through use case → hardware scan → pick a model that fits.",
+        title: "OpenInference CLI (oi)",
+        body: "Install with curl -fsSL https://openinference.tech/install-cli.sh | sh, then type oi. First run walks you through use case → hardware scan → pick a model that fits.",
       },
       {
         area: "cli",
@@ -415,8 +415,16 @@ export function Updates() {
         )}
 
         <p className="mt-16 text-sm text-muted-foreground">
-          New entries land at the top each week. Questions? Reach us from the site footer or npm
-          package page for <span className="font-mono text-ink">@openinference/cli</span>.
+          New entries land at the top each week. Questions? Reach us from the site footer or the{" "}
+          <a href="/cli" className="underline underline-offset-2 hover:text-ink">CLI page</a>
+          {" · "}
+          <a
+            href="https://github.com/Souravrajvi0/OPENINFER"
+            className="underline underline-offset-2 hover:text-ink"
+          >
+            GitHub
+          </a>
+          .
         </p>
       </div>
 

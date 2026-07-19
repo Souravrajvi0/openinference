@@ -11,22 +11,22 @@ you manage *models*, not the engine.
 
 ## Quick start
 
-**Install globally, then type `oi` anytime:**
+**Install from GitHub (not the public npm registry):**
 
 ```bash
-npm install -g @openinference/cli
+curl -fsSL https://openinference.tech/install-cli.sh | sh
+```
+
+Or clone and link locally:
+
+```bash
+git clone https://github.com/Souravrajvi0/OPENINFER.git
+cd OPENINFER/packages/cli
+npm install && npm run build && npm link
 oi
 ```
 
-One line (install + open the terminal):
-
-```bash
-npm install -g @openinference/cli && oi
-```
-
-On Linux you may need `sudo npm install -g @openinference/cli`, then run `oi`.
-
-The default is an **interactive shell** — chat when you already have a model, or `/setup` to run the wizard.
+Requires Node 18+ and git. The install script builds `packages/cli` and `npm link`s the `oi` binary.
 
 The setup wizard (`oi start`):
 

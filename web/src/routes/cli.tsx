@@ -8,7 +8,7 @@ import {
 } from "@/components/marketing/shared";
 import { PixelFlame } from "@/components/PixelFlame";
 
-const INSTALL_CMD = "npm install -g @openinference/cli && oi";
+const INSTALL_CMD = "curl -fsSL https://openinference.tech/install-cli.sh | sh";
 
 const ANALOGY = ["apt", "brew", "npm", "oi"];
 
@@ -67,13 +67,12 @@ const COMPARE: [string, string][] = [
 ];
 
 const TERMINAL_LINES: { prompt?: boolean; text: string; dim?: boolean; accent?: boolean }[] = [
-  { text: "$ npm install -g @openinference/cli && oi", prompt: true },
+  { text: "$ curl -fsSL https://openinference.tech/install-cli.sh | sh", prompt: true },
   { text: "" },
   { text: "  oi — package manager for local AI", dim: true },
   { text: "" },
   { text: "  > What do you want AI for?", accent: true },
   { text: "    1) Coding  2) Chat  3) PDFs  …", dim: true },
-  { text: "" },
   { text: "  Scanning: 16 GB RAM · RTX 3060 · 42 GB free", dim: true },
   { text: "  12 models fit your hardware for Coding", accent: true },
   { text: "" },
@@ -103,7 +102,7 @@ function CopyInstallCta({ onOrange = false }: { onOrange?: boolean }) {
       </div>
       <code className="mt-2 block font-mono text-[13px] text-cream sm:text-sm">{INSTALL_CMD}</code>
       <div className="mt-2 text-xs text-cream/45 group-hover:text-cream/60">
-        Click to copy · installs globally, then opens <span className="font-mono">oi</span>
+        Click to copy · installs from GitHub, then opens <span className="font-mono">oi</span>
       </div>
     </button>
   );
@@ -175,10 +174,10 @@ export function CliPage() {
             <div className="mt-6 flex flex-wrap gap-3">
               <CtaButton href="/models#local">Browse models →</CtaButton>
               <CtaButton
-                href="https://www.npmjs.com/package/@openinference/cli"
+                href="https://github.com/Souravrajvi0/OPENINFER"
                 variant="outline"
               >
-                View on npm
+                View on GitHub
               </CtaButton>
             </div>
           </div>
@@ -210,8 +209,7 @@ export function CliPage() {
           </div>
           <TerminalPreview />
           <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-            Node 18+. On Linux:{" "}
-            <span className="font-mono text-ink">sudo npm install -g @openinference/cli</span> then{" "}
+            Node 18+ and git required. Installs the CLI from GitHub (not the public npm registry), then runs{" "}
             <span className="font-mono text-ink">oi</span>.
           </p>
         </div>
@@ -396,10 +394,10 @@ export function CliPage() {
           </div>
           <div className="mt-8 flex flex-wrap gap-3">
             <CtaButton
-              href="https://www.npmjs.com/package/@openinference/cli"
+              href="https://github.com/Souravrajvi0/OPENINFER"
               className="!bg-cream !text-ink hover:!opacity-90"
             >
-              npm package →
+              GitHub →
             </CtaButton>
             <CtaButton to="/playground" variant="outline" className="!border-cream/30 !bg-transparent !text-cream hover:!bg-cream/10">
               Cloud playground →
