@@ -65,8 +65,8 @@ export async function resolveRoute(requested: string): Promise<{ provider: Exten
     if (prefix === 'openinference') return { provider: 'ollama', model: rest };
     if ((PROVIDERS as readonly string[]).includes(prefix)) return { provider: prefix as ExtendedProvider, model: rest };
 
-    // Unknown prefix (e.g. vendor tags pasted into an allowlist) — try the bare
-    // id against the live catalog, then the full string.
+    // Unknown prefix (vendor tags not in our provider set) — try the live catalog
+    // only. Do NOT heuristic-guess (e.g. "qwen/qwen3.6-27b" must not become Groq).
     try {
       const catalog = await listAvailableModels();
       const bareHit = catalog.find((p) => p.configured && !p.error && p.models.includes(rest));
@@ -75,9 +75,6 @@ export async function resolveRoute(requested: string): Promise<{ provider: Exten
       if (fullHit) return { provider: fullHit.provider as ExtendedProvider, model: requested };
     } catch { /* fall through */ }
 
-    // Last resort: keep the requested id and guess provider from the bare name.
-    const guessed = await resolveRoute(rest);
-    if (guessed) return guessed;
     return null;
   }
 

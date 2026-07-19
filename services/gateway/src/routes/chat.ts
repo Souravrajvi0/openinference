@@ -128,7 +128,7 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
         spans.push(routeSpan);
         flushSpans(spans, request.tenantId);
         return reply.status(404).send({
-          error: `Unknown model ${model} — no configured provider serves it. Call GET /v1/models to list what your key can use, or pass "provider" explicitly.`,
+          error: `Unknown model ${model} — no configured provider serves it. Use a model id from GET /v1/models, or a known provider prefix (openai/…, groq/…, openinference/…).`,
           trace_id: traceId,
         });
       }
@@ -342,16 +342,28 @@ const chatRoute: FastifyPluginAsync = async (_fastify) => {
     let fallbackUsed = false;
 
     try {
-      llmResult = await callLLM(routeDecision.provider, routeDecision.model, contextMessages);
-    } catch (primaryErr) {
-      const fallback = getFallbackRoute();
-      if (!fallback) throw primaryErr;
-      // A fallback model the key isn't allowed to use is failed, not served.
-      if (request.allowedModels && !request.allowedModels.includes(fallback.model)) throw primaryErr;
-      _fastify.log.warn({ primaryErr }, 'Primary LLM failed, trying fallback');
-      llmResult = await callLLM(fallback.provider, fallback.model, contextMessages);
-      usedRoute = fallback;
-      fallbackUsed = true;
+      try {
+        llmResult = await callLLM(routeDecision.provider, routeDecision.model, contextMessages);
+      } catch (primaryErr) {
+        const fallback = getFallbackRoute();
+        if (!fallback) throw primaryErr;
+        // A fallback model the key isn't allowed to use is failed, not served.
+        if (request.allowedModels && !request.allowedModels.includes(fallback.model)) throw primaryErr;
+        _fastify.log.warn({ primaryErr }, 'Primary LLM failed, trying fallback');
+        llmResult = await callLLM(fallback.provider, fallback.model, contextMessages);
+        usedRoute = fallback;
+        fallbackUsed = true;
+      }
+    } catch (err) {
+      endSpan(llmSpan, 'error', (err as Error).message);
+      spans.push(llmSpan);
+      flushSpans(spans, request.tenantId);
+      return reply.status(502).send({
+        error: (err as Error).message || 'Upstream model request failed',
+        model: routeDecision.model,
+        provider: routeDecision.provider,
+        trace_id: traceId,
+      });
     }
 
     const latencyMs = Date.now() - start;

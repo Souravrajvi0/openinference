@@ -163,6 +163,7 @@ export function Playground() {
           const j = await res.json();
           if (typeof j?.error === "string") msg = j.error;
           else if (typeof j?.error?.message === "string") msg = j.error.message;
+          else if (typeof j?.message === "string") msg = j.message;
           else if (j?.error?.formErrors || j?.error?.fieldErrors) {
             msg = "Invalid request — check messages (empty replies from a failed turn must not be resent)";
           }
@@ -345,11 +346,6 @@ export function Playground() {
                 )}
               </Select>
             </div>
-            <p className="mt-3 text-[11px] text-muted-foreground">
-              Create keys in Admin → Keys. The dropdown lists every model this key may call
-              {options.length ? ` (${options.length})` : ""}
-              {modelsError ? `. ${modelsError}` : "."}
-            </p>
           </Card>
 
           <Card className="p-5">
