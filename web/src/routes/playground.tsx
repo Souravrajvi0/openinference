@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Copy, RefreshCw, Square } from "lucide-react";
-import { getKey, setKey, getToken, authHeaders, MODEL_CATALOG, type ChatResponse } from "@/lib/api";
+import { getKey, setKey, getToken, authHeaders, type ChatResponse } from "@/lib/api";
 import { fmtTime, mdToHtml } from "@/lib/utils";
 import { Button, Card, Input, Label, Select, Textarea } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/marketing/shared";
@@ -10,19 +10,35 @@ interface Msg { role: "user" | "assistant"; content: string; ts: number; }
 interface LastUsage { prompt_tokens: number; completion_tokens: number; cost_usd: number; }
 
 const LS_SYS = "sentinel_sys";
+const LS_INCLUDE_OI = "oi_playground_include_oi";
 
-// Static fallback (marketing catalog) vs. live entitlement-filtered list from
-// GET /v1/models — live options omit `provider` and let the gateway resolve it.
-type ModelOption = { value: string; label: string; tier: string; provider?: string; model: string };
-const STATIC_OPTIONS: ModelOption[] = MODEL_CATALOG.map((m) => ({
-  value: m.provider + "/" + m.model, label: m.label, tier: m.tier, provider: m.provider, model: m.model,
-}));
+// Live entitlement-filtered list from GET /v1/models for the pasted key.
+// Never fall back to the marketing catalog — that was showing unrelated models.
+type ModelOption = {
+  value: string;
+  label: string;
+  tier: string;
+  provider?: string;
+  model: string;
+  owned_by?: string;
+};
+
+function isOpenInferenceModel(o: ModelOption): boolean {
+  const by = (o.owned_by ?? "").toLowerCase();
+  if (by === "openinference" || by === "ollama") return true;
+  if (o.value.startsWith("openinference/")) return true;
+  // Ollama tags look like "llama3.2:1b"
+  if (o.model.includes(":") && !o.model.includes("/")) return true;
+  return false;
+}
 
 export function Playground() {
   const [apiKey, setApiKeyState] = useState(() => getKey());
-  const [modelKey, setModelKey] = useState(STATIC_OPTIONS[0].value);
+  const [modelKey, setModelKey] = useState("");
   const [liveModels, setLiveModels] = useState<ModelOption[] | null>(null);
   const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelsError, setModelsError] = useState<string | null>(null);
+  const [includeOi, setIncludeOi] = useState(() => localStorage.getItem(LS_INCLUDE_OI) !== "0");
   const [stream, setStream] = useState(true);
   const [sys, setSys] = useState(() => localStorage.getItem(LS_SYS) || "");
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -31,50 +47,62 @@ export function Playground() {
   const [prompt, setPrompt] = useState("");
   const abortRef = useRef<AbortController | null>(null);
   const chatRef = useRef<HTMLDivElement>(null);
-  const modelKeyRef = useRef(modelKey);
-  modelKeyRef.current = modelKey;
 
-  const options = liveModels ?? STATIC_OPTIONS;
+  const options = useMemo(() => {
+    if (!liveModels) return [];
+    return includeOi ? liveModels : liveModels.filter((o) => !isOpenInferenceModel(o));
+  }, [liveModels, includeOi]);
+
   const selected = options.find((o) => o.value === modelKey) ?? options[0];
+
+  // Keep selection valid when the filtered list changes.
+  useEffect(() => {
+    if (!options.length) return;
+    if (!options.some((o) => o.value === modelKey)) setModelKey(options[0].value);
+  }, [options, modelKey]);
 
   const loadModels = useCallback(async (opts?: { refresh?: boolean; silent?: boolean }) => {
     const key = apiKey.trim();
     if (!key && !getToken()) {
       setLiveModels(null);
+      setModelsError(null);
       return;
     }
     setModelsLoading(true);
+    setModelsError(null);
     try {
       const qs = opts?.refresh ? "?refresh=1" : "";
       const res = await fetch(`/v1/models${qs}`, { headers: authHeaders(key, { preferKey: true }) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json: { data: Array<{ id: string; tier?: string }> } = await res.json();
+      const json: { data: Array<{ id: string; tier?: string; owned_by?: string }> } = await res.json();
       const live = (json.data ?? []).map((m) => ({
-        value: m.id, label: m.id, tier: m.tier ?? "", model: m.id,
+        value: m.id,
+        label: m.id,
+        tier: m.tier ?? "",
+        model: m.id,
+        owned_by: m.owned_by,
       }));
       setLiveModels(live);
-      if (live.length && !live.some((o) => o.value === modelKeyRef.current)) {
-        setModelKey(live[0].value);
-      }
       if (!opts?.silent) {
         toast.success(
           live.length
-            ? `${live.length} model${live.length === 1 ? "" : "s"} available for this key`
-            : "No models available for this key — check plan, allowlist, and provider keys",
+            ? `${live.length} model${live.length === 1 ? "" : "s"} for this key`
+            : "No models for this key — check allowlist, plan, and provider keys",
         );
       }
-    } catch {
-      setLiveModels(null);
+    } catch (e: any) {
+      setLiveModels([]);
+      setModelsError(e?.message || "Could not load models");
       if (!opts?.silent) toast.error("Could not load models for this key");
     } finally {
       setModelsLoading(false);
     }
   }, [apiKey]);
 
-  // Auto-load when the API key (or session) changes.
+  // Auto-load when the API key changes.
   useEffect(() => {
     const key = apiKey.trim();
-    if (!key && !getToken()) { setLiveModels(null); return; }
+    if (!key && !getToken()) { setLiveModels(null); setModelsError(null); return; }
     const timer = setTimeout(() => { void loadModels({ silent: true }); }, 400);
     return () => clearTimeout(timer);
   }, [apiKey, loadModels]);
@@ -288,22 +316,45 @@ export function Playground() {
               <Select
                 className="w-full"
                 value={selected?.value ?? ""}
-                disabled={modelsLoading && !options.length}
+                disabled={modelsLoading || !options.length}
                 onChange={(e) => setModelKey(e.target.value)}
               >
-                {options.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}{o.tier ? ` (${o.tier})` : ""}
+                {!options.length ? (
+                  <option value="">
+                    {modelsLoading
+                      ? "Loading models…"
+                      : !apiKey.trim() && !getToken()
+                        ? "Paste an API key first"
+                        : modelsError
+                          ? "Failed to load models"
+                          : "No models for this key"}
                   </option>
-                ))}
+                ) : (
+                  options.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}{o.tier ? ` (${o.tier})` : ""}
+                    </option>
+                  ))
+                )}
               </Select>
+              <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={includeOi}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    setIncludeOi(on);
+                    localStorage.setItem(LS_INCLUDE_OI, on ? "1" : "0");
+                  }}
+                />
+                Include OpenInference (self-hosted) models
+              </label>
             </div>
             <p className="mt-3 text-[11px] text-muted-foreground">
-              Stored only in this browser. When a key is pasted, that key is used for models + chat
-              (not your signed-in session).{" "}
-              {liveModels
-                ? `Showing the ${liveModels.length} model${liveModels.length === 1 ? "" : "s"} this key can use.`
-                : "Paste a key — Refresh loads the models that key can reach (plan + allowlist)."}
+              Pasted key is used for models + chat (not your login session). Restricted keys only
+              list their allowlisted models
+              {liveModels ? ` — ${options.length} shown` : ""}.
+              {modelsError ? ` Error: ${modelsError}` : ""}
             </p>
           </Card>
 
