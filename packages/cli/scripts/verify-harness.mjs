@@ -58,3 +58,37 @@ test('parseArgs accepts object or JSON string', () => {
   assert.deepEqual(h.parseArgs({ path: 'x' }), { path: 'x' });
   assert.deepEqual(h.parseArgs('{"path":"x"}'), { path: 'x' });
 });
+
+test('executeHarnessTool reads, lists, searches, writes, and sandboxes', async () => {
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oi-h-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'hello.ts'), 'export const n = 1;\n');
+    fs.mkdirSync(path.join(dir, 'src'));
+    fs.writeFileSync(path.join(dir, 'src', 'a.ts'), 'TODO: fix\n');
+
+    const listing = await h.executeHarnessTool('list_dir', { path: '.' }, dir);
+    assert.match(listing, /hello\.ts/);
+    assert.match(listing, /src/);
+
+    const read = await h.executeHarnessTool('read_file', { path: 'hello.ts' }, dir);
+    assert.equal(read, 'export const n = 1;\n');
+
+    const search = await h.executeHarnessTool('search', { pattern: 'TODO' }, dir);
+    assert.match(search, /src\/a\.ts:1: TODO: fix/);
+
+    const wrote = await h.executeHarnessTool('write_file', { path: 'out.txt', content: 'ok' }, dir);
+    assert.equal(wrote, 'Wrote 2 chars to out.txt');
+    assert.equal(fs.readFileSync(path.join(dir, 'out.txt'), 'utf8'), 'ok');
+
+    const esc = await h.executeHarnessTool('read_file', { path: '../secret' }, dir);
+    assert.match(esc, /escapes workspace/);
+
+    const calc = await h.executeHarnessTool('calculate', { expression: '2+2' }, dir);
+    assert.equal(calc, '4');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

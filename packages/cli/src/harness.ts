@@ -296,13 +296,14 @@ function readWorkspaceFile(file: string): string {
   return buf.toString('utf8');
 }
 
-function writeWorkspaceFile(file: string, content: string): string {
+function writeWorkspaceFile(file: string, content: string, workspace: string): string {
   if (content.length > WRITE_LIMIT) {
     return `Content too large (${content.length} chars). Max ${WRITE_LIMIT}.`;
   }
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, content, 'utf8');
-  return `Wrote ${content.length} chars to ${file}`;
+  const rel = path.relative(workspace, file) || path.basename(file);
+  return `Wrote ${content.length} chars to ${rel}`;
 }
 
 function searchWorkspace(root: string, start: string, pattern: string): string {
@@ -422,7 +423,7 @@ export async function executeHarnessTool(
       }
       case 'write_file': {
         const file = resolveWorkspacePath(workspace, asString(args, 'path'));
-        return writeWorkspaceFile(file, asString(args, 'content'));
+        return writeWorkspaceFile(file, asString(args, 'content'), workspace);
       }
       case 'search': {
         const pattern = asString(args, 'pattern');

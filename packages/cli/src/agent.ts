@@ -93,6 +93,9 @@ async function approve(toolName: string, args: Record<string, unknown>): Promise
 
 async function ensureReady(opts: AgentCommandOptions): Promise<boolean> {
   if (loadConfig() || opts.model) return true;
+  if (opts.json) {
+    throw new Error('No model configured. Run: oi');
+  }
   console.log('\n  Not set up yet. Starting setup wizard…\n');
   await runStart({
     chat: false,
