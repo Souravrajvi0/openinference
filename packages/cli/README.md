@@ -51,7 +51,7 @@ Familiar, package-manager-style commands. Older names are kept as aliases.
 
 | Command | Aliases | Description |
 |---------|---------|-------------|
-| `oi` | | Interactive shell (default) — chat + `/search`, `/install`, `/setup` |
+| `oi` | | Interactive shell (default) — chat + `/search`, `/install`, `/setup`, `/agent` |
 | `oi start` | `setup` | Setup wizard |
 | `oi start -y` | | Auto-pick and install (retries on crash) |
 | `oi search <query>` | `find` | Search models — shows installed vs available |
@@ -62,8 +62,31 @@ Familiar, package-manager-style commands. Older names are kept as aliases.
 | `oi remove <model>` | `rm`, `uninstall` | Delete a model and free disk space |
 | `oi recommend` | | Preview picks for your hardware (no install) |
 | `oi chat` | | Chat with active model |
+| `oi agent [goal]` | `run` | Agent harness — files, search, shell on your local model |
 | `oi storage` | | Where models are stored |
 | `oi status` | | Current setup |
+
+## Agent harness
+
+`oi` is still the package manager. `oi agent` is a tool loop on top of the
+model you installed — the same shape as the hosted OpenInference agent
+(model → tool call → result → next step), running locally.
+
+```bash
+oi agent "what TypeScript files are in packages/cli?"
+oi agent -y "add a README section for the agent command"
+oi agent --json --max-steps 6 "summarize this repo"
+```
+
+No goal opens an agent session (`agent ❯`). From the normal shell: `/agent <goal>`.
+
+Tools (workspace-sandboxed to `--cwd`, default `.`):
+
+`list_dir` · `read_file` · `write_file` · `search` · `run_command` · `calculate`
+
+`write_file` and `run_command` ask before running unless you pass `-y`.
+Use a 7B+ instruct model for reliable tool calling; tiny models will chat
+but often skip tools.
 
 ## Use cases
 
