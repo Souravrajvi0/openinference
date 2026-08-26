@@ -139,13 +139,18 @@ export function compactMessages<T extends { role: string; content?: string }>(
 ): T[] {
   const size = messages.reduce((n, m) => n + (m.content?.length ?? 0), 0);
   if (size < limit) return messages;
-  const keepFrom = Math.max(0, messages.length - 4);
-  return messages.map((m, i) => {
-    if (m.role !== 'tool' || i >= keepFrom) return m;
+  let seenTools = 0;
+  const out = messages.slice();
+  for (let i = out.length - 1; i >= 0; i--) {
+    const m = out[i]!;
+    if (m.role !== 'tool') continue;
+    seenTools += 1;
+    if (seenTools <= 2) continue;
     const c = m.content ?? '';
-    if (c.length <= keep) return m;
-    return { ...m, content: c.slice(0, keep) + '\n… (compacted)' };
-  });
+    if (c.length <= keep) continue;
+    out[i] = { ...m, content: c.slice(0, keep) + '\n… (compacted)' };
+  }
+  return out;
 }
 
 /**
