@@ -1,7 +1,7 @@
 {
   "name": "@openinference/cli",
-  "version": "1.7.0",
-  "description": "OpenInference Core — hardware-aware local models plus an agent harness: search, install, chat, and give the model tools",
+  "version": "1.8.0",
+  "description": "OpenInference Core — hardware-aware local models plus a DeepSeek-style agent harness: plan, todos, unique edits, sessions",
   "license": "MIT",
   "repository": {
     "type": "git",

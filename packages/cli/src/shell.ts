@@ -47,6 +47,7 @@ const COMMANDS: CommandSpec[] = [
   { name: '/storage', help: 'Where models are stored', group: 'Setup & models' },
   { name: '/config', help: 'Show model & connection settings', group: 'Setup & models' },
   { name: '/agent', args: '<goal>', help: 'Run the coding agent on a goal (files + shell)', group: 'Session' },
+  { name: '/plan', args: '[goal]', help: 'Plan mode — explore, present a plan, wait', group: 'Session' },
   { name: '/status', help: 'Show current setup', group: 'Session' },
   { name: '/scan', help: 'Re-scan this computer', group: 'Session' },
   { name: '/clear', help: 'Clear screen and conversation', group: 'Session' },
@@ -351,6 +352,15 @@ async function dispatch(
       await runAgentGoal(arg, { ollamaUrl: opts.ollamaUrl, remote: opts.remote });
       return {};
 
+    case 'plan':
+      if (!arg) {
+        console.log('\n  Usage: /plan <goal>  — explore first, then present a plan.');
+        console.log('  Or run `oi agent --plan`.\n');
+        return {};
+      }
+      await runAgentGoal(arg, { ollamaUrl: opts.ollamaUrl, remote: opts.remote, plan: true });
+      return {};
+
     case 'status':
       printStatus();
       return {};
@@ -446,7 +456,7 @@ function suggest(line: string): Suggestion[] {
   // Once a command has a space/args, stop showing the command menu.
   if (/\s/.test(line)) return [];
 
-  const ARG_CMDS = new Set(['/install', '/info', '/remove', '/agent']);
+  const ARG_CMDS = new Set(['/install', '/info', '/remove', '/agent', '/plan']);
   return COMMANDS.filter((c) => c.name.startsWith(line)).map((c) => {
     const needsArg = ARG_CMDS.has(c.name);
     return {
