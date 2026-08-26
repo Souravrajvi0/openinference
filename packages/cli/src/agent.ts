@@ -6,11 +6,12 @@ import {
   HARNESS_TOOL_NAMES,
   MINIMAL_TOOL_NAMES,
   formatTodos,
-  loadJsonl,
+  initProject,
+  listSessionSummaries,
   newSessionId,
   runHarness,
-  sessionDir,
   tinyModelWarning,
+  undoLast,
   type AskUserQuestion,
   type HarnessLiveState,
   type HarnessMode,
@@ -18,8 +19,6 @@ import {
   type HarnessResult,
   type HarnessStep,
 } from './harness';
-import path from 'node:path';
-import fs from 'node:fs';
 
 const DIM = '\x1b[2m';
 const RESET = '\x1b[0m';
@@ -253,7 +252,7 @@ async function runAgentRepl(opts: AgentCommandOptions): Promise<void> {
   console.log(`  Mode       ${opts.mode === 'minimal' ? 'minimal' : live.planMode ? 'plan' : 'standard'}`);
   console.log(`  Session    ${live.sessionId}`);
   console.log('');
-  console.log(dim('  Type a goal · /plan · /todos · /help · /quit'));
+  console.log(dim('  Type a goal · /plan · /todos · /undo · /help · /quit'));
   console.log('');
 
   const history: string[] = [];
@@ -264,7 +263,7 @@ async function runAgentRepl(opts: AgentCommandOptions): Promise<void> {
     markerWidth: 7,
     suggest: (line) => {
       if (!line.startsWith('/')) return [];
-      return ['/help', '/quit', '/yes', '/status', '/plan', '/plan off', '/todos', '/resume', '/sessions']
+      return ['/help', '/quit', '/yes', '/status', '/plan', '/plan off', '/todos', '/resume', '/sessions', '/undo', '/init']
         .filter((c) => c.startsWith(line))
         .map((c) => ({ value: c, label: c, submit: !c.endsWith(' ') && c !== '/plan' }));
     },
@@ -289,6 +288,8 @@ async function runAgentRepl(opts: AgentCommandOptions): Promise<void> {
         console.log('  /todos         show the session checklist');
         console.log('  /resume        continue the last saved session');
         console.log('  /sessions      list recent session logs');
+        console.log('  /undo          restore the last file edit in this workspace');
+        console.log('  /init          write .oi/config.json, .oiignore, AGENTS.md');
         console.log('  /yes           auto-approve writes and shell');
         console.log('  /status        model + workspace + mode');
         console.log('  /quit          exit');
@@ -341,6 +342,19 @@ async function runAgentRepl(opts: AgentCommandOptions): Promise<void> {
         printSessions();
         continue;
       }
+      if (low === '/undo') {
+        console.log(`\n  ${undoLast(session.cwd ?? process.cwd())}\n`);
+        continue;
+      }
+      if (low === '/init') {
+        const result = initProject(session.cwd ?? process.cwd());
+        console.log('');
+        for (const f of result.created) console.log(`  created ${f}`);
+        for (const f of result.skipped) console.log(`  skipped ${f} (already exists)`);
+        if (!result.created.length && !result.skipped.length) console.log('  nothing to do');
+        console.log('');
+        continue;
+      }
       if (low === '/status') {
         const liveCfg = loadConfig();
         console.log('');
@@ -371,29 +385,12 @@ async function runAgentRepl(opts: AgentCommandOptions): Promise<void> {
   console.log(`${GREEN}\n  Bye.\n${RESET}`);
 }
 
-function printSessions(): void {
-  const dir = sessionDir();
-  let files: string[] = [];
-  try {
-    files = fs.readdirSync(dir).filter((f) => f.endsWith('.jsonl'));
-  } catch {
-    files = [];
-  }
-  if (files.length === 0) {
+export function printSessions(limit = 12): void {
+  const rows = listSessionSummaries(limit);
+  if (rows.length === 0) {
     console.log('\n  No sessions yet.\n');
     return;
   }
-  const rows = files
-    .map((f) => {
-      const id = f.slice(0, -6);
-      const full = path.join(dir, f);
-      const st = fs.statSync(full);
-      const events = loadJsonl(full);
-      const start = events.find((e) => e.type === 'start');
-      return { id, mtime: st.mtimeMs, goal: String(start?.goal ?? '') };
-    })
-    .sort((a, b) => b.mtime - a.mtime)
-    .slice(0, 12);
   console.log('');
   for (const r of rows) {
     const when = new Date(r.mtime).toLocaleString();

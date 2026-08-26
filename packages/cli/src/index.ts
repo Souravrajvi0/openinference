@@ -10,7 +10,7 @@ import { useCaseLabel } from './use-cases';
 import { ollamaModelsPath } from './hardware';
 import { runShell } from './shell';
 import { runAgentCommand } from './agent';
-import { DEFAULT_MAX_STEPS, HARNESS_TOOL_NAMES } from './harness';
+import { DEFAULT_MAX_STEPS, HARNESS_TOOL_NAMES, formatSessionReplay, initProject, listSessionSummaries, loadJsonl, resolveSessionId, sessionPath, undoLast } from './harness';
 import { VERSION } from './version';
 
 const program = new Command();
@@ -207,19 +207,20 @@ program
   .option('-y, --yes', 'auto-approve writes and shell commands')
   .option('-m, --model <id>', 'override model for this run')
   .option('--cwd <dir>', 'workspace root (default: current directory)')
-  .option('--max-steps <n>', `max tool-loop steps (default ${DEFAULT_MAX_STEPS})`)
+  .option('--max-steps <n>', `max tool-loop steps (default ${DEFAULT_MAX_STEPS}, or .oi/config.json)`)
   .option('--tools <list>', `comma-separated tools (${HARNESS_TOOL_NAMES.join(', ')})`)
   .option('--json', 'print the run as JSON (no live step log)')
   .option('--plan', 'plan mode — explore, present a plan, wait for approval')
-  .option('--mode <mode>', 'standard (full tools) | minimal (read, str_replace, shell)', 'standard')
+  .option('--mode <mode>', 'standard (full tools) | minimal (read, str_replace, shell)')
   .option('--resume', 'continue the last append-only session')
   .option(urlOption.flags, urlOption.description)
   .option('--docker', 'remote Ollama')
   .action(async (goalParts: string[], opts) => {
     try {
-      const n = Math.min(Math.max(parseInt(String(opts.maxSteps ?? ''), 10) || DEFAULT_MAX_STEPS, 1), 24);
+      const parsed = parseInt(String(opts.maxSteps ?? ''), 10);
+      const n = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 24) : undefined;
       const tools = typeof opts.tools === 'string' ? opts.tools.split(',') : undefined;
-      const mode = String(opts.mode ?? 'standard') === 'minimal' ? 'minimal' : 'standard';
+      const mode = String(opts.mode ?? '') === 'minimal' ? 'minimal' : String(opts.mode ?? '') === 'standard' ? 'standard' : undefined;
       await runAgentCommand((goalParts ?? []).join(' ').trim(), {
         yes: Boolean(opts.yes),
         model: opts.model,
@@ -233,6 +234,104 @@ program
         ollamaUrl: opts.ollamaUrl,
         remote: opts.docker,
       });
+    } catch (e) {
+      fail(e);
+    }
+  });
+
+program
+  .command('init')
+  .description('Create .oi/config.json, .oiignore, and AGENTS.md in this project')
+  .option('--force', 'overwrite existing files')
+  .option('--cwd <dir>', 'project root (default: current directory)')
+  .action((opts: { force?: boolean; cwd?: string }) => {
+    try {
+      const result = initProject(opts.cwd ?? process.cwd(), { force: Boolean(opts.force) });
+      if (!result.created.length && !result.skipped.length) {
+        console.log('\n  Nothing to write.\n');
+        return;
+      }
+      console.log('');
+      for (const f of result.created) console.log(`  created ${f}`);
+      for (const f of result.skipped) console.log(`  exists  ${f}  (pass --force to replace)`);
+      console.log('\n  Then: oi agent "what is in this repo?"\n');
+    } catch (e) {
+      fail(e);
+    }
+  });
+
+program
+  .command('undo')
+  .description('Restore the last agent file edit in this workspace')
+  .option('--cwd <dir>', 'workspace root (default: current directory)')
+  .action((opts: { cwd?: string }) => {
+    try {
+      console.log(`\n  ${undoLast(opts.cwd ?? process.cwd())}\n`);
+    } catch (e) {
+      fail(e);
+    }
+  });
+
+const sessionsCmd = program
+  .command('sessions')
+  .alias('session')
+  .description('List recent agent sessions')
+  .option('-n, --limit <n>', 'how many to show', '12')
+  .action((opts: { limit?: string }) => {
+    try {
+      const limit = Math.min(Math.max(parseInt(String(opts.limit ?? '12'), 10) || 12, 1), 50);
+      const rows = listSessionSummaries(limit);
+      if (!rows.length) {
+        console.log('\n  No sessions yet. Run: oi agent\n');
+        return;
+      }
+      console.log('');
+      for (const r of rows) {
+        console.log(`  ${r.id}  ${new Date(r.mtime).toLocaleString()}`);
+        if (r.goal) console.log(`    ${r.goal.slice(0, 90)}`);
+      }
+      console.log('\n  oi sessions show [id]   ·  oi sessions replay [id]\n');
+    } catch (e) {
+      fail(e);
+    }
+  });
+
+sessionsCmd
+  .command('show [id]')
+  .description('Print a session log (default: latest)')
+  .action((id: string | undefined) => {
+    try {
+      const resolved = resolveSessionId(id);
+      if (!resolved) {
+        console.log('\n  No sessions yet.\n');
+        return;
+      }
+      const events = loadJsonl(sessionPath(resolved));
+      console.log(`\n  session ${resolved}  (${events.length} events)\n`);
+      const start = events.find((e) => e.type === 'start');
+      if (start?.goal) console.log(`  goal   ${String(start.goal)}\n`);
+      const answers = events.filter((e) => e.type === 'answer');
+      const last = answers[answers.length - 1];
+      if (last?.content) console.log(`  ${String(last.content)}\n`);
+    } catch (e) {
+      fail(e);
+    }
+  });
+
+sessionsCmd
+  .command('replay [id]')
+  .description('Replay tool steps from a session log (default: latest)')
+  .action((id: string | undefined) => {
+    try {
+      const resolved = resolveSessionId(id);
+      if (!resolved) {
+        console.log('\n  No sessions yet.\n');
+        return;
+      }
+      const events = loadJsonl(sessionPath(resolved));
+      console.log(`\n  replay ${resolved}\n`);
+      console.log(formatSessionReplay(events));
+      console.log('');
     } catch (e) {
       fail(e);
     }
