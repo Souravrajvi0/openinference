@@ -10,7 +10,8 @@ import { parseUseCaseArg, pickUseCase, useCaseLabel, USE_CASES } from './use-cas
 import { listInstalledModels, streamChatTurn, type ChatMessage } from './chat';
 import { loadCatalog } from './recommend';
 import { runInfo, runPull, runRemove, runSearch, runStorage, runUse, runUsePicker } from './manage';
-import { runAgentGoal } from './agent';
+import { runAgentGoal, printSessions } from './agent';
+import { initProject, undoLast } from './harness';
 import { printHardwareScan } from './prompt';
 import { VERSION } from './version';
 import { LineReader, type Suggestion } from './linereader';
@@ -48,6 +49,9 @@ const COMMANDS: CommandSpec[] = [
   { name: '/config', help: 'Show model & connection settings', group: 'Setup & models' },
   { name: '/agent', args: '<goal>', help: 'Run the coding agent on a goal (files + shell)', group: 'Session' },
   { name: '/plan', args: '[goal]', help: 'Plan mode — explore, present a plan, wait', group: 'Session' },
+  { name: '/sessions', help: 'List recent agent sessions', group: 'Session' },
+  { name: '/undo', help: 'Restore the last agent file edit', group: 'Session' },
+  { name: '/init', help: 'Create .oi/config.json, .oiignore, AGENTS.md', group: 'Session' },
   { name: '/status', help: 'Show current setup', group: 'Session' },
   { name: '/scan', help: 'Re-scan this computer', group: 'Session' },
   { name: '/clear', help: 'Clear screen and conversation', group: 'Session' },
@@ -151,7 +155,7 @@ function printHelp(): void {
   console.log('');
   console.log(`  ${dim('goals:')} ${USE_CASE_IDS.join(' · ')}`);
   console.log(dim('  Custom model? /install <tag> — any tag from the catalog'));
-  console.log(dim('  /agent <goal> runs the coding harness · anything else is chat.'));
+  console.log(dim('  /agent <goal> · /plan · /sessions · /undo · /init · anything else is chat.'));
   console.log('');
 }
 
@@ -359,6 +363,24 @@ async function dispatch(
         return {};
       }
       await runAgentGoal(arg, { ollamaUrl: opts.ollamaUrl, remote: opts.remote, plan: true });
+      return {};
+
+    case 'sessions':
+      printSessions();
+      return {};
+
+    case 'undo':
+      console.log(`\n  ${undoLast(process.cwd())}\n`);
+      return {};
+
+    case 'init':
+      {
+        const result = initProject(process.cwd());
+        console.log('');
+        for (const f of result.created) console.log(`  created ${f}`);
+        for (const f of result.skipped) console.log(`  exists  ${f}`);
+        console.log('');
+      }
       return {};
 
     case 'status':

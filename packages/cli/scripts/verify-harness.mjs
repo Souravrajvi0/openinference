@@ -99,6 +99,7 @@ test('executeHarnessTool reads, lists, searches, writes, and sandboxes', async (
       dir,
     );
     assert.match(swapped, /Replaced 1 occurrence/);
+    assert.match(swapped, /--- hello\.ts/);
     assert.equal(fs.readFileSync(path.join(dir, 'hello.ts'), 'utf8'), 'export const n = 2;\n');
 
     const dup = await h.executeHarnessTool(
@@ -164,3 +165,97 @@ test('session jsonl round-trip', async () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('isIgnored skips default dirs and .oiignore globs', () => {
+  assert.equal(h.isIgnored('node_modules/x', 'node_modules', true, []), true);
+  assert.equal(h.isIgnored('src/a.ts', 'a.ts', false, []), false);
+  assert.equal(h.isIgnored('secret.txt', 'secret.txt', false, ['secret.txt']), true);
+  assert.equal(h.isIgnored('pkg/foo.min.js', 'foo.min.js', false, ['*.min.js']), true);
+});
+
+test('compactMessages truncates old tool results', () => {
+  const big = 'x'.repeat(2000);
+  const messages = [
+    { role: 'system', content: 'sys' },
+    { role: 'user', content: 'goal' },
+    { role: 'tool', content: big },
+    { role: 'tool', content: big },
+    { role: 'assistant', content: 'ok' },
+    { role: 'tool', content: 'recent' },
+  ];
+  const packed = h.compactMessages(messages, 1000, 50);
+  assert.match(packed[2].content, /compacted/);
+  assert.equal(packed[packed.length - 1].content, 'recent');
+});
+
+test('initProject writes config, ignore, and AGENTS.md', async () => {
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oi-init-'));
+  try {
+    const first = h.initProject(dir);
+    assert.ok(first.created.includes('.oi/config.json'));
+    assert.ok(first.created.includes('.oiignore'));
+    assert.ok(first.created.includes('AGENTS.md'));
+    const cfg = h.loadProjectConfig(dir);
+    assert.equal(cfg.mode, 'standard');
+    const again = h.initProject(dir);
+    assert.equal(again.created.length, 0);
+    assert.ok(again.skipped.length >= 3);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('checkpoint undo restores str_replace', async () => {
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oi-undo-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'n.ts'), 'export const n = 1;\n');
+    await h.executeHarnessTool(
+      'str_replace',
+      { path: 'n.ts', old_string: 'export const n = 1;', new_string: 'export const n = 2;' },
+      dir,
+    );
+    assert.equal(fs.readFileSync(path.join(dir, 'n.ts'), 'utf8'), 'export const n = 2;\n');
+    const msg = h.undoLast(dir);
+    assert.match(msg, /Undid str_replace/);
+    assert.equal(fs.readFileSync(path.join(dir, 'n.ts'), 'utf8'), 'export const n = 1;\n');
+    assert.match(h.undoLast(dir), /Nothing to undo/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('miniDiff and glob ignore vendor from patterns', async () => {
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oi-ign-'));
+  try {
+    fs.mkdirSync(path.join(dir, 'vendor'));
+    fs.writeFileSync(path.join(dir, 'keep.ts'), 'a\n');
+    fs.writeFileSync(path.join(dir, 'vendor', 'skip.ts'), 'b\n');
+    const ctx = {
+      workspace: dir,
+      planMode: false,
+      setPlanMode() {},
+      todos: [],
+      setTodos() {},
+      ignore: h.makeIgnore(dir, ['vendor']),
+    };
+    const glob = await h.executeHarnessTool('glob', { pattern: '**/*.ts' }, ctx);
+    assert.match(glob, /keep\.ts/);
+    assert.equal(/vendor/.test(glob), false);
+    const diff = h.miniDiff('a.ts', 'old', 'new');
+    assert.match(diff, /Replaced 1 occurrence/);
+    assert.match(diff, /- old/);
+    assert.match(diff, /\+ new/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
