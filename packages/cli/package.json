@@ -1,7 +1,7 @@
 {
   "name": "@openinference/cli",
-  "version": "1.6.3",
-  "description": "OpenInference Core — a hardware-aware package manager for local AI models: search, install, run, and chat",
+  "version": "1.7.0",
+  "description": "OpenInference Core — hardware-aware local models plus an agent harness: search, install, chat, and give the model tools",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -21,6 +21,7 @@
     "build": "node scripts/build-catalog.mjs && tsc && node -e \"require('fs').cpSync('data','dist/data',{recursive:true})\"",
     "catalog": "node scripts/build-catalog.mjs",
     "verify-catalog": "node scripts/verify-catalog.mjs",
+    "test": "node --test scripts/verify-harness.mjs",
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit"
   },

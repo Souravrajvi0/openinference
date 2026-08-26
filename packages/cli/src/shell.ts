@@ -10,6 +10,7 @@ import { parseUseCaseArg, pickUseCase, useCaseLabel, USE_CASES } from './use-cas
 import { listInstalledModels, streamChatTurn, type ChatMessage } from './chat';
 import { loadCatalog } from './recommend';
 import { runInfo, runPull, runRemove, runSearch, runStorage, runUse, runUsePicker } from './manage';
+import { runAgentGoal } from './agent';
 import { printHardwareScan } from './prompt';
 import { VERSION } from './version';
 import { LineReader, type Suggestion } from './linereader';
@@ -45,6 +46,7 @@ const COMMANDS: CommandSpec[] = [
   { name: '/remove', args: '<model>', help: 'Delete a model (frees disk)', group: 'Setup & models' },
   { name: '/storage', help: 'Where models are stored', group: 'Setup & models' },
   { name: '/config', help: 'Show model & connection settings', group: 'Setup & models' },
+  { name: '/agent', args: '<goal>', help: 'Run the coding agent on a goal (files + shell)', group: 'Session' },
   { name: '/status', help: 'Show current setup', group: 'Session' },
   { name: '/scan', help: 'Re-scan this computer', group: 'Session' },
   { name: '/clear', help: 'Clear screen and conversation', group: 'Session' },
@@ -148,7 +150,7 @@ function printHelp(): void {
   console.log('');
   console.log(`  ${dim('goals:')} ${USE_CASE_IDS.join(' · ')}`);
   console.log(dim('  Custom model? /install <tag> — any tag from the catalog'));
-  console.log(dim('  Anything that is not a /command is sent to the active model.'));
+  console.log(dim('  /agent <goal> runs the coding harness · anything else is chat.'));
   console.log('');
 }
 
@@ -340,6 +342,15 @@ async function dispatch(
       printConfig(opts);
       return {};
 
+    case 'agent':
+      if (!arg) {
+        console.log('\n  Usage: /agent <goal>');
+        console.log('  Or run `oi agent` for a dedicated session.\n');
+        return {};
+      }
+      await runAgentGoal(arg, { ollamaUrl: opts.ollamaUrl, remote: opts.remote });
+      return {};
+
     case 'status':
       printStatus();
       return {};
@@ -435,7 +446,7 @@ function suggest(line: string): Suggestion[] {
   // Once a command has a space/args, stop showing the command menu.
   if (/\s/.test(line)) return [];
 
-  const ARG_CMDS = new Set(['/install', '/info', '/remove']);
+  const ARG_CMDS = new Set(['/install', '/info', '/remove', '/agent']);
   return COMMANDS.filter((c) => c.name.startsWith(line)).map((c) => {
     const needsArg = ARG_CMDS.has(c.name);
     return {
