@@ -203,19 +203,23 @@ program
 program
   .command('agent [goal...]')
   .alias('run')
-  .description('Agent harness — local model with file, search, and shell tools')
+  .description('Agent harness — plan, todos, unique edits, session log')
   .option('-y, --yes', 'auto-approve writes and shell commands')
   .option('-m, --model <id>', 'override model for this run')
   .option('--cwd <dir>', 'workspace root (default: current directory)')
   .option('--max-steps <n>', `max tool-loop steps (default ${DEFAULT_MAX_STEPS})`)
   .option('--tools <list>', `comma-separated tools (${HARNESS_TOOL_NAMES.join(', ')})`)
   .option('--json', 'print the run as JSON (no live step log)')
+  .option('--plan', 'plan mode — explore, present a plan, wait for approval')
+  .option('--mode <mode>', 'standard (full tools) | minimal (read, str_replace, shell)', 'standard')
+  .option('--resume', 'continue the last append-only session')
   .option(urlOption.flags, urlOption.description)
   .option('--docker', 'remote Ollama')
   .action(async (goalParts: string[], opts) => {
     try {
-      const n = Math.min(Math.max(parseInt(String(opts.maxSteps ?? ''), 10) || DEFAULT_MAX_STEPS, 1), 20);
+      const n = Math.min(Math.max(parseInt(String(opts.maxSteps ?? ''), 10) || DEFAULT_MAX_STEPS, 1), 24);
       const tools = typeof opts.tools === 'string' ? opts.tools.split(',') : undefined;
+      const mode = String(opts.mode ?? 'standard') === 'minimal' ? 'minimal' : 'standard';
       await runAgentCommand((goalParts ?? []).join(' ').trim(), {
         yes: Boolean(opts.yes),
         model: opts.model,
@@ -223,6 +227,9 @@ program
         maxSteps: n,
         tools,
         json: Boolean(opts.json),
+        plan: Boolean(opts.plan),
+        mode,
+        resume: Boolean(opts.resume),
         ollamaUrl: opts.ollamaUrl,
         remote: opts.docker,
       });

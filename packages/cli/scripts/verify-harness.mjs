@@ -88,6 +88,78 @@ test('executeHarnessTool reads, lists, searches, writes, and sandboxes', async (
 
     const calc = await h.executeHarnessTool('calculate', { expression: '2+2' }, dir);
     assert.equal(calc, '4');
+
+    const glob = await h.executeHarnessTool('glob', { pattern: '**/*.ts' }, dir);
+    assert.match(glob, /hello\.ts/);
+    assert.match(glob, /src\/a\.ts/);
+
+    const swapped = await h.executeHarnessTool(
+      'str_replace',
+      { path: 'hello.ts', old_string: 'export const n = 1;', new_string: 'export const n = 2;' },
+      dir,
+    );
+    assert.match(swapped, /Replaced 1 occurrence/);
+    assert.equal(fs.readFileSync(path.join(dir, 'hello.ts'), 'utf8'), 'export const n = 2;\n');
+
+    const dup = await h.executeHarnessTool(
+      'str_replace',
+      { path: 'hello.ts', old_string: 'n', new_string: 'x' },
+      dir,
+    );
+    assert.match(dup, /times/);
+
+    const todos = await h.executeHarnessTool(
+      'todo_write',
+      { todos: JSON.stringify([{ id: '1', content: 'explore', status: 'in_progress' }]) },
+      dir,
+    );
+    assert.match(todos, /explore/);
+
+    const planCtx = {
+      workspace: dir,
+      planMode: true,
+      setPlanMode() {},
+      todos: [],
+      setTodos() {},
+    };
+    const blocked = await h.executeHarnessTool(
+      'write_file',
+      { path: 'nope.txt', content: 'x' },
+      planCtx,
+    );
+    assert.match(blocked, /Plan mode/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('glob and str_replace helpers', () => {
+  assert.equal(h.matchGlob('src/a.ts', '*.ts'), true);
+  assert.equal(h.matchGlob('src/a.ts', '**/*.ts'), true);
+  assert.equal(h.matchGlob('src/a.ts', '*.json'), false);
+  const ok = h.applyStrReplace('aa bb aa', 'bb', 'cc');
+  assert.equal(ok.ok, true);
+  assert.equal(ok.text, 'aa cc aa');
+  const many = h.applyStrReplace('aa bb aa', 'aa', 'x');
+  assert.equal(many.ok, false);
+});
+
+test('session jsonl round-trip', async () => {
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oi-s-'));
+  const file = path.join(dir, 'abc.jsonl');
+  try {
+    h.appendJsonl(file, { type: 'start', goal: 'ship it' });
+    h.appendJsonl(file, { type: 'todo', todos: [{ id: '1', content: 'edit', status: 'pending' }] });
+    h.appendJsonl(file, { type: 'answer', content: 'done' });
+    const events = h.loadJsonl(file);
+    assert.equal(events.length, 3);
+    const summary = h.summarizeSession(events);
+    assert.match(summary, /ship it/);
+    assert.match(summary, /edit/);
+    assert.match(summary, /done/);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

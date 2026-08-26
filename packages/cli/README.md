@@ -62,29 +62,39 @@ Familiar, package-manager-style commands. Older names are kept as aliases.
 | `oi remove <model>` | `rm`, `uninstall` | Delete a model and free disk space |
 | `oi recommend` | | Preview picks for your hardware (no install) |
 | `oi chat` | | Chat with active model |
-| `oi agent [goal]` | `run` | Agent harness — files, search, shell on your local model |
+| `oi agent [goal]` | `run` | Agent harness — plan, todos, unique edits, sessions |
 | `oi storage` | | Where models are stored |
 | `oi status` | | Current setup |
 
 ## Agent harness
 
-`oi` is still the package manager. `oi agent` is a tool loop on top of the
-model you installed — the same shape as the hosted OpenInference agent
-(model → tool call → result → next step), running locally.
+`oi agent` is a tool loop on the model you installed — the same shape as the
+hosted OpenInference agent, with the pieces people like from DeepSeek Harness:
+plan mode, a live todo list, unique `str_replace` edits, glob, ask-user, and
+an append-only session log (resume / replay).
 
 ```bash
 oi agent "what TypeScript files are in packages/cli?"
-oi agent -y "add a README section for the agent command"
-oi agent --json --max-steps 6 "summarize this repo"
+oi agent --plan "add auth to the gateway"
+oi agent -y --mode minimal "replace the timeout in src/ollama.ts"
+oi agent --resume
+oi agent --json --max-steps 8 "summarize this repo"
 ```
 
-No goal opens an agent session (`agent ❯`). From the normal shell: `/agent <goal>`.
+No goal opens an agent session (`agent ❯`). Slash commands: `/plan`, `/todos`,
+`/resume`, `/sessions`. From the normal shell: `/agent <goal>`.
 
 Tools (workspace-sandboxed to `--cwd`, default `.`):
 
-`list_dir` · `read_file` · `write_file` · `search` · `run_command` · `calculate`
+`glob` · `list_dir` · `read_file` · `str_replace` · `write_file` · `search` · `run_command` · `todo_write` · `ask_user_question` · `exit_plan_mode` · `web_fetch` · `calculate`
 
-`write_file` and `run_command` ask before running unless you pass `-y`.
+`--mode minimal` keeps `read_file`, `str_replace`, and `run_command` (plus plan/todos).
+
+`write_file`, `str_replace`, and `run_command` ask before running unless `-y`.
+In `--plan` mode, file edits are blocked until you approve `exit_plan_mode`.
+Sessions are stored in `~/.openinference/sessions/`. Project files `AGENTS.md`
+or `SKILL.md` are loaded as instructions.
+
 Use a 7B+ instruct model for reliable tool calling; tiny models will chat
 but often skip tools.
 
