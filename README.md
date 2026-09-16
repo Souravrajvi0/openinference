@@ -2,6 +2,15 @@
 
 A self-hosted AI gateway and observability platform. Routes requests to LLMs, enforces security policies, retrieves enterprise documents (RAG), runs agent workflows, and records full traces — all in one deployable stack.
 
+This repository is an **npm workspace monorepo** with two products:
+
+| Product | Path | What it is |
+| --- | --- | --- |
+| **SentinelAI gateway** | `services/*`, `web/`, `infra/` | Self-hosted API, admin UI, workers, Docker Compose deploy |
+| **`oi` CLI** | [`packages/cli`](./packages/cli) ([`@openinference/cli`](./packages/cli/package.json)) | Hardware-aware local models + project-local agent harness — publishable on its own |
+
+Gateway docs below. CLI install and usage: [`packages/cli/README.md`](./packages/cli/README.md) · [openinference.tech/cli](https://openinference.tech/cli).
+
 ```
 Client → Nginx → Gateway (Fastify)
                     ├── Auth + Rate Limiting (Redis)
@@ -59,8 +68,8 @@ GitHub Actions             CI/CD → DigitalOcean droplet
 **Prerequisites:** Docker, Docker Compose, at least one LLM API key.
 
 ```bash
-git clone https://github.com/Souravrajvi0/SentinelAI.git
-cd SentinelAI
+git clone https://github.com/Souravrajvi0/openinference.git
+cd openinference
 cp .env.example .env
 # Edit .env — add at minimum GROQ_API_KEY and JWT_SECRET
 docker compose up -d
@@ -209,6 +218,7 @@ See [`IDEA.txt`](./IDEA.txt) for the full engineering journal including design d
 ## Project Structure
 
 ```
+packages/cli/                @openinference/cli — `oi` local model + agent harness (npm package)
 web/src/                     React dashboard (playground, admin, traces, agents…)
 shared/src/types.ts          Shared TypeScript types + Provider union
 services/gateway/src/
@@ -239,6 +249,20 @@ infra/
   prometheus/                Scrape config + alert rules
   grafana/                   Dashboard provisioning
 ```
+
+---
+
+## CLI (`oi`)
+
+The CLI is a **separate npm package** in this repo (`@openinference/cli`, binary `oi`). It does not require the gateway stack: scan hardware, pick fitting open models, install via Ollama, and run local chat or a repo-scoped agent harness.
+
+```bash
+npm install -g @openinference/cli   # when published
+# or from this repo:
+npm run cli
+```
+
+Full guide: [`packages/cli/README.md`](./packages/cli/README.md).
 
 ---
 
