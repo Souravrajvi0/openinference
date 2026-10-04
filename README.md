@@ -1,5 +1,9 @@
 # OpenInference (SentinelAI)
 
+[![npm version](https://img.shields.io/npm/v/@openinference/cli?logo=npm&label=%40openinference%2Fcli)](https://www.npmjs.com/package/@openinference/cli)
+[![npm downloads](https://img.shields.io/npm/dm/@openinference/cli?logo=npm)](https://www.npmjs.com/package/@openinference/cli)
+[![license](https://img.shields.io/npm/l/@openinference/cli)](./packages/cli/package.json)
+
 A self-hosted AI gateway and observability platform. Routes requests to LLMs, enforces security policies, retrieves enterprise documents (RAG), runs agent workflows, and records full traces — all in one deployable stack.
 
 This repository is an **npm workspace monorepo** with two products:
@@ -7,9 +11,9 @@ This repository is an **npm workspace monorepo** with two products:
 | Product | Path | What it is |
 | --- | --- | --- |
 | **SentinelAI gateway** | `services/*`, `web/`, `infra/` | Self-hosted API, admin UI, workers, Docker Compose deploy |
-| **`oi` CLI** | [`packages/cli`](./packages/cli) ([`@openinference/cli`](./packages/cli/package.json)) | Hardware-aware local models + project-local agent harness — publishable on its own |
+| **`oi` CLI** | [`packages/cli`](./packages/cli) ([`@openinference/cli` on npm](https://www.npmjs.com/package/@openinference/cli)) | Hardware-aware local models + project-local agent harness — publishable on its own |
 
-Gateway docs below. CLI install and usage: [`packages/cli/README.md`](./packages/cli/README.md) · [openinference.tech/cli](https://openinference.tech/cli).
+Gateway docs below. CLI install and usage: [`packages/cli/README.md`](./packages/cli/README.md) · [npm](https://www.npmjs.com/package/@openinference/cli) · [openinference.tech/cli](https://openinference.tech/cli).
 
 ```
 Client → Nginx → Gateway (Fastify)
@@ -254,10 +258,12 @@ infra/
 
 ## CLI (`oi`)
 
-The CLI is a **separate npm package** in this repo (`@openinference/cli`, binary `oi`). It does not require the gateway stack: scan hardware, pick fitting open models, install via Ollama, and run local chat or a repo-scoped agent harness.
+[![npm version](https://img.shields.io/npm/v/@openinference/cli?logo=npm)](https://www.npmjs.com/package/@openinference/cli)
+
+The CLI is a **separate npm package** in this repo ([`@openinference/cli`](https://www.npmjs.com/package/@openinference/cli), binary `oi`). It does not require the gateway stack: scan hardware, pick fitting open models, install via Ollama, and run local chat or a repo-scoped agent harness.
 
 ```bash
-npm install -g @openinference/cli   # when published
+npm install -g @openinference/cli
 # or from this repo:
 npm run cli
 ```
