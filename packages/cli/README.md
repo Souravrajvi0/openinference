@@ -1,5 +1,10 @@
 # @openinference/cli
 
+[![npm version](https://img.shields.io/npm/v/@openinference/cli?logo=npm)](https://www.npmjs.com/package/@openinference/cli)
+[![npm downloads](https://img.shields.io/npm/dm/@openinference/cli?logo=npm)](https://www.npmjs.com/package/@openinference/cli)
+[![node](https://img.shields.io/node/v/@openinference/cli)](https://www.npmjs.com/package/@openinference/cli)
+[![license](https://img.shields.io/npm/l/@openinference/cli)](./package.json)
+
 **OpenInference Core** — a package manager for local AI models.
 
 `oi` finds, installs, and runs the right open-source model for your computer —
